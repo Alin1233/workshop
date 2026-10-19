@@ -6,8 +6,9 @@
 - ✅ SI de paiement : auth (JWT RS256), API de paiement (partie double, idempotence, contrôle d'intégrité), front React/Tailwind, PostgreSQL
 - ☐ **Moteur de remédiation** (`services/remediation-engine/`) : webhook Alertmanager → décision → action → vérification par transaction témoin. **C'est l'élément décisif pour la note (0/5 si la reprise n'est pas autonome en direct)**
 - ☐ **Dashboard de supervision React/Tailwind** (`services/supervision-dashboard/`) : composants, alertes, chronologie de la reprise (écran du Clip Chrono)
-- ☐ Documentation d'API à joindre au rendu (OpenAPI déjà exposé : exporter le JSON)
-- ☐ Tests unitaires des services (seul le test de bout en bout existe)
+- ✅ Documentation d'API exportée dans `docs/api/` (`scripts/export_openapi.py`, vérifiée par les tests)
+- ✅ Tests unitaires pytest (`tests/unit/`, 49 tests sur PostgreSQL jetable) + CI GitHub Actions
+- ☐ Tests du front React (aucun pour l'instant)
 
 ## Infrastructure
 - ✅ Docker Compose : réseaux segmentés (edge/dmz/app/data/obs/mgmt/ai), conteneurs durcis, interfaces de gestion sur 127.0.0.1
