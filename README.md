@@ -85,7 +85,8 @@ Secrets versionnés chiffrés (SOPS + age) : `python scripts/sops_secrets.py key
 Déploiement automatisé depuis WSL : `ansible-playbook -i ansible/inventory.ini ansible/deploy.yml` (voir `ansible/README.md`).
 
 - Application : http://127.0.0.1:8080 (depuis un autre poste : `http://192.168.137.1:8080`)
-- Documentation OpenAPI : http://127.0.0.1:8080/api/auth/docs et http://127.0.0.1:8080/api/payments/docs
+- Documentation OpenAPI : http://127.0.0.1:8080/api/auth/docs et http://127.0.0.1:8080/api/payments/docs ;
+  version exportée pour le rendu dans `docs/api/` (`python scripts/export_openapi.py`, `--check` pour vérifier qu'elle est à jour)
 - Admin : `admin@resilience.local`, mot de passe dans `secrets/admin_password`
 
 `python tests/smoke_test.py http://192.168.137.1:8080` sert de **transaction témoin** après une remédiation : code de sortie 0 = service métier rétabli.
@@ -130,6 +131,20 @@ services/payment-api/    FastAPI — registre et virements
 services/frontend/       React + Vite + Tailwind, nginx
 tests/smoke_test.py      test de bout en bout = transaction témoin (stdlib uniquement)
 tests/observability_check.py  vérification de la chaîne d'observation et de défense
+tests/unit/              tests unitaires pytest (auth, paiement, paquet commun, doc OpenAPI), sans la stack
 ```
+
+### Tests unitaires
+
+```bash
+python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.txt   # Linux/WSL : .venv/bin/python
+.venv/Scripts/python -m pytest                                                         # 49 tests, ~25 s
+```
+
+Les tests de l'auth et du paiement démarrent les vraies applications FastAPI (lifespan compris) sur un PostgreSQL 17
+jetable, avec les `schema.sql` des services : une base neuve par test. Ce serveur est celui de `RA_TEST_DATABASE_URL`
+(utilisé par la CI GitHub Actions), sinon un conteneur `postgres:17-alpine` lancé puis supprimé par pytest ; sans Docker
+ni variable, ces tests sont ignorés. Ils couvrent notamment l'idempotence (y compris en concurrence), les règles métier,
+la validation des jetons RS256, la détection d'un registre altéré (409) et la réponse 503 quand la base tombe.
 
 Développement du front avec rechargement à chaud : `cd services/frontend && npm install && npm run dev` (les appels `/api` sont relayés vers la stack sur le port 8080).
