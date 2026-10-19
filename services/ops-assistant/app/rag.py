@@ -43,7 +43,8 @@ PROMPT = ChatPromptTemplate.from_messages([
 
 # Balises utilisées pour délimiter les données dans le prompt : neutralisées si elles apparaissent dans le corpus.
 _DELIMITERS = re.compile(r"<(/?)\s*(extrait|alertes)\b", re.IGNORECASE)
-_CITATION = re.compile(r"\[\s*(?:extraits?|sources?|doc(?:ument)?s?)?\s*(\d+(?:\s*(?:,|;|et|-)\s*\d+)*)\s*\]", re.IGNORECASE)
+_CITATION = re.compile(r"\[\s*(?:extraits?|sources?|doc(?:ument)?s?)?\s*(\d+(?:\s*(?:,|;|et|-|–|à)\s*\d+)*)\s*\]", re.IGNORECASE)
+_CITATION_ITEM = re.compile(r"(\d+)(?:\s*(?:-|–|à)\s*(\d+))?")  # « 2 » ou une plage « 1-3 », « 1–3 », « 1 à 3 »
 # Raisonnement des modèles « reasoning » (deepseek-r1) ; non refermé si la génération est coupée par num_predict.
 _THINK = re.compile(r"<think>.*?(?:</think>|$)", re.DOTALL | re.IGNORECASE)
 
@@ -194,13 +195,17 @@ def format_alerts(alerts: list[dict]) -> str:
 
 
 def parse_citations(text: str, max_id: int) -> list[int]:
-    # Cette méthode permet de relever les numéros d'extraits cités ([1], [1, 3], [extrait 2]…) qui existent réellement.
+    # Cette méthode permet de relever les numéros d'extraits cités ([1], [1, 3], [1-3], [extrait 2]…) qui existent
+    # réellement : une plage est développée (1-3 → 1, 2, 3) puis bornée aux extraits fournis (1 à max_id).
     cited: list[int] = []
     for match in _CITATION.finditer(text):
-        for number in re.findall(r"\d+", match.group(1)):
-            value = int(number)
-            if 1 <= value <= max_id and value not in cited:
-                cited.append(value)
+        for item in _CITATION_ITEM.finditer(match.group(1)):
+            low = int(item.group(1))
+            high = int(item.group(2)) if item.group(2) else low
+            low, high = min(low, high), max(low, high)
+            for value in range(max(low, 1), min(high, max_id) + 1):
+                if value not in cited:
+                    cited.append(value)
     return cited
 
 

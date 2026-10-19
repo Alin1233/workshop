@@ -1,6 +1,9 @@
 """API de l'assistant opérateur : POST /ask (réponse sourcée), GET /health, GET /metrics et une page de consultation."""
 
 import asyncio
+import base64
+import binascii
+import hmac
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -17,7 +20,7 @@ from langchain_core.language_models import BaseChatModel
 from prometheus_client import Counter, Gauge, Histogram
 from pydantic import BaseModel, Field
 
-from resilience_common.observability import instrument, setup_logging
+from resilience_common.observability import client_ip, instrument, setup_logging
 
 from .alerts import alertmanager_reachable, fetch_active_alerts
 from .config import Settings
@@ -115,6 +118,24 @@ async def probe_ollama(settings: Settings) -> dict:
     return status
 
 
+# Seule route ouverte sans identifiant : la sonde de vie (healthcheck Docker, `docker compose up --wait`).
+PUBLIC_PATHS = {"/health"}
+
+
+def check_basic_auth(authorization: str | None, settings: Settings) -> bool | None:
+    # Cette méthode permet de vérifier l'en-tête « Authorization: Basic … » (comparaison à temps constant) ;
+    # elle renvoie None quand aucun identifiant n'est fourni, pour distinguer le défi du navigateur d'un échec.
+    if not authorization or not authorization.lower().startswith("basic "):
+        return None
+    try:
+        user, _, password = base64.b64decode(authorization[6:].strip(), validate=True).decode("utf-8").partition(":")
+    except (binascii.Error, UnicodeDecodeError):
+        return False
+    user_ok = hmac.compare_digest(user.encode(), settings.auth_user.encode())
+    password_ok = hmac.compare_digest(password.encode(), settings.auth_password.encode())
+    return bool(settings.auth_password) and user_ok and password_ok
+
+
 def _error(code: str, detail: str, status_code: int, **extra) -> JSONResponse:
     # Cette méthode permet de renvoyer les erreurs sous la forme stable { code, detail } utilisée par les autres services.
     return JSONResponse({"code": code, "detail": detail, **extra}, status_code=status_code)
@@ -197,8 +218,21 @@ def create_app(
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
-        # Cette méthode permet de refuser les corps de requête trop gros (ou sans taille annoncée) avant toute lecture,
-        # et d'ajouter les en-têtes de sécurité, avec une politique CSP stricte pour la page de consultation.
+        # Cette méthode permet d'exiger l'identifiant de l'interface (sauf sur /health), de refuser les corps de requête
+        # trop gros (ou sans taille annoncée) avant toute lecture, et d'ajouter les en-têtes de sécurité, avec une
+        # politique CSP stricte pour la page de consultation.
+        authenticated = check_basic_auth(request.headers.get("authorization"), settings)
+        request.state.authenticated = bool(authenticated)
+        if request.url.path not in PUBLIC_PATHS and not authenticated:
+            if not settings.auth_password:
+                return _error("auth_not_configured", "Mot de passe absent : lancer scripts/init_secrets.py", 503)
+            if authenticated is False:
+                logger.warning("assistant_auth_failed", extra={"client_ip": client_ip(request), "path": request.url.path,
+                                                               "event_type": "auth_failure"})
+            response = _error("unauthorized", "Identifiant requis (admin / secrets/ops_assistant_password)", 401)
+            response.headers["WWW-Authenticate"] = 'Basic realm="ops-assistant", charset="UTF-8"'
+            response.headers.update(SECURITY_HEADERS)
+            return response
         if request.method == "POST":
             length = request.headers.get("content-length")
             if length is None:
@@ -221,7 +255,7 @@ def create_app(
         return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
 
     @app.get("/health")
-    async def health() -> JSONResponse:
+    async def health(request: Request) -> JSONResponse:
         # Cette méthode permet d'indiquer si l'assistant peut réellement répondre (Ollama + modèles + index).
         # Elle répond 200 tant que le processus sert des requêtes : l'état d'Ollama et de l'index est dans le corps
         # (« status »: « degraded », « ready »: false). Composant non critique, l'assistant ne doit jamais faire échouer
@@ -235,7 +269,10 @@ def create_app(
             checks["alertmanager"] = {"url": settings.alertmanager_url,
                                       "reachable": await alertmanager_reachable(settings.alertmanager_url)}
         ok = ollama_ok and index["state"] == "ready"
-        body = {"service": settings.service, "status": "ok" if ok else "degraded", "ready": ok, "checks": checks}
+        body = {"service": settings.service, "status": "ok" if ok else "degraded", "ready": ok}
+        # Sans identifiant, l'état seul : ni adresse d'Ollama, ni liste des documents, ni dernière erreur.
+        if request.state.authenticated:
+            body["checks"] = checks
         return JSONResponse(body, status_code=200)
 
     @app.post("/ask", response_model=AskOut, responses={503: {"description": "Index, LLM ou file d'attente indisponible"},

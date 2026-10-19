@@ -27,7 +27,7 @@
 ## IA / Data
 - ✅ **Détecteur d'anomalies ML** (`services/anomaly-detector/` + `ml/`) : jeu de données normal/attaque étiqueté, z-score robuste calibré, `anomaly_score{service}` scrapé par Prometheus, règle `AnomalyDetected` active — vérifié en direct (alerte dans Alertmanager pendant les attaques, score < 0,8 au repos et sous la transaction témoin)
 - ✅ **Assistant RAG** (`services/ops-assistant/`) : Ollama + LangChain sur `docs/` et les README d'architecture, réponses sourcées (fichier + section), refus hors corpus, aucune action ni accès privilégié, healthy même sans LLM ; évalué sur 25 questions et 4 modèles (`eval/results/`) ; section dossier dans son README
-- ☐ Choisir où tourne le LLM (PC Hôte, 3e PC, ou `--profile ai`) selon la RAM disponible
+- ✅ Où tourne le LLM : conteneur `ollama` de la VM (profil `ai`, `pc_hote_ai_mode: container`, modèles tirés par `deploy.yml`) avec `llama3.2:3b` sur 4 threads (~1 min par réponse mesurée en CPU, 3,8 Go) ; `mistral` sur le PC de délestage IA si GPU (`pc_hote_ai_mode: offload`, ~2 s, plus juste)
 - ✅ Rédiger données / préparation / modèle / résultats / limites pour le dossier — partie détecteur ML : section « Dossier technique » de `ml/README.md` (à reprendre dans le PDF)
 
 ## Sécurité

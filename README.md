@@ -52,7 +52,7 @@ alimenter le moteur de remédiation.
 | Service | Rôle | Accès (PC Hôte uniquement) |
 |---|---|---|
 | `grafana` | tableaux « Santé du service » et « SOC » provisionnés | http://127.0.0.1:3000 (admin / `secrets/grafana_admin_password`) |
-| `prometheus` | métriques, sondes de bout en bout, 12 règles (`infra/prometheus/rules` : service, intégrité, détection ML `AnomalyDetected`, PC Hôte, sauvegardes) | http://127.0.0.1:9090 (admin / `secrets/prometheus_password`) |
+| `prometheus` | métriques, sondes de bout en bout, 14 règles (`infra/prometheus/rules` : service, intégrité, détection ML `AnomalyDetected` et santé du détecteur, PC Hôte, sauvegardes) | http://127.0.0.1:9090 (admin / `secrets/prometheus_password`) |
 | `alertmanager` | regroupe les alertes et les envoie au moteur de remédiation | http://127.0.0.1:9093 (admin / `secrets/alertmanager_password`) |
 | `loki` | journaux centralisés + 5 règles SOC LogQL (`infra/loki/rules/fake/soc.yml`) | via `loki-proxy` |
 | `loki-proxy` | nginx : authentification basique devant Loki, qui n'en a pas (les accès internes d'Alloy et Grafana restent directs) | http://127.0.0.1:3100 (admin / `secrets/loki_password`) |
@@ -60,8 +60,8 @@ alimenter le moteur de remédiation.
 | `blackbox` | sonde le parcours client WAF → nginx → API → base | — |
 | `node-exporter` | ressources du PC Hôte (CPU, mémoire, disque) et état des sauvegardes PostgreSQL, sans accès au socket Docker | — |
 | `ollama` | LLM local de l'assistant RAG (CPU), profil `ai` (`--profile ai` ou `COMPOSE_PROFILES=ai`) ; sinon PC de délestage IA via `OLLAMA_BASE_URL` | non publié (réseau `ai`) |
-| `anomaly-detector` | détection d'anomalies ML (z-score robuste calibré, `ml/`) : `anomaly_score{service}` 0..1 pour auth-service, payment-api, frontend | — (scrapé par Prometheus, réseau `obs`) |
-| `ops-assistant` | assistant RAG des opérateurs (Ollama + LangChain) : procédures et architecture, réponses sourcées, aucune action ([README](services/ops-assistant/README.md)) | http://127.0.0.1:8090 (tunnel SSH `-L 8090:127.0.0.1:8090`) |
+| `anomaly-detector` | détection d'anomalies ML (z-score robuste calibré, `ml/`) : `anomaly_score{service}` 0..1 pour auth-service, payment-api, frontend (NaN si pas de donnée) ; sa propre santé est surveillée (`AnomalyDetectorBlind`, `AnomalyDetectorDown`) | — (scrapé par Prometheus, réseau `obs`) |
+| `ops-assistant` | assistant RAG des opérateurs (Ollama + LangChain) : procédures et architecture, réponses sourcées, aucune action ([README](services/ops-assistant/README.md)) | http://127.0.0.1:8090 (admin / `secrets/ops_assistant_password`) |
 
 Les interfaces de gestion ne sont publiées que sur `127.0.0.1` (`MGMT_BIND`), conformément au §4 du sujet.
 

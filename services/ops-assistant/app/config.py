@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from resilience_common.settings import env
+from resilience_common.settings import env, secret
 
 # Corpus par défaut : procédures et gouvernance (docs/) + descriptions d'architecture et contrats (README).
 # Exclus : docs/context/ (sujet et grille d'évaluation) et docs/TODO.md (suivi de projet), qui ne servent pas l'opérateur,
@@ -15,6 +15,14 @@ DEFAULT_EXCLUDE = "docs/context/*,docs/TODO.md,services/ops-assistant/*"
 def _csv(value: str) -> list[str]:
     # Cette méthode permet de découper une liste séparée par des virgules en ignorant les éléments vides.
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _optional_secret(name: str) -> str:
+    # Cette méthode permet de lire un secret monté en fichier (<NAME>_FILE) ou une variable, vide s'il n'est pas fourni.
+    try:
+        return secret(name)
+    except RuntimeError:
+        return ""
 
 
 def _default_corpus_root() -> str:
@@ -52,6 +60,10 @@ class Settings:
     queue_timeout_seconds: float = 20
     index_retry_seconds: float = 15
     max_body_bytes: int = 4096
+    # Authentification basique de l'interface et de l'API (comme les autres interfaces de gestion) : compte « admin »,
+    # mot de passe lu dans le secret OPS_ASSISTANT_PASSWORD_FILE. Sans mot de passe configuré, tout est refusé (sauf /health).
+    auth_user: str = "admin"
+    auth_password: str = field(default="", repr=False)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -86,4 +98,6 @@ class Settings:
             queue_timeout_seconds=float(env("QUEUE_TIMEOUT_SECONDS", str(d.queue_timeout_seconds))),
             index_retry_seconds=float(env("INDEX_RETRY_SECONDS", str(d.index_retry_seconds))),
             max_body_bytes=int(env("MAX_BODY_BYTES", str(d.max_body_bytes))),
+            auth_user=env("OPS_ASSISTANT_USER", d.auth_user),
+            auth_password=_optional_secret("OPS_ASSISTANT_PASSWORD"),
         )

@@ -1,5 +1,5 @@
 # Resilience-Alpha — démonstrateur de résilience (SI de paiement fictif + chaîne d'observation et de reprise)
-# Seul le WAF est publié sur le réseau du groupe. Les interfaces de gestion (Grafana, Prometheus, Loki, Alertmanager)
+# Seul le WAF est publié sur le réseau du groupe. Les interfaces de gestion (Grafana, Prometheus, Loki, Alertmanager, assistant RAG)
 # ne sont publiées que sur 127.0.0.1 (MGMT_BIND) et demandent un identifiant (admin / secrets/<service>_password) :
 # base, API, secrets et outils internes ne sont jamais exposés.
 name: resilience-alpha
@@ -275,8 +275,9 @@ services:
     logging: *logging
 
   # Assistant RAG des opérateurs : consulte les procédures et l'architecture, n'exécute aucune action.
-  # Aucun secret, ni socket Docker, ni base, ni moteur de remédiation : seulement le corpus en lecture seule,
-  # Ollama (OLLAMA_BASE_URL) et, en GET, les alertes actives d'Alertmanager (joignable par le réseau mgmt).
+  # Ni socket Docker, ni base, ni moteur de remédiation, ni chaîne d'observation : le corpus en lecture seule et
+  # Ollama (OLLAMA_BASE_URL), sur le seul réseau ai. Interface et API protégées (admin / secrets/ops_assistant_password),
+  # sauf /health, réduit à l'état pour le healthcheck.
   ops-assistant:
     <<: *hardening
     build:
@@ -297,7 +298,9 @@ services:
       # Désactivé par défaut : Alertmanager exige le compte admin, qui permet aussi de poser des silences ;
       # l'assistant n'en reçoit pas. À rebrancher sur une API d'état en lecture seule (remédiation, supervision).
       ALERTMANAGER_URL: ${OPS_ASSISTANT_ALERTMANAGER_URL:-}
+      OPS_ASSISTANT_PASSWORD_FILE: /run/secrets/ops_assistant_password
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    secrets: [ops_assistant_password]
     # Corpus : docs/ (runbooks, gouvernance) + README d'architecture et de contrats, montés un par un en lecture seule.
     volumes:
       - ./docs:/corpus/docs:ro
@@ -309,7 +312,8 @@ services:
     extra_hosts: ["host.docker.internal:host-gateway"]   # développement sous Linux ; natif sous Docker Desktop
     ports:
       - "${MGMT_BIND:-127.0.0.1}:${OPS_ASSISTANT_PORT:-8090}:8000"
-    networks: [ai, mgmt]
+    # Le réseau ai n'est pas interne : il suffit pour publier le port ; mgmt (Prometheus, Alertmanager…) n'est plus utile.
+    networks: [ai]
 
   # ───────────────────── Détection d'anomalies ML (pilier IA / DATA) ──────────────────
   # Lit Prometheus (et Loki) sur le réseau obs, calcule un score d'anomalie par service et l'expose
@@ -330,7 +334,9 @@ services:
       PROMETHEUS_PASSWORD_FILE: /run/secrets/prometheus_password
       LOKI_URL: ${ANOMALY_LOKI_URL:-http://loki:3100}
       SCRAPE_INTERVAL: ${ANOMALY_SCRAPE_INTERVAL:-10}
-      ANOMALY_THRESHOLD: ${ANOMALY_THRESHOLD:-0.8}
+      # Score périmé (source injoignable) conservé au plus N cycles, puis NaN (« pas de donnée »).
+      # Le seuil d'alerte n'est pas réglable ici : il vient du modèle (gauge anomaly_threshold, lue par la règle).
+      STALE_AFTER_CYCLES: ${ANOMALY_STALE_AFTER_CYCLES:-3}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     secrets: [prometheus_password]
     depends_on: [prometheus, loki]
@@ -394,3 +400,4 @@ secrets:
   alertmanager_web.yml: { file: "${SECRETS_DIR:-./secrets}/alertmanager_web.yml" }
   alertmanager_basic_auth: { file: "${SECRETS_DIR:-./secrets}/alertmanager_basic_auth" }
   loki_htpasswd: { file: "${SECRETS_DIR:-./secrets}/loki_htpasswd" }
+  ops_assistant_password: { file: "${SECRETS_DIR:-./secrets}/ops_assistant_password" }
