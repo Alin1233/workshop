@@ -1,0 +1,170 @@
+# Prépare le PC Hôte (VM Debian 13) à recevoir la stack : Docker Engine + Compose, pare-feu, durcissement SSH,
+# mises à jour de sécurité. Idempotent : relançable sans risque.
+# Usage (WSL, racine du dépôt) : ansible-playbook -i ansible/inventory.ini ansible/prepare_host.yml
+- name: Préparer le PC Hôte
+  hosts: pc_hote
+  become: true
+  gather_facts: true
+  tasks:
+    # ─────────────────────────────── Système ───────────────────────────────
+    - name: Installer les paquets de base
+      ansible.builtin.apt:
+        name: [ca-certificates, curl, gpg, nftables, unattended-upgrades, git, rsync, age]
+        update_cache: true
+        cache_valid_time: 3600
+        # au premier boot, unattended-upgrades tient le verrou dpkg plusieurs minutes
+        lock_timeout: 600
+
+    - name: Régler le fuseau horaire (horodatage cohérent pour la démonstration)
+      community.general.timezone:
+        name: "{{ pc_hote_timezone }}"
+
+    - name: Activer les mises à jour de sécurité automatiques (dépôts Debian uniquement, sans redémarrage)
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+        mode: "0644"
+
+    # ─────────────────────────────── Docker ────────────────────────────────
+    - name: Télécharger la clé de signature du dépôt Docker
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Lire l'empreinte de la clé téléchargée
+      ansible.builtin.command: gpg --show-keys --with-colons /etc/apt/keyrings/docker.asc
+      register: docker_key
+      changed_when: false
+
+    - name: Refuser une clé dont l'empreinte n'est pas celle publiée par Docker
+      ansible.builtin.assert:
+        that: ("fpr:::::::::" ~ docker_gpg_fingerprint ~ ":") in docker_key.stdout
+        fail_msg: "Empreinte inattendue pour la clé du dépôt Docker"
+        quiet: true
+
+    - name: Déclarer le dépôt Docker
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/docker.sources
+        content: |
+          Types: deb
+          URIs: https://download.docker.com/linux/debian
+          Suites: {{ ansible_distribution_release }}
+          Components: stable
+          Architectures: amd64
+          Signed-By: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Créer les répertoires de configuration
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop: [/etc/docker, /etc/systemd/system/nftables.service.d]
+
+    - name: Configurer le démon Docker
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        # live-restore : les conteneurs survivent à un redémarrage du démon (mise à jour, incident)
+        content: |
+          {
+            "live-restore": true,
+            "no-new-privileges": true,
+            "log-driver": "json-file",
+            "log-opts": { "max-size": "10m", "max-file": "3" }
+          }
+        mode: "0644"
+      notify: Redémarrer Docker
+
+    - name: Installer Docker Engine et le plugin Compose
+      ansible.builtin.apt:
+        name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+        # cache rafraîchi même si le dépôt existait déjà : un premier passage interrompu ne bloque pas le suivant
+        update_cache: true
+        lock_timeout: 600
+
+    - name: Démarrer Docker au boot
+      ansible.builtin.systemd_service:
+        name: docker
+        enabled: true
+        state: started
+
+    # ─────────────────────────────── Pare-feu ──────────────────────────────
+    # Le stop d'origine fait « nft flush ruleset », ce qui couperait aussi le réseau des conteneurs
+    - name: Limiter l'arrêt de nftables à la table de l'hôte
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/nftables.service.d/override.conf
+        content: |
+          [Service]
+          ExecStop=
+          ExecStop=/usr/sbin/nft delete table inet host_filter
+        mode: "0644"
+      register: nft_override
+
+    - name: Recharger systemd
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: nft_override.changed
+
+    - name: Écrire les règles du pare-feu
+      ansible.builtin.template:
+        src: templates/nftables.conf.j2
+        dest: /etc/nftables.conf
+        mode: "0755"
+        validate: /usr/sbin/nft -c -f %s
+      notify: Recharger le pare-feu
+
+    - name: Activer le pare-feu au boot
+      ansible.builtin.systemd_service:
+        name: nftables
+        enabled: true
+        state: started
+
+    # ──────────────────────────────── SSH ─────────────────────────────────
+    # 00- : sshd retient la première valeur lue, ce fichier l'emporte sur ceux ajoutés par cloud-init
+    - name: Durcir SSH
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/00-hardening.conf
+        content: |
+          # Géré par Ansible (prepare_host.yml)
+          PermitRootLogin no
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PubkeyAuthentication yes
+          AllowUsers {{ ansible_user }}
+          MaxAuthTries 3
+          LoginGraceTime 30
+          X11Forwarding no
+          AllowAgentForwarding no
+          # « local » : garde les tunnels vers Grafana, Prometheus… (publiés sur 127.0.0.1) sans ouvrir de tunnel inverse
+          AllowTcpForwarding local
+        mode: "0644"
+        validate: /usr/sbin/sshd -t -f %s
+      notify: Recharger SSH
+
+  handlers:
+    - name: Redémarrer Docker
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
+
+    - name: Recharger le pare-feu
+      ansible.builtin.systemd_service:
+        name: nftables
+        state: reloaded
+
+    - name: Recharger SSH
+      ansible.builtin.systemd_service:
+        name: ssh
+        state: reloaded
+
+  post_tasks:
+    - name: Vérifier Docker et Compose
+      ansible.builtin.command: docker compose version
+      changed_when: false
+
+    - name: Vérifier la configuration SSH complète
+      ansible.builtin.command: /usr/sbin/sshd -t
+      changed_when: false

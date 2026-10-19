@@ -34,9 +34,30 @@ ssh resilience@172.16.147.10
 Le playbook est idempotent (relancé, il ne change rien) et ne touche qu'aux ID de `pve_allowed_vmids` : le token
 administre tout le pool `I1`, VM des autres groupes comprises. Ne jamais le lancer en `-vvv`, qui afficherait le secret.
 
+## Préparation du PC Hôte
+
+```bash
+ansible-playbook -i ansible/inventory.ini ansible/prepare_host.yml
+```
+
+- **Docker** : dépôt officiel, clé vérifiée par son empreinte, `live-restore` (les conteneurs survivent à un redémarrage
+  du démon) et `no-new-privileges` par défaut. `resilience` n'est pas dans le groupe `docker` (équivalent root) : `sudo docker …`.
+- **Pare-feu** (`templates/nftables.conf.j2`) : entrée refusée par défaut sauf SSH depuis `172.16.0.0/16` et le port du WAF.
+  Pas de `flush ruleset`, et l'arrêt du service ne supprime que la table `host_filter` : les règles de Docker sont préservées.
+  Les ports publiés par Docker passent par FORWARD et **ne sont pas filtrés par cette table** : ce qui ne doit pas être
+  exposé reste publié sur `127.0.0.1` dans `docker-compose.yml`.
+- **SSH** : clé uniquement, `root` interdit, `AllowUsers resilience`, tunnels locaux seulement. Accès aux interfaces de gestion :
+
+```bash
+ssh -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 resilience@172.16.147.10
+```
+
+- **Mises à jour** : sécurité Debian automatique, sans redémarrage ; Docker, hors de ces dépôts, ne bouge pas pendant la démo.
+
 | Playbook | Rôle | État |
 |---|---|---|
 | `provision_proxmox.yml` | clone du template Debian 13 cloud-init → ressources → disque → démarrage → SSH | testé (19/10) |
+| `prepare_host.yml` | Docker Engine + Compose, pare-feu nftables, durcissement SSH, mises à jour de sécurité | testé (19/10) |
 | `deploy.yml` | secrets (SOPS) → `docker compose up --wait` → test de bout en bout | prêt, non testé (pas d'Ansible sur le poste de dev) |
 | `restart_service.yml` | redémarre un service et vérifie la reprise réelle | prêt, non testé |
 | `backup_database.yml` / `restore_database.yml` | sauvegarde / restauration PostgreSQL | **à faire** |
@@ -45,4 +66,4 @@ administre tout le pool `I1`, VM des autres groupes comprises. Ne jamais le lanc
 - [ ] Tester les deux playbooks depuis WSL
 - [ ] Sauvegarde `pg_dump` planifiée + restauration (base des scénarios PRA « données corrompues »)
 - [ ] Décider si le moteur de remédiation appelle ces playbooks ou l'API Docker (expliquer le choix au jury)
-- [ ] Playbook de préparation du PC Hôte (point d'accès RESILIENCE-G<n>, pare-feu Windows, ports)
+- [ ] Adapter `deploy.yml` et `restart_service.yml` au PC Hôte distant (groupe `pc_hote`)

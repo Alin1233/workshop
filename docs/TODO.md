@@ -16,7 +16,8 @@
 - ✅ Loki + Alloy (journaux de tous les conteneurs, sans socket Docker), Alertmanager (routé vers la remédiation)
 - ✅ Grafana provisionné : tableaux « Santé du service » et « SOC » (`infra/grafana/generate_dashboards.py`)
 - ✅ VM PC Hôte provisionnée sur le Proxmox du labo par Ansible (`ansible/provision_proxmox.yml`) : `172.16.147.10`, Debian 13, 6 vCPU / 16 Go / 80 Go
-- ☐ Préparer la VM (Docker Engine + Compose, pare-feu, durcissement SSH) puis y déployer la stack ; adapter `inventory.ini` (le PC Hôte n'est plus `localhost`)
+- ✅ VM préparée par `ansible/prepare_host.yml` : Docker 29 + Compose, pare-feu nftables compatible Docker, SSH durci, mises à jour de sécurité
+- ☐ Déployer la stack sur la VM : adapter `deploy.yml` et `restart_service.yml` au groupe `pc_hote` (copie du dépôt, secrets, `sudo docker`)
 - ☐ Tester les playbooks Ansible (`ansible/`) depuis WSL ; écrire la sauvegarde/restauration PostgreSQL
 - ☐ Métriques conteneurs et base (cAdvisor / postgres-exporter) si le ML en a besoin — attention à la RAM et aux privilèges
 - ☐ Configurer le point d'accès Windows RESILIENCE-G<n> (192.168.137.1) et le pare-feu ; tester depuis un autre poste
