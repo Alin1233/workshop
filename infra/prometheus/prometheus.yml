@@ -5,10 +5,14 @@ global:
   external_labels:
     platform: resilience-alpha
 
+# Prometheus et Alertmanager exigent une authentification basique (--web.config.file), /metrics compris.
 alerting:
   alertmanagers:
     - static_configs:
         - targets: ["alertmanager:9093"]
+      basic_auth:
+        username: admin
+        password_file: /run/secrets/alertmanager_password
 
 rule_files:
   - /etc/prometheus/rules/*.yml
@@ -54,12 +58,20 @@ scrape_configs:
         replacement: blackbox:9115
 
   # Auto-surveillance de la chaîne d'observation
-  - job_name: observability
+  - job_name: prometheus
+    basic_auth: { username: admin, password_file: /run/secrets/prometheus_password }
     static_configs:
       - targets: ["localhost:9090"]
         labels: { service: prometheus }
+
+  - job_name: alertmanager
+    basic_auth: { username: admin, password_file: /run/secrets/alertmanager_password }
+    static_configs:
       - targets: ["alertmanager:9093"]
         labels: { service: alertmanager }
+
+  - job_name: observability
+    static_configs:
       - targets: ["loki:3100"]
         labels: { service: loki }
       - targets: ["alloy:12345"]

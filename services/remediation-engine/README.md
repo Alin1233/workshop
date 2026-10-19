@@ -9,7 +9,7 @@ Reçoit les alertes, décide d'une action, l'exécute, puis **vérifie** que le 
 | `POST /alerts` (port 8000) | webhook Alertmanager v4 (`infra/alertmanager/alertmanager.yml`), alertes `firing` **et** `resolved` |
 | Labels reçus | `alertname`, `severity` (critical/warning), `domain` (availability/integrity/security/anomaly), `service`, parfois `client_ip` |
 | Actions Docker | via `docker-socket-proxy` uniquement (restart/recreate limités), **jamais** le socket brut |
-| Vérification | `GET http://payment-api:8000/internal/integrity`, sondes `probe_success` (Prometheus), puis `python tests/smoke_test.py` (transaction témoin) |
+| Vérification | `GET http://payment-api:8000/internal/integrity`, sondes `probe_success` (Prometheus, avec l'identifiant `admin` / `/run/secrets/prometheus_password`), puis `python tests/smoke_test.py` (transaction témoin) |
 | Sorties | `/metrics` (`remediation_actions_total{action,result}`, `remediation_duration_seconds`), journaux JSON `event_type=remediation_*` → Loki, API d'état pour le dashboard de supervision |
 
 ## À faire

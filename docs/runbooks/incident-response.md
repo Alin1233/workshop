@@ -2,7 +2,7 @@
 
 ## Où regarder
 - Grafana http://127.0.0.1:3000 — « Santé du service » (utilisabilité réelle) et « SOC » (événements de sécurité)
-- Alertmanager http://127.0.0.1:9093 — alertes actives
+- Alertmanager http://127.0.0.1:9093 (admin / `secrets/alertmanager_password`) — alertes actives et silences
 - Loki (Grafana > Explore) : `{service="waf"} |= "transaction"`, `{event_type="auth_failure"}`
 
 ## Par alerte

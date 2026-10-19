@@ -14,5 +14,6 @@ Ollama + LangChain, modèle local ≤ 8 milliards de paramètres, recherche docu
 - [ ] Choisir le modèle (ex. `llama3.1:8b`, `qwen2.5:7b`, `mistral:7b`) et l'embedding (`nomic-embed-text`), justifier vs matériel
 - [ ] Indexation (découpage, embeddings, base vectorielle locale : Chroma/FAISS) et chaîne RAG avec citations des sources
 - [ ] Interface minimale (API + page ou intégration au dashboard de supervision)
-- [ ] Optionnel : lecture seule de l'état (alertes Alertmanager) pour contextualiser — jamais d'action
+- [ ] Optionnel : lecture seule de l'état (alertes Alertmanager) pour contextualiser — jamais d'action. Alertmanager exige
+  `admin` / `alertmanager_password`, qui permet aussi de poser des silences : préférer passer par une API d'état en lecture seule.
 - [ ] Jeu de questions de test et évaluation des réponses

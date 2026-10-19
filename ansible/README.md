@@ -55,6 +55,8 @@ ansible-playbook -i ansible/inventory.ini ansible/prepare_host.yml
 ssh -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 resilience@172.16.147.10
 ```
 
+  Prometheus, Alertmanager et Loki demandent un identifiant : `admin` / `shared/secrets/<service>_password`.
+
 - **Mises à jour** : sécurité Debian automatique, sans redémarrage ; Docker, hors de ces dépôts, ne bouge pas pendant la démo.
 
 ## Déploiement
@@ -79,7 +81,10 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e deploy_ref=v1  #
 - Vérifications : transaction témoin et chaîne d'observation **sur l'hôte**, puis transaction témoin **depuis le poste
   de l'opérateur**, à travers le réseau et le pare-feu, comme le PC attaquant ou le jury.
 - Les mots de passe affichés par `init_secrets.py` sont masqués (`no_log`). Pour les lire :
-  `ssh resilience@172.16.147.10 sudo cat /opt/resilience-alpha/shared/secrets/admin_password`.
+  `ssh resilience@172.16.147.10 sudo cat /opt/resilience-alpha/shared/secrets/admin_password`
+  (idem `grafana_admin_password`, `prometheus_password`, `alertmanager_password`, `loki_password`).
+- Les hash bcrypt de ces comptes sont calculés par `htpasswd` dans un conteneur `httpd:2.4-alpine` jetable quand
+  la bibliothèque Python `bcrypt` est absente (cas de la VM) : rien à installer sur l'hôte.
 
 ## Sauvegarde et restauration PostgreSQL
 

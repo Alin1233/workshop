@@ -3,8 +3,12 @@
 Usage : python scripts/init_secrets.py [--force]
 Les fichiers existants sont conservés, sauf avec --force (attention : régénérer les mots de passe
 de base de données impose de recréer le volume PostgreSQL).
+Prometheus, Alertmanager et Loki ont chacun un compte « admin » : le mot de passe en clair (<service>_password) sert
+aux clients (Grafana, Prometheus, ruler Loki, tests), le hash bcrypt est dérivé dans les fichiers lus par le serveur.
+Ces fichiers dérivés sont recalculés s'ils manquent ou si le mot de passe a été modifié depuis.
 """
 
+import base64
 import secrets
 import shutil
 import subprocess
@@ -12,7 +16,10 @@ import sys
 from pathlib import Path
 
 SECRETS_DIR = Path(__file__).resolve().parent.parent / "secrets"
-PASSWORDS = ("postgres_password", "auth_db_password", "pay_db_password", "admin_password", "grafana_admin_password")
+OBSERVABILITY = ("prometheus", "alertmanager", "loki")
+PASSWORDS = ("postgres_password", "auth_db_password", "pay_db_password", "admin_password", "grafana_admin_password",
+             *(f"{service}_password" for service in OBSERVABILITY))
+OBSERVABILITY_USER = "admin"
 
 
 def write_secret(name: str, content: str, force: bool) -> None:
@@ -55,6 +62,51 @@ def generate_rsa_pair() -> tuple[str, str]:
     return private_pem, public_pem
 
 
+def bcrypt_hash(password: str) -> str:
+    # Cette méthode permet de calculer le hash bcrypt d'un mot de passe, via la bibliothèque bcrypt si elle est installée,
+    # sinon via htpasswd dans un conteneur jetable (le mot de passe passe par stdin, jamais par la ligne de commande).
+    try:
+        import bcrypt
+
+        return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=10)).decode()
+    except ImportError:
+        pass
+    if not shutil.which("docker"):
+        sys.exit("Ni bcrypt ni docker : faites `pip install bcrypt`, puis relancez.")
+    line = subprocess.run(
+        ["docker", "run", "--rm", "-i", "httpd:2.4-alpine", "htpasswd", "-niBC", "10", OBSERVABILITY_USER],
+        input=password, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    return line.split(":", 1)[1]
+
+
+def write_observability_auth(service: str, force: bool) -> None:
+    # Cette méthode permet de dériver du mot de passe d'un service de gestion les fichiers d'authentification lus par
+    # le serveur (et, pour Alertmanager, par le ruler Loki) lorsqu'ils manquent ou sont plus anciens que le mot de passe.
+    source = SECRETS_DIR / f"{service}_password"
+    password = source.read_text(encoding="utf-8").strip()
+    derived = {
+        "prometheus": ["prometheus_web.yml"],
+        "alertmanager": ["alertmanager_web.yml", "alertmanager_basic_auth"],
+        "loki": ["loki_htpasswd"],
+    }[service]
+    stale = [name for name in derived
+             if force or not (SECRETS_DIR / name).exists()
+             or (SECRETS_DIR / name).stat().st_mtime < source.stat().st_mtime]
+    if not stale:
+        print(f"  = {', '.join(derived)} (conservés)")
+        return
+    hashed = bcrypt_hash(password)
+    contents = {
+        f"{service}_web.yml": f"basic_auth_users:\n  {OBSERVABILITY_USER}: {hashed}\n",
+        "loki_htpasswd": f"{OBSERVABILITY_USER}:{hashed}\n",
+        # En-tête « Authorization: Basic … » envoyé par le ruler Loki à Alertmanager
+        "alertmanager_basic_auth": base64.b64encode(f"{OBSERVABILITY_USER}:{password}".encode()).decode(),
+    }
+    for name in derived:
+        write_secret(name, contents[name], True)
+
+
 def main() -> None:
     # Cette méthode permet de créer l'ensemble des secrets attendus par docker-compose.yml.
     force = "--force" in sys.argv
@@ -68,8 +120,12 @@ def main() -> None:
         write_secret("jwt_public.pem", public_pem, True)
     else:
         print("  = jwt_private.pem / jwt_public.pem (conservés)")
+    for service in OBSERVABILITY:
+        write_observability_auth(service, force)
     print(f"Mot de passe admin (admin@resilience.local) : {(SECRETS_DIR / 'admin_password').read_text().strip()}")
     print(f"Mot de passe Grafana (admin) : {(SECRETS_DIR / 'grafana_admin_password').read_text().strip()}")
+    for service in OBSERVABILITY:
+        print(f"Mot de passe {service.capitalize()} ({OBSERVABILITY_USER}) : {(SECRETS_DIR / f'{service}_password').read_text().strip()}")
 
 
 if __name__ == "__main__":
