@@ -117,7 +117,6 @@ Déploiement automatisé depuis WSL : `ansible-playbook -i ansible/inventory.ini
 
 ```
 ansible/                 playbooks de déploiement et de reprise
-attacks/                 scénarios Red Team (à développer)
 db/init/                 création des bases et rôles (1er démarrage du volume)
 docs/                    TODO par domaine, gouvernance (EBIOS RM, PCA/PRA, NIS2/DORA), runbooks (corpus du RAG)
 infra/                   configuration Prometheus, Alertmanager, Blackbox, Loki, Alloy, Grafana, WAF

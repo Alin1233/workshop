@@ -6,7 +6,3 @@ dist/
 __pycache__/
 *.pyc
 .venv/
-
-# Red Team run artifacts
-attacks/logs/
-!attacks/logs/.gitkeep

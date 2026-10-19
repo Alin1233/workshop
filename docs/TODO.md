@@ -31,7 +31,6 @@
 - ✅ SOC intégré : 5 règles LogQL (force brute, rafale de jetons invalides, blocages WAF, violations d'intégrité, pannes de dépendance) → Alertmanager — testées
 - ✅ Script SOPS + age (`scripts/sops_secrets.py`) — **non testé** (sops/age absents du poste)
 - ☐ Générer les clés age de l'équipe, remplir `.sops.yaml`, chiffrer et versionner `secrets.enc.json`
-- ☐ **Scénario d'attaque principal** depuis le PC Attaquant (`attacks/`) + 1 ou 2 secondaires
 - ☐ Sécuriser l'accès du moteur de remédiation à Docker (docker-socket-proxy restreint, webhook authentifié)
 - ☐ Revue de durcissement (Trivy, mots de passe, en-têtes, réglage du niveau de paranoïa du WAF)
 
@@ -44,5 +43,5 @@
 ## Rendus (jeudi 23h59)
 - ☐ `Workshop2026-M2-G<n>-Dossier.pdf` (8-12 pages, contribution de chacun)
 - ☐ `Workshop2026-M2-G<n>-Pres.pptx`
-- ☐ `Workshop2026-M2-G<n>-VidChrono.mp4` (≤ 60 s, plan continu : attaque → anomalie → réaction → service rétabli)
+- ☐ `Workshop2026-M2-G<n>-VidChrono.mp4` (≤ 60 s, plan continu : incident → anomalie → réaction → service rétabli)
 - ☐ `Workshop2026-M2-G<n>-Code.zip` (aucun secret en clair : vérifier que `secrets/` est exclu)
