@@ -1,1 +1,49 @@
+@import "@fontsource-variable/inter";
 @import "tailwindcss";
+
+/* Palette « coffre-fort calme » : encre + sarcelle sur fond papier, ambre/brique réservés aux incidents. */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", monospace;
+
+  --color-ink: #0e1a24;
+  --color-ink-2: #16283a;
+  --color-ink-glow: #1f4b57;
+  --color-paper: #f5f4f0;
+  --color-field: #fbfaf7;
+  --color-line: #e4e1d9;
+  --color-line-soft: #f0eee8;
+  --color-chip: #f1efea;
+  --color-muted: #6b7480;
+  --color-faint: #a3a9b0;
+  --color-mist: #9fb3c2;
+
+  --color-teal: #0f8b7a;
+  --color-teal-dark: #0b6f62;
+  --color-teal-soft: #e3f3ef;
+  --color-mint: #5ee6cf;
+
+  --color-amber: #e59a00;
+  --color-amber-soft: #fff4df;
+  --color-amber-line: #f3d9a6;
+  --color-amber-ink: #6b4300;
+
+  --color-brick: #c2410c;
+  --color-brick-soft: #fdece4;
+  --color-brick-line: #f4c7b3;
+}
+
+@layer base {
+  body {
+    @apply bg-paper text-ink antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-teal;
+  }
+}
+
+@utility skeleton {
+  @apply animate-pulse rounded bg-chip;
+}

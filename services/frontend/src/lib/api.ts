@@ -127,6 +127,55 @@ export function formatCents(cents: number): string {
   return euroFormat.format(cents / 100);
 }
 
+// Cette méthode permet de séparer un montant en partie entière et en centimes, pour les afficher avec deux graisses.
+export function splitCents(cents: number): { units: string; decimals: string } {
+  const formatted = formatCents(cents);
+  const match = /^(.*?)(,\d{2}\s€)$/u.exec(formatted);
+  return match ? { units: match[1], decimals: match[2] } : { units: formatted, decimals: "" };
+}
+
+// Cette méthode permet d'afficher un numéro de compte par groupes de 4 (« RA 0123 4567 89 ») pour le lire sans erreur.
+export function formatAccountNumber(accountNumber: string): string {
+  const match = /^([A-Z]{2})(\d{4})(\d{4})(\d+)$/.exec(accountNumber);
+  return match ? match.slice(1).join(" ") : accountNumber;
+}
+
+// Cette méthode permet de totaliser les entrées et sorties du mois en cours parmi les mouvements chargés.
+export function monthTotals(transfers: Transfer[], now = new Date()): { creditCents: number; debitCents: number } {
+  let creditCents = 0;
+  let debitCents = 0;
+  for (const t of transfers) {
+    const date = new Date(t.created_at);
+    if (date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) continue;
+    if (t.direction === "credit") creditCents += t.amount_cents;
+    else debitCents += t.amount_cents;
+  }
+  return { creditCents, debitCents };
+}
+
+const dayFormat = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
+// Cette méthode permet de regrouper les mouvements (déjà triés du plus récent au plus ancien) par jour,
+// avec un intitulé « Aujourd'hui », « Hier » ou la date en toutes lettres.
+export function groupTransfersByDay(transfers: Transfer[], now = new Date()): { label: string; items: Transfer[] }[] {
+  const groups: { key: string; label: string; items: Transfer[] }[] = [];
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  for (const t of transfers) {
+    const date = new Date(t.created_at);
+    const key = date.toDateString();
+    let group = groups.at(-1);
+    if (group?.key !== key) {
+      const label =
+        key === now.toDateString() ? "Aujourd'hui" : key === yesterday.toDateString() ? "Hier" : dayFormat.format(date);
+      group = { key, label, items: [] };
+      groups.push(group);
+    }
+    group.items.push(t);
+  }
+  return groups.map(({ label, items }) => ({ label, items }));
+}
+
 // Cette méthode permet de convertir une saisie utilisateur (« 12,50 » ou « 12.5 ») en centimes, ou null si invalide.
 export function parseEuros(input: string): number | null {
   const normalized = input.trim().replace(/\s/g, "").replace(",", ".");
