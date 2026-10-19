@@ -1,0 +1,102 @@
+# Resilience-Alpha — SI de paiement fictif
+# Seul le frontal (nginx) est publié ; base, API et auth restent sur des réseaux Docker internes.
+name: resilience-alpha
+
+x-python-service: &python-service
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  read_only: true
+  tmpfs: ["/tmp"]
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks: [app, data]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password, auth_db_password, pay_db_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [data]
+    security_opt: ["no-new-privileges:true"]
+
+  auth-service:
+    <<: *python-service
+    build:
+      context: ./services
+      dockerfile: auth-service/Dockerfile
+    image: resilience-alpha/auth-service:latest
+    environment:
+      SERVICE_NAME: auth-service
+      ROOT_PATH: /api/auth
+      DB_NAME: authdb
+      DB_USER: auth_svc
+      DB_PASSWORD_FILE: /run/secrets/auth_db_password
+      JWT_PRIVATE_KEY_FILE: /run/secrets/jwt_private.pem
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-900}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@resilience.local}
+      ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    secrets: [auth_db_password, jwt_private.pem, admin_password]
+
+  payment-api:
+    <<: *python-service
+    build:
+      context: ./services
+      dockerfile: payment-api/Dockerfile
+    image: resilience-alpha/payment-api:latest
+    environment:
+      SERVICE_NAME: payment-api
+      ROOT_PATH: /api/payments
+      DB_NAME: paydb
+      DB_USER: pay_svc
+      DB_PASSWORD_FILE: /run/secrets/pay_db_password
+      JWT_PUBLIC_KEY_FILE: /run/secrets/jwt_public.pem
+      INTEGRITY_INTERVAL_SECONDS: ${INTEGRITY_INTERVAL_SECONDS:-15}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    secrets: [pay_db_password, jwt_public.pem]
+
+  frontend:
+    build: ./services/frontend
+    image: resilience-alpha/frontend:latest
+    restart: unless-stopped
+    ports:
+      - "${FRONT_BIND:-0.0.0.0}:${FRONT_PORT:-8080}:8080"
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    networks: [edge, app]
+
+networks:
+  edge: {}              # seul réseau joignable depuis le PA du groupe (via le port publié)
+  app:
+    internal: true      # nginx <-> microservices (Prometheus, remédiation s'y brancheront)
+  data:
+    internal: true      # microservices <-> PostgreSQL
+
+volumes:
+  pgdata: {}
+
+secrets:
+  postgres_password: { file: ./secrets/postgres_password }
+  auth_db_password: { file: ./secrets/auth_db_password }
+  pay_db_password: { file: ./secrets/pay_db_password }
+  admin_password: { file: ./secrets/admin_password }
+  jwt_private.pem: { file: ./secrets/jwt_private.pem }
+  jwt_public.pem: { file: ./secrets/jwt_public.pem }

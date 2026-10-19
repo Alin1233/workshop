@@ -1,0 +1,8 @@
+secrets/*
+!secrets/.gitkeep
+.env
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.venv/
