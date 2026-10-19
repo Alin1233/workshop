@@ -1,4 +1,4 @@
-# Resilience-Alpha — démonstrateur de cyber-résilience (SI de paiement fictif + chaîne d'observation et de reprise)
+# Resilience-Alpha — démonstrateur de résilience (SI de paiement fictif + chaîne d'observation et de reprise)
 # Seul le WAF est publié sur le réseau du groupe. Les interfaces de gestion (Grafana, Prometheus, Loki, Alertmanager)
 # ne sont publiées que sur 127.0.0.1 (MGMT_BIND) et demandent un identifiant (admin / secrets/<service>_password) :
 # base, API, secrets et outils internes ne sont jamais exposés.
@@ -93,7 +93,7 @@ services:
     tmpfs: ["/tmp"]
     networks: [dmz, app]
 
-  # ───────────────────────────── Défense (pilier CYBER) ─────────────────────────────
+  # ───────────────────────────── Défense (pilier SÉCURITÉ) ─────────────────────────────
   # WAF ModSecurity + OWASP CRS : unique point d'entrée publié, relaie vers le frontal nginx.
   waf:
     <<: *hardening
@@ -258,17 +258,83 @@ services:
     networks: [obs, mgmt]
 
   # ──────────────────────────── IA locale (pilier IA, optionnel) ─────────────────────
-  # Par défaut l'assistant RAG utilise l'Ollama du PC Hôte ou du PC de délestage IA (OLLAMA_BASE_URL).
-  # `docker compose --profile ai up -d` démarre à la place un Ollama conteneurisé, non publié.
+  # LLM de l'assistant RAG : ce conteneur (profil `ai` : `docker compose --profile ai up -d` ou COMPOSE_PROFILES=ai),
+  # non publié, joint par le réseau ai ; ou le PC de délestage IA via OLLAMA_BASE_URL. Sur la VM PC Hôte, le pare-feu
+  # de l'hôte empêche un conteneur de joindre un Ollama installé sur l'hôte lui-même.
   ollama:
     image: ollama/ollama:latest
     profiles: [ai]
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"        # un seul contexte réservé (4 par défaut) : ~1,3 Go de RAM gagnés avec un 3B
+      OLLAMA_MAX_LOADED_MODELS: "2"   # LLM + modèle d'embeddings
     volumes:
       - ollama-data:/root/.ollama
     networks: [ai]
     logging: *logging
+
+  # Assistant RAG des opérateurs : consulte les procédures et l'architecture, n'exécute aucune action.
+  # Aucun secret, ni socket Docker, ni base, ni moteur de remédiation : seulement le corpus en lecture seule,
+  # Ollama (OLLAMA_BASE_URL) et, en GET, les alertes actives d'Alertmanager (joignable par le réseau mgmt).
+  ops-assistant:
+    <<: *hardening
+    build:
+      context: ./services
+      dockerfile: ops-assistant/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-resilience-alpha}/ops-assistant:latest
+    read_only: true
+    tmpfs: ["/tmp"]
+    environment:
+      SERVICE_NAME: ops-assistant
+      # Conteneur ollama du profil ai (défaut), PC de délestage IA (http://<ip>:11434),
+      # ou Ollama natif en développement sous Docker Desktop (http://host.docker.internal:11434)
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      LLM_MODEL: ${OPS_ASSISTANT_LLM_MODEL:-llama3.2:3b}
+      EMBED_MODEL: ${OPS_ASSISTANT_EMBED_MODEL:-nomic-embed-text}
+      # 4 threads sur les 6 vCPU de la VM : la stack garde du CPU pendant une réponse (0 = tous les cœurs)
+      LLM_NUM_THREAD: ${OPS_ASSISTANT_LLM_NUM_THREAD:-4}
+      # Désactivé par défaut : Alertmanager exige le compte admin, qui permet aussi de poser des silences ;
+      # l'assistant n'en reçoit pas. À rebrancher sur une API d'état en lecture seule (remédiation, supervision).
+      ALERTMANAGER_URL: ${OPS_ASSISTANT_ALERTMANAGER_URL:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # Corpus : docs/ (runbooks, gouvernance) + README d'architecture et de contrats, montés un par un en lecture seule.
+    volumes:
+      - ./docs:/corpus/docs:ro
+      - ./README.md:/corpus/README.md:ro
+      - ./ansible/README.md:/corpus/ansible/README.md:ro
+      - ./services/remediation-engine/README.md:/corpus/services/remediation-engine/README.md:ro
+      - ./services/anomaly-detector/README.md:/corpus/services/anomaly-detector/README.md:ro
+      - ./services/supervision-dashboard/README.md:/corpus/services/supervision-dashboard/README.md:ro
+    extra_hosts: ["host.docker.internal:host-gateway"]   # développement sous Linux ; natif sous Docker Desktop
+    ports:
+      - "${MGMT_BIND:-127.0.0.1}:${OPS_ASSISTANT_PORT:-8090}:8000"
+    networks: [ai, mgmt]
+
+  # ───────────────────── Détection d'anomalies ML (pilier IA / DATA) ──────────────────
+  # Lit Prometheus (et Loki) sur le réseau obs, calcule un score d'anomalie par service et l'expose
+  # sur /metrics. Aucun port publié, aucun accès privilégié : même durcissement que les autres services.
+  anomaly-detector:
+    <<: *hardening
+    build:
+      context: ./services
+      dockerfile: anomaly-detector/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-resilience-alpha}/anomaly-detector:latest
+    read_only: true
+    tmpfs: ["/tmp"]
+    environment:
+      SERVICE_NAME: anomaly-detector
+      PROMETHEUS_URL: ${ANOMALY_PROMETHEUS_URL:-http://prometheus:9090}
+      # Prometheus exige une authentification basique ; Loki interne (réseau obs) n'en a pas.
+      PROMETHEUS_USER: admin
+      PROMETHEUS_PASSWORD_FILE: /run/secrets/prometheus_password
+      LOKI_URL: ${ANOMALY_LOKI_URL:-http://loki:3100}
+      SCRAPE_INTERVAL: ${ANOMALY_SCRAPE_INTERVAL:-10}
+      ANOMALY_THRESHOLD: ${ANOMALY_THRESHOLD:-0.8}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    secrets: [prometheus_password]
+    depends_on: [prometheus, loki]
+    networks: [obs]
 
   # ─────────────────────── Composants à développer par l'équipe ──────────────────────
   # Contrats d'intégration détaillés dans services/<nom>/README.md. Décommenter une fois le code livré.
@@ -282,15 +348,6 @@ services:
   #   environment: { CONTAINERS: 1, POST: 1, ALLOW_RESTARTS: 1 }
   #   volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
   #   networks: [docker-api]
-  #
-  # anomaly-detector:        # lit Prometheus/Loki, expose anomaly_score sur /metrics
-  #   build: ./services/anomaly-detector
-  #   networks: [obs]
-  #
-  # ops-assistant:           # RAG Ollama + LangChain sur docs/, sans aucun accès privilégié
-  #   build: ./services/ops-assistant
-  #   environment: { OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}" }
-  #   networks: [ai, mgmt]
   #
   # supervision-dashboard:   # React + Tailwind : composants, événements, alertes, avancement de la reprise
   #   build: ./services/supervision-dashboard

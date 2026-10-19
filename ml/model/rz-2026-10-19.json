@@ -1,0 +1,133 @@
+{
+  "meta": {
+    "feature_queries": {
+      "auth-service": {
+        "client_errors_4xx_rate": "(sum(rate(http_requests_total{service=\"auth-service\",status=~\"4..\"}[1m])) or vector(0))",
+        "error_ratio_5xx": "(sum(rate(http_requests_total{service=\"auth-service\",status=~\"5..\"}[1m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{service=\"auth-service\"}[1m])) or vector(0.001), 0.001)",
+        "latency_p95": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"auth-service\",route!=\"/health\"}[1m])))",
+        "login_failures_per_min": "(sum(rate(auth_login_attempts_total{result=\"failure\"}[1m])) or vector(0)) * 60",
+        "probe_failed": "1 - (max(probe_success{service=\"auth\"}) or vector(1))",
+        "req_rate": "(sum(rate(http_requests_total{service=\"auth-service\",route!=\"/health\"}[1m])) or vector(0))"
+      },
+      "frontend": {
+        "probe_failed": "1 - (max(probe_success{service=\"frontend\"}) or vector(1))",
+        "req_rate_per_min": "sum(count_over_time({service=\"frontend\"} != \"resilience-alpha-probe\" != \"/healthz\" [1m]))",
+        "waf_blocks_per_min": "sum(count_over_time({service=\"waf\"} |= \"\\\"transaction\\\"\" | json code=\"transaction.response.http_code\" | code=\"403\" [1m]))"
+      },
+      "payment-api": {
+        "client_errors_4xx_rate": "(sum(rate(http_requests_total{service=\"payment-api\",status=~\"4..\"}[1m])) or vector(0))",
+        "error_ratio_5xx": "(sum(rate(http_requests_total{service=\"payment-api\",status=~\"5..\"}[1m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{service=\"payment-api\"}[1m])) or vector(0.001), 0.001)",
+        "invalid_tokens_per_min": "sum(count_over_time({service=\"payment-api\", event_type=\"auth_failure\"}[1m]))",
+        "latency_p95": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"payment-api\",route!=\"/health\"}[1m])))",
+        "probe_failed": "1 - (max(probe_success{service=\"payments\"}) or vector(1))",
+        "req_rate": "(sum(rate(http_requests_total{service=\"payment-api\",route!=\"/health\"}[1m])) or vector(0))"
+      }
+    },
+    "n_labels": 8,
+    "n_rows": 522,
+    "scale_floor": {
+      "client_errors_4xx_rate": 0.2,
+      "error_ratio_5xx": 0.02,
+      "invalid_tokens_per_min": 1.0,
+      "latency_p95": 0.02,
+      "login_failures_per_min": 1.0,
+      "probe_failed": 0.1,
+      "req_rate": 0.3,
+      "req_rate_per_min": 3.0,
+      "waf_blocks_per_min": 1.0
+    },
+    "step_s": 10,
+    "threshold": 0.8,
+    "train_until": 1792413876.0
+  },
+  "params": {
+    "auth-service": {
+      "beta": 3.2156536512493177,
+      "features": [
+        "req_rate",
+        "error_ratio_5xx",
+        "latency_p95",
+        "login_failures_per_min",
+        "client_errors_4xx_rate",
+        "probe_failed"
+      ],
+      "median": {
+        "client_errors_4xx_rate": 0.0,
+        "error_ratio_5xx": 0.0,
+        "latency_p95": 0.3124999999999995,
+        "login_failures_per_min": 0.0,
+        "probe_failed": 0.0,
+        "req_rate": 0.8
+      },
+      "normal_samples": 97,
+      "normal_severity_max": 3.60078104740304,
+      "normal_severity_p50": 0.9255732296118859,
+      "normal_severity_p99": 3.066838060817285,
+      "scale": {
+        "client_errors_4xx_rate": 0.2,
+        "error_ratio_5xx": 0.02,
+        "latency_p95": 0.11148011538461465,
+        "login_failures_per_min": 1.0,
+        "probe_failed": 0.1,
+        "req_rate": 0.32617199999999996
+      },
+      "t80": 4.079494761056132
+    },
+    "frontend": {
+      "beta": 2.758868055626301,
+      "features": [
+        "req_rate_per_min",
+        "waf_blocks_per_min",
+        "probe_failed"
+      ],
+      "median": {
+        "probe_failed": 0.0,
+        "req_rate_per_min": 235.0,
+        "waf_blocks_per_min": 0.0
+      },
+      "normal_samples": 97,
+      "normal_severity_max": 2.2442147088039444,
+      "normal_severity_p50": 0.1716885569576788,
+      "normal_severity_p99": 2.173577131084213,
+      "scale": {
+        "probe_failed": 0.1,
+        "req_rate_per_min": 81.54299999999999,
+        "waf_blocks_per_min": 1.0
+      },
+      "t80": 3.5
+    },
+    "payment-api": {
+      "beta": 2.876976950560309,
+      "features": [
+        "req_rate",
+        "error_ratio_5xx",
+        "latency_p95",
+        "invalid_tokens_per_min",
+        "client_errors_4xx_rate",
+        "probe_failed"
+      ],
+      "median": {
+        "client_errors_4xx_rate": 0.0,
+        "error_ratio_5xx": 0.0,
+        "invalid_tokens_per_min": 0.0,
+        "latency_p95": 0.04134375,
+        "probe_failed": 0.0,
+        "req_rate": 2.88
+      },
+      "normal_samples": 97,
+      "normal_severity_max": 3.185537653513806,
+      "normal_severity_p50": 0.30372086694424055,
+      "normal_severity_p99": 3.0678761141926834,
+      "scale": {
+        "client_errors_4xx_rate": 0.2,
+        "error_ratio_5xx": 0.02,
+        "invalid_tokens_per_min": 3.3333333333333335,
+        "latency_p95": 0.02,
+        "probe_failed": 0.1,
+        "req_rate": 1.5122520000000006
+      },
+      "t80": 3.6498372245189468
+    }
+  },
+  "version": "rz-2026-10-19"
+}

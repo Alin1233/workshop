@@ -25,12 +25,12 @@
 - ✅ Déploiement vérifié sur une machine vierge depuis un clone neuf (VM de recette jetable : hôte reconstruit en 311 s) ; PRA « perte du PC Hôte » joué : données restaurées, mais **secrets à restaurer aussi** (voir Cybersécurité)
 
 ## IA / Data
-- ☐ **Détecteur d'anomalies ML** (`services/anomaly-detector/` + `ml/`) : jeu de données normal/attaque, modèle, `anomaly_score` exposé à Prometheus, règle `AnomalyDetected` à décommenter
-- ☐ **Assistant RAG** (`services/ops-assistant/`) : Ollama (≤ 8 milliards de paramètres) + LangChain sur `docs/`, sans accès privilégié
+- ✅ **Détecteur d'anomalies ML** (`services/anomaly-detector/` + `ml/`) : jeu de données normal/attaque étiqueté, z-score robuste calibré, `anomaly_score{service}` scrapé par Prometheus, règle `AnomalyDetected` active — vérifié en direct (alerte dans Alertmanager pendant les attaques, score < 0,8 au repos et sous la transaction témoin)
+- ✅ **Assistant RAG** (`services/ops-assistant/`) : Ollama + LangChain sur `docs/` et les README d'architecture, réponses sourcées (fichier + section), refus hors corpus, aucune action ni accès privilégié, healthy même sans LLM ; évalué sur 25 questions et 4 modèles (`eval/results/`) ; section dossier dans son README
 - ☐ Choisir où tourne le LLM (PC Hôte, 3e PC, ou `--profile ai`) selon la RAM disponible
-- ☐ Rédiger données / préparation / modèle / résultats / limites pour le dossier
+- ✅ Rédiger données / préparation / modèle / résultats / limites pour le dossier — partie détecteur ML : section « Dossier technique » de `ml/README.md` (à reprendre dans le PDF)
 
-## Cybersécurité
+## Sécurité
 - ✅ WAF ModSecurity + OWASP CRS en unique point d'entrée (SQLi/XSS bloquées en 403, IP réelle propagée jusqu'aux API)
 - ✅ SOC intégré : 5 règles LogQL (force brute, rafale de jetons invalides, blocages WAF, violations d'intégrité, pannes de dépendance) → Alertmanager — testées
 - ✅ Script SOPS + age (`scripts/sops_secrets.py`) — **non testé** (sops/age absents du poste)

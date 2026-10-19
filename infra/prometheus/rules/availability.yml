@@ -62,12 +62,13 @@ groups:
         annotations:
           summary: "Plus de 20 échecs de connexion par minute (force brute probable)"
 
-  # Le détecteur ML publiera anomaly_score (0..1) : décommenter une fois services/anomaly-detector livré.
-  # - name: anomaly
-  #   rules:
-  #     - alert: AnomalyDetected
-  #       expr: anomaly_score > 0.8
-  #       for: 20s
-  #       labels: { severity: critical, domain: anomaly }
-  #       annotations:
-  #         summary: "Comportement anormal détecté par le modèle sur {{ $labels.service }}"
+  # Détecteur ML : anomaly_score (0..1) exposé par services/anomaly-detector. Seuil 0,8 et fenêtre 20 s
+  # retenus et vérifiés par l'évaluation (trafic normal/creux < 0,8, attaques détectées) ; cf. ml/README.md.
+  - name: anomaly
+    rules:
+      - alert: AnomalyDetected
+        expr: anomaly_score > 0.8
+        for: 20s
+        labels: { severity: critical, domain: anomaly }
+        annotations:
+          summary: "Comportement anormal détecté par le modèle sur {{ $labels.service }}"

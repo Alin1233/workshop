@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assistant opérateur — Resilience-Alpha</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Assistant opérateur</h1>
+      <p class="sub">Resilience-Alpha — recherche dans les procédures et l'architecture (LLM local)</p>
+      <p id="status" class="status" aria-live="polite">Vérification de l'état…</p>
+    </header>
+
+    <p class="notice">L'assistant consulte uniquement la documentation de l'équipe : il n'exécute aucune action
+      et ne remplace pas le moteur de remédiation. Vérifiez toujours la source citée.</p>
+
+    <form id="ask-form">
+      <label for="question">Question</label>
+      <textarea id="question" name="question" rows="3" maxlength="500" required
+        placeholder="Ex. : Que faire quand l'alerte LedgerIntegrityBroken se déclenche ?"></textarea>
+      <div class="row">
+        <label class="inline"><input type="checkbox" id="include-alerts" checked> Joindre les alertes actives (lecture seule)</label>
+        <button type="submit" id="submit">Demander</button>
+      </div>
+    </form>
+
+    <section id="result" hidden>
+      <h2>Réponse <span id="meta" class="meta"></span></h2>
+      <div id="answer" class="answer"></div>
+      <h3>Sources</h3>
+      <ol id="sources" class="sources"></ol>
+      <div id="alerts-block" hidden>
+        <h3>Alertes actives prises en compte</h3>
+        <ul id="alerts" class="alerts"></ul>
+      </div>
+    </section>
+    <p id="error" class="error" role="alert" hidden></p>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
