@@ -17,6 +17,7 @@ tout script refuse une cible hors des réseaux autorisés (`192.168.137.0/24`, `
 | 03 | [`03-sqli/`](03-sqli/) | Injection SQL (sqlmap L1/R1) | `WafAttackBlocked` |
 | 04 | [`04-integrity-violation/`](04-integrity-violation/) | Altération du registre (chaos, Hôte only) | `LedgerIntegrityBroken`, `LedgerIntegrityViolationLogged` |
 | 05 | [`05-business-logic/`](05-business-logic/) | Abus logique métier / BOLA (app) | surtout 422/403/404 légitimes |
+| 06 | [`06-account-flood/`](06-account-flood/) | Création massive de comptes (volumétrique) | `HighLatencyP95`/`HighErrorRate` si saturation |
 
 **Clip Chrono / démo de bout en bout** : [`clip-chrono.sh`](clip-chrono.sh) enchaîne, en une prise et sans
 coupe, la transaction témoin (`tests/smoke_test.py`) → l'attaque L7 → l'attente de reprise automatique (sans
