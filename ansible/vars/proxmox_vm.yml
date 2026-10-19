@@ -1,0 +1,31 @@
+# VM « PC Hôte » du groupe 6 sur le Proxmox du labo EPSI (pool partagé I1).
+# Le secret du token n'est jamais versionné : il est lu dans l'environnement (voir ansible/README.md).
+
+# Certificat auto-signé du Proxmox, épinglé localement (CN seul, sans SAN)
+pve_ca_path: "{{ lookup('ansible.builtin.env', 'HOME') }}/.config/proxmox/proxmox-labo.pem"
+
+# Le token administre toutes les VM du pool I1, y compris celles des autres groupes :
+# le playbook refuse de toucher à un autre ID que ceux listés ici.
+pve_allowed_vmids: [4600]
+
+# deb-trixie-cloud-i1 : Debian 13 avec cloud-init et agent QEMU, fourni par le labo
+pve_template:
+  vmid: 937
+  node: hv-epyc-01
+
+vm:
+  vmid: 4600
+  name: i1-workshop-resilience-g6-host
+  node: hv-epyc-02
+  pool: I1
+  storage: I1-12T
+  cores: 6
+  memory_mb: 16384
+  disk_gb: 80
+  bridge: vmbr0
+  ip_cidr: 172.16.147.10/16
+  gateway: 172.16.255.254
+  ci_user: resilience
+  ssh_pubkey_file: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_ed25519.pub"
+  tags: workshop;resilience-alpha;g6
+  description: "Workshop EPSI 2026 - Resilience-Alpha - Groupe 6 - PC Hôte (Docker Compose). Provisionnée par ansible/provision_proxmox.yml."

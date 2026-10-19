@@ -1,0 +1,15 @@
+# Attend la fin d'une tâche asynchrone Proxmox (UPID) et échoue si elle n'a pas abouti.
+# Le nœud qui exécute la tâche est le deuxième champ de l'UPID.
+- name: Attendre la tâche Proxmox
+  ansible.builtin.uri:
+    url: "{{ pve_api }}/nodes/{{ pve_upid.split(':')[1] }}/tasks/{{ pve_upid }}/status"
+  register: pve_task
+  until: (pve_task.json.data.status | default('')) == 'stopped'
+  retries: 120
+  delay: 5
+
+- name: Vérifier que la tâche a réussi
+  ansible.builtin.assert:
+    that: pve_task.json.data.exitstatus == 'OK'
+    fail_msg: "Tâche Proxmox en échec : {{ pve_task.json.data.exitstatus }}"
+    quiet: true
