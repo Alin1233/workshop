@@ -5,8 +5,14 @@
 #   NO human action -> after (smoke_test OK = service truly usable again).
 # The recovery proof is the team's own witness transaction, tests/smoke_test.py
 # (exit 0 = SI de paiement rétabli). A restarted container is NOT proof.
+#
+# Optional Act II (INTEGRITY_ACT=1, Hôte only): corrupt the ledger -> integrity
+# detection fires -> restore -> integrity green. Data-compromise recovery is a
+# restore, not a restart. Needs docker + the postgres container (so run it on
+# the Hôte); skipped with a warning when the DB is not reachable locally.
 # Usage: TARGET=172.16.147.10 ./clip-chrono.sh
-#   Env: TARGET, PORT, DURATION (<=60 attack window), RECOVER_WAIT (max s)
+#   Env: TARGET, PORT, DURATION (<=60 attack window), RECOVER_WAIT (max s),
+#        INTEGRITY_ACT=1, ADMIN_TOKEN (optional, to poll /admin/integrity)
 set -euo pipefail
 source "$(dirname "$0")/../_lib/guard.sh"
 
@@ -14,6 +20,8 @@ TARGET="${TARGET:-172.16.147.10}"
 PORT="${PORT:-8080}"
 DURATION="${DURATION:-30}"
 RECOVER_WAIT="${RECOVER_WAIT:-90}"
+INTEGRITY_ACT="${INTEGRITY_ACT:-0}"
+ADMIN_TOKEN="${ADMIN_TOKEN:-}"
 ra_require_scope "$TARGET"
 
 BASE="http://$TARGET:$PORT"
@@ -29,6 +37,51 @@ witness() {  # $1 = label ; returns smoke_test exit code
 }
 
 banner() { echo ""; echo "=== $1 === $(ra_now)"; }
+
+# admin_integrity_code : HTTP code of /api/payments/admin/integrity (200 ok, 409 broken),
+# or "n/a" when no ADMIN_TOKEN is set to reach the admin route.
+admin_integrity_code() {
+  [ -n "$ADMIN_TOKEN" ] || { echo "n/a"; return; }
+  curl -s -o /dev/null -w '%{http_code}' -m 5 -H "Authorization: Bearer $ADMIN_TOKEN" \
+    "$BASE/api/payments/admin/integrity" || echo 000
+}
+
+integrity_act() {
+  local CORRUPT="$(dirname "$0")/04-integrity-violation/corrupt-ledger.sh"
+  banner "ACT II - 1/4  INTEGRITY PRE-CHECK"
+  if ! command -v docker >/dev/null 2>&1 || [ -z "$(docker ps --filter name=postgres -q 2>/dev/null | head -1)" ]; then
+    echo "[!] No local postgres container - the DB is not reachable from here."
+    echo "    Run clip-chrono.sh with INTEGRITY_ACT=1 ON THE HÔTE. Skipping Act II."
+    return 0
+  fi
+  echo "[*] admin/integrity -> HTTP $(admin_integrity_code) (expect 200)"
+  "$CORRUPT" check
+
+  banner "ACT II - 2/4  CORRUPT LEDGER (backup-first)"
+  CONFIRM=1 "$CORRUPT" corrupt
+
+  banner "ACT II - 3/4  AWAIT INTEGRITY DETECTION (watcher ~15s)"
+  local broken=0 c
+  for ((t=0; t<60; t+=5)); do
+    c=$(admin_integrity_code)
+    echo "    t+${t}s  admin/integrity -> HTTP $c   (Grafana: payment_ledger_integrity_ok, LedgerIntegrityBroken)"
+    if [ "$c" = "409" ]; then broken=1; break; fi
+    # Without a token, fall back to the DB truth and give the watcher its window.
+    if [ "$c" = "n/a" ] && [ "$t" -ge 20 ]; then broken=1; break; fi
+    sleep 5
+  done
+  [ "$broken" = 1 ] && echo "[+] Integrity violation detected - alert should be firing now." \
+                    || echo "[!] Did not observe a 409 - check the dashboard before restoring."
+
+  banner "ACT II - 4/4  RESTORE + PROOF"
+  "$CORRUPT" restore
+  echo "[*] admin/integrity -> HTTP $(admin_integrity_code) (expect 200 within ~15s)"
+  if witness after-integrity; then
+    echo "[+] RESTORED: ledger consistent again AND a witness transaction succeeds."
+  else
+    echo "[-] Witness transaction still failing after restore - investigate."
+  fi
+}
 
 [ -f "$SMOKE" ] || { echo "[-] Not found: $SMOKE (run from the cloned repo)."; exit 1; }
 
@@ -69,6 +122,8 @@ else
   echo "[-] /health is 200 but smoke_test failed - service not truly usable (restart != recovery)."
   exit 3
 fi
+
+[ "$INTEGRITY_ACT" = 1 ] && integrity_act
 
 echo ""
 echo "[*] Demo window complete: $(ra_now)"
