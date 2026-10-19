@@ -12,15 +12,16 @@
 
 ## Infrastructure
 - ✅ Docker Compose : réseaux segmentés (edge/dmz/app/data/obs/mgmt/ai), conteneurs durcis, interfaces de gestion sur 127.0.0.1
-- ✅ Prometheus (10 cibles, sondes de bout en bout blackbox à travers le WAF, 7 règles d'alerte)
+- ✅ Prometheus (11 cibles, sondes de bout en bout blackbox à travers le WAF, 12 règles d'alerte)
 - ✅ Loki + Alloy (journaux de tous les conteneurs, sans socket Docker), Alertmanager (routé vers la remédiation)
 - ✅ Grafana provisionné : tableaux « Santé du service » et « SOC » (`infra/grafana/generate_dashboards.py`)
 - ✅ VM PC Hôte provisionnée sur le Proxmox du labo par Ansible (`ansible/provision_proxmox.yml`) : `172.16.147.10`, Debian 13, 6 vCPU / 16 Go / 80 Go
 - ✅ VM préparée par `ansible/prepare_host.yml` : Docker 29 + Compose, pare-feu nftables compatible Docker, SSH durci, mises à jour de sécurité
 - ✅ Stack déployée sur la VM par `ansible/deploy.yml` (une version par commit, retour arrière, tests sur l'hôte et à travers le réseau) ; reprise d'un service par `restart_service.yml`
 - ✅ Sauvegarde PostgreSQL toutes les 15 min avec état d'intégrité du registre, restauration de la dernière sauvegarde saine (`backup_database.yml`, `restore_database.yml`, runbook `docs/runbooks/restauration-base.md`) : corruption détectée en 19 s, restauration en 10,6 s
-- ☐ Métriques conteneurs et base (cAdvisor / postgres-exporter) si le ML en a besoin — attention à la RAM et aux privilèges
-- ☐ Configurer le point d'accès Windows RESILIENCE-G<n> (192.168.137.1) et le pare-feu ; tester depuis un autre poste
+- ✅ PC Hôte et sauvegardes supervisés : node-exporter (sans socket Docker), alertes disque, mémoire, sauvegarde manquante ou en échec, rangée dédiée dans « Santé du service »
+- ☐ cAdvisor / postgres-exporter : non déployés (le contrat du détecteur d'anomalies n'utilise que des métriques applicatives ; cAdvisor exige le socket Docker) — à rouvrir si le pilier IA en a besoin
+- ☐ Point d'accès RESILIENCE-G6 : le PC Hôte est une VM du labo (172.16.147.10), joignable par le wifi labo et non par un point d'accès du groupe — **à faire valider par le coach** (tous les postes y arrivent avec la même IP, 172.16.255.252)
 - ☐ README de déploiement final vérifié sur une machine vierge
 
 ## IA / Data

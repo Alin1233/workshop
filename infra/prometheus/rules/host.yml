@@ -1,0 +1,38 @@
+# Alertes du PC Hôte et des sauvegardes (métriques de node-exporter et de son collecteur textfile).
+# service: pc-hote ne désigne aucun service Compose : ces alertes s'adressent à l'opérateur,
+# le moteur de remédiation ne doit pas tenter de « redémarrer » quoi que ce soit en réponse.
+groups:
+  - name: host
+    rules:
+      - alert: HostDiskSpaceLow
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/", fstype!="rootfs"}
+            / node_filesystem_size_bytes{mountpoint="/", fstype!="rootfs"} < 0.15
+        for: 5m
+        labels: { severity: warning, domain: availability }
+        annotations:
+          summary: "PC Hôte : moins de 15 % d'espace libre sur / (journaux, sauvegardes, images Docker)"
+
+      - alert: HostMemoryLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 2m
+        labels: { severity: warning, domain: availability }
+        annotations:
+          summary: "PC Hôte : moins de 10 % de mémoire disponible"
+
+  - name: backup
+    rules:
+      # Le timer sauvegarde toutes les 15 min : deux sauvegardes manquées = RPO de 15 min dépassé
+      - alert: BackupMissing
+        expr: time() - resilience_backup_last_success_timestamp_seconds > 1800
+        for: 1m
+        labels: { severity: warning, domain: availability }
+        annotations:
+          summary: "Aucune sauvegarde PostgreSQL réussie depuis plus de 30 min (RPO dépassé)"
+
+      - alert: BackupFailed
+        expr: resilience_backup_last_failure_timestamp_seconds > resilience_backup_last_success_timestamp_seconds
+        for: 0s
+        labels: { severity: warning, domain: availability }
+        annotations:
+          summary: "La dernière sauvegarde PostgreSQL a échoué (journalctl -u resilience-pg-backup)"
