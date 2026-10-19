@@ -6,7 +6,7 @@
 
 **Commande**
 ```bash
-TARGET=192.168.137.1 ./sqli.sh "http://192.168.137.1:8080/api/payments/accounts?id=1"
+TARGET=172.16.147.10 ./sqli.sh "http://172.16.147.10:8080/api/payments/accounts?id=1"
 ```
 
 **Effet attendu** — Requêtes malveillantes rejetées en `403` par le WAF (OWASP CRS), journal d'audit ModSecurity (JSON).

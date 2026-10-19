@@ -1,11 +1,11 @@
 # Scénarios d'attaque (pilier CYBER — Red Team)
 
-Exécutés **depuis le PC Attaquant**, contre `http://192.168.137.1:8080` uniquement (SI fictif du groupe).
+Exécutés **depuis le PC Attaquant**, contre `http://172.16.147.10:8080` uniquement (SI fictif du groupe).
 Réseaux du campus, autres groupes et services tiers : **hors périmètre**.
 
 Un dossier par scénario : `attacks/<nn>-<nom>/` avec `README.md` (objectif, prérequis, commande, effet attendu,
 détection attendue, remédiation attendue) et le script reproductible. Garde-fou commun dans `_lib/guard.sh` :
-tout script refuse une cible hors `192.168.137.0/24` sauf `ALLOW_UNSAFE=1`, et journalise dans `logs/` (ignoré par git).
+tout script refuse une cible hors des réseaux autorisés (`192.168.137.0/24`, `172.16.147.0/24`) sauf `ALLOW_UNSAFE=1`, et journalise dans `logs/` (ignoré par git).
 
 ## Scénarios
 
@@ -22,7 +22,7 @@ action humaine) → la preuve de reprise (nouvelle transaction témoin OK). Une 
 
 ```bash
 cd attacks
-TARGET=192.168.137.1 ./clip-chrono.sh
+TARGET=172.16.147.10 ./clip-chrono.sh
 ```
 
 ### Outils (PC Attaquant)
@@ -40,7 +40,7 @@ Les scripts restent la source de vérité des vecteurs ; le skill n'ajoute que l
   de façon **reproductible** (deux fois), avec les preuves dans `logs/`. Un simple ralentissement ne compte pas.
 - **Boucle** : baseline (`00-recon` + `smoke_test` vert) → lancer un vecteur → vérifier l'alerte sur le Hôte
   (`curl -s http://127.0.0.1:9090/api/v1/alerts`, `:9093/api/v2/alerts`) → si rien, escalader ou changer de vecteur → restaurer.
-- **Périmètre** : identique aux scripts — `192.168.137.0/24` uniquement, runs ≤ 60 s, coordination avec le Blue.
+- **Périmètre** : identique aux scripts — réseaux autorisés `192.168.137.0/24` + `172.16.147.0/24` (cible actuelle `172.16.147.10`), runs ≤ 60 s, coordination avec le Blue.
 
 Appel : `/redteam` (ou l'agent le déclenche sur « attaquer / pentester le SI, provoquer un incident »).
 

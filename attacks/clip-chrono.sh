@@ -5,12 +5,12 @@
 #   NO human action -> after (smoke_test OK = service truly usable again).
 # The recovery proof is the team's own witness transaction, tests/smoke_test.py
 # (exit 0 = SI de paiement rétabli). A restarted container is NOT proof.
-# Usage: TARGET=192.168.137.1 ./clip-chrono.sh
+# Usage: TARGET=172.16.147.10 ./clip-chrono.sh
 #   Env: TARGET, PORT, DURATION (<=60 attack window), RECOVER_WAIT (max s)
 set -euo pipefail
 source "$(dirname "$0")/../_lib/guard.sh"
 
-TARGET="${TARGET:-192.168.137.1}"
+TARGET="${TARGET:-172.16.147.10}"
 PORT="${PORT:-8080}"
 DURATION="${DURATION:-30}"
 RECOVER_WAIT="${RECOVER_WAIT:-90}"

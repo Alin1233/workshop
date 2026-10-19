@@ -6,7 +6,7 @@
 
 **Commande**
 ```bash
-./recon.sh 192.168.137.1 8080
+./recon.sh 172.16.147.10 8080
 ```
 
 **Effet attendu** — Aucun effet sur le service. Bruit léger côté logs. Résultats horodatés dans `attacks/logs/recon-*`.

@@ -5,13 +5,13 @@
 #   event_type=auth_failure / auth_login_attempts_total{result="failure"}.
 # Expected response: WAF rate-limit / block IP, SIEM alert. (Availability is
 #   not affected - this is a compromise-attempt scenario, not a DoS.)
-# Usage: TARGET=192.168.137.1 ./bruteforce.sh
+# Usage: TARGET=172.16.147.10 ./bruteforce.sh
 #   Env: TARGET, PORT, LOGIN_PATH, USERNAME, WORDLIST, FAIL_CODE
 #        MODE=json (default, matches FastAPI) | form (hydra, urlencoded)
 set -euo pipefail
 source "$(dirname "$0")/../_lib/guard.sh"
 
-TARGET="${TARGET:-192.168.137.1}"
+TARGET="${TARGET:-172.16.147.10}"
 PORT="${PORT:-8080}"
 LOGIN_PATH="${LOGIN_PATH:-/api/auth/login}"
 USERNAME="${USERNAME:-admin@resilience.local}"

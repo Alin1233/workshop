@@ -4,11 +4,11 @@
 # Expected detection: WAF 403 (OWASP CRS), ModSecurity audit log, WafAttackBlocked.
 # Expected response: WAF block - NOT an availability restart. This is a
 #   compromise-attempt scenario; do not confuse it with the DoS recovery.
-# Usage: TARGET=192.168.137.1 ./sqli.sh "http://192.168.137.1:8080/api/payments/accounts?id=1"
+# Usage: TARGET=172.16.147.10 ./sqli.sh "http://172.16.147.10:8080/api/payments/accounts?id=1"
 set -euo pipefail
 source "$(dirname "$0")/../_lib/guard.sh"
 
-URL="${1:-${URL:-http://192.168.137.1:8080/api/payments/accounts?id=1}}"
+URL="${1:-${URL:-http://172.16.147.10:8080/api/payments/accounts?id=1}}"
 ra_require_scope "$URL"
 
 command -v sqlmap >/dev/null 2>&1 || { echo "[-] sqlmap not installed (git clone or pipx install sqlmap)"; exit 1; }

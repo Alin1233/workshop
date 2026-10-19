@@ -8,9 +8,9 @@ Pourquoi L7 et pas un flood SYN : la remédiation (rate-limit WAF, redémarrage 
 
 **Commande**
 ```bash
-./dos.sh 192.168.137.1 8080 30
+./dos.sh 172.16.147.10 8080 30
 # secondaire, plafonné, root requis :
-sudo SYN_FLOOD=1 ./dos.sh 192.168.137.1 8080 30
+sudo SYN_FLOOD=1 ./dos.sh 172.16.147.10 8080 30
 ```
 
 **Effet attendu** — Montée de la latence p95, 5xx, `probe_success=0`, pics req/s et CPU. Visibles dans Grafana « Santé du service ».

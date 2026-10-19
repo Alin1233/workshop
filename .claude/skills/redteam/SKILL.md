@@ -1,6 +1,6 @@
 ---
 name: redteam
-description: Red Team attack loop for the RESILIENCE-ALPHA payment SI — escalate attack vectors until one lands (a reproducible, detected incident) and capture the evidence. Use when asked to attack, pentest, or red-team the SI, provoke or reproduce a security incident, choose or escalate an attack vector, or drive the Clip Chrono demo. Lab scope only: the team's own SI on 192.168.137.0/24.
+description: Red Team attack loop for the RESILIENCE-ALPHA payment SI — escalate attack vectors until one lands (a reproducible, detected incident) and capture the evidence. Use when asked to attack, pentest, or red-team the SI, provoke or reproduce a security incident, choose or escalate an attack vector, or drive the Clip Chrono demo. Lab scope only: the team's own SI on the authorized nets (192.168.137.0/24 and the deployment net 172.16.147.0/24). Current target: http://172.16.147.10:8080.
 ---
 
 # Red Team attack loop — RESILIENCE-ALPHA
@@ -9,7 +9,7 @@ Drive the attacker side of the demonstrator: provoke a **reproducible, observed*
 
 ## Scope — the one hard rule
 
-Attack **only** the team's own SI, reachable at `http://192.168.137.1:8080`, from the attacker PC, each run timed to **≤60s**, and coordinate start/stop with the Blue/infra operator. The scripts enforce the `192.168.137.0/24` subnet through `attacks/_lib/guard.sh` — keep that guard. Campus network, other groups, the internet, and any real data stay strictly out of reach; if a run could touch them, stop and report.
+Attack **only** the team's own SI, reachable at `http://172.16.147.10:8080`, from the attacker PC, each run timed to **≤60s**, and coordinate start/stop with the Blue/infra operator. The scripts enforce the authorized lab nets (`192.168.137.0/24` and the deployment net `172.16.147.0/24`) through `attacks/_lib/guard.sh` — keep that guard; extend `RA_ALLOWED_NETS` if the deployment moves, never disable it. Campus network, other groups, the internet, and any real data stay strictly out of reach; if a run could touch them, stop and report.
 
 ## What "a result" means — the completion criterion
 
@@ -24,9 +24,9 @@ Stretch result: `attacks/clip-chrono.sh` then proves **autonomous recovery** —
 
 ## The loop
 
-1. **Baseline.** Run `attacks/00-recon/recon.sh 192.168.137.1 8080`, then confirm the service is healthy: `python tests/smoke_test.py http://192.168.137.1:8080` exits 0. You need a green baseline to prove you broke something.
+1. **Baseline.** Run `attacks/00-recon/recon.sh 172.16.147.10 8080`, then confirm the service is healthy: `python tests/smoke_test.py http://172.16.147.10:8080` exits 0. You need a green baseline to prove you broke something.
 2. **Target an oracle.** Pick the vector whose named alert you intend to fire (table below). Start with the main one: **L7 DoS**.
-3. **Launch**, scoped and timed, from `attacks/` (e.g. `./01-dos-applicatif/dos.sh 192.168.137.1 8080 30`).
+3. **Launch**, scoped and timed, from `attacks/` (e.g. `./01-dos-applicatif/dos.sh 172.16.147.10 8080 30`).
 4. **Check the oracle** on the Hôte while/just after the run fires:
    - Prometheus: `curl -s http://127.0.0.1:9090/api/v1/alerts | grep -o '"alertname":"[^"]*"' | sort -u`
    - Alertmanager: `curl -s http://127.0.0.1:9093/api/v2/alerts | grep -o '"alertname":"[^"]*"' | sort -u`
@@ -75,7 +75,7 @@ If the full ladder fires no oracle, the defense is holding under the authorized 
 The modern, reproducible kit this loop presents:
 
 - **Attacker PC** (distinct from the Hôte) with `nmap`, `ffuf`, `slowhttptest`, `hydra`, `sqlmap`, `hping3`.
-- **Scoped network**: the Windows mobile hotspot `RESILIENCE-G<n>`, Hôte at `192.168.137.1`, enforced by `_lib/guard.sh`.
+- **Scoped network**: the Windows mobile hotspot `RESILIENCE-G<n>`, Hôte at `172.16.147.10`, enforced by `_lib/guard.sh`.
 - **Orchestration**: `attacks/clip-chrono.sh` runs the whole before → attack → auto-recovery → proof sequence in one continuous take.
 - **Evidence**: every script writes a timestamped run to `attacks/logs/` (gitignored) for the dossier.
 

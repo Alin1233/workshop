@@ -6,10 +6,10 @@
 
 **Commande**
 ```bash
-TARGET=192.168.137.1 ./bruteforce.sh
+TARGET=172.16.147.10 ./bruteforce.sh
 # variantes :
-TARGET=192.168.137.1 USERNAME=admin@resilience.local ./bruteforce.sh
-TARGET=192.168.137.1 MODE=form ./bruteforce.sh
+TARGET=172.16.147.10 USERNAME=admin@resilience.local ./bruteforce.sh
+TARGET=172.16.147.10 MODE=form ./bruteforce.sh
 ```
 
 **Effet attendu** — Rafale de `401` sur `/api/auth/login`, `event_type=auth_failure`, `auth_login_attempts_total{result="failure"}` en hausse.
