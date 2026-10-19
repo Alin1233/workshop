@@ -30,7 +30,7 @@
 - ☐ Choisir où tourne le LLM (PC Hôte, 3e PC, ou `--profile ai`) selon la RAM disponible
 - ☐ Rédiger données / préparation / modèle / résultats / limites pour le dossier
 
-## Cybersécurité
+## Sécurité
 - ✅ WAF ModSecurity + OWASP CRS en unique point d'entrée (SQLi/XSS bloquées en 403, IP réelle propagée jusqu'aux API)
 - ✅ SOC intégré : 5 règles LogQL (force brute, rafale de jetons invalides, blocages WAF, violations d'intégrité, pannes de dépendance) → Alertmanager — testées
 - ✅ Script SOPS + age (`scripts/sops_secrets.py`) — **non testé** (sops/age absents du poste)

@@ -40,7 +40,7 @@ alimenter le moteur de remédiation.
 | `payment-api` | Comptes, virements en partie double, idempotence, contrôle d'intégrité | non |
 | `postgres` | `authdb` (rôle `auth_svc`) et `paydb` (rôle `pay_svc`), isolées | non |
 
-### Observabilité et SOC (pilier Infrastructure / Cyber)
+### Observabilité et SOC (pilier Infrastructure / Sécurité)
 
 ```
  conteneurs ──stdout JSON──▶ fichiers json-file ──▶ alloy ──▶ loki ──règles SOC──┐

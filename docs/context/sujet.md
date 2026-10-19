@@ -4,7 +4,7 @@
 
 
 
-**PROJECT RESILIENCE-ALPHA CYBER-RÉSILIENCE ET REPRISE AUTONOME** 
+**PROJECT RESILIENCE-ALPHA RÉSILIENCE ET REPRISE AUTONOME** 
 
 
 
@@ -22,13 +22,13 @@ Ei epsi®<br><!-- End of picture text -->
 <!-- Start of picture text -->
 myDiL<br><!-- End of picture text -->
 
-**SUJET DE WORKSHOP NATIONAL — BAC+5 PROJECT RESILIENCE-ALPHA • CYBER-RÉSILIENCE ET REPRISE AUTONOME** 
+**SUJET DE WORKSHOP NATIONAL — BAC+5 PROJECT RESILIENCE-ALPHA • RÉSILIENCE ET REPRISE AUTONOME** 
 
 Apprenants en 5ème Année • Sprint d'ingénierie (4 jours) • Octobre 2026 
 
 # **CINQ DOMAINES POUR UNE PLATEFORME UNIQUE** 
 
-- **DÉVELOPPEMENT** · _Microservices, API, remédiation, interface React/Tailwind_ **INFRASTRUCTURE** · _Docker Compose, Ansible, Prometheus, Grafana, Loki_ **IA / DATA·** _Machine learning, agent RAG, Ollama et LangChain_ **CYBERSÉCURITÉ** · _WAF, SIEM, durcissement, Vault/SOPS_ **TRANSFORMATION** · _EBIOS RM, NIS2/DORA, PCA/PRA et arbitrages_ 
+- **DÉVELOPPEMENT** · _Microservices, API, remédiation, interface React/Tailwind_ **INFRASTRUCTURE** · _Docker Compose, Ansible, Prometheus, Grafana, Loki_ **IA / DATA·** _Machine learning, agent RAG, Ollama et LangChain_ **SÉCURITÉ** · _WAF, SIEM, durcissement, Vault/SOPS_ **TRANSFORMATION** · _EBIOS RM, NIS2/DORA, PCA/PRA et arbitrages_ 
 
 _Cinq piliers obligatoires, quelle que soit la composition du consortium._ 
 
@@ -122,7 +122,7 @@ Un second composant est attendu : un assistant local destiné aux opérateurs co
 
 L’assistant peut aider à comprendre ce qui se passe ou à consulter les procédures. Il ne doit pas être confondu avec l’automate chargé de la remédiation, ni disposer sans contrôle d’accès privilégiés au système. 
 
-### **3.4 — Cybersécurité : éprouver la plateforme sans sortir du laboratoire** 
+### **3.4 — Sécurité : éprouver la plateforme sans sortir du laboratoire** 
 
 Vous devrez préparer au moins un scénario d’incident contrôlé déclenché depuis un ordinateur distinct du PC Hôte. Il ne s’agit pas d’une simulation graphique : l’action devra provoquer sur votre environnement un effet observable que vos mécanismes de surveillance pourront identifier. 
 
@@ -346,7 +346,7 @@ Aucune activité ne doit concerner les réseaux du campus, un autre consortium, 
 
 # **DERNIER POINT : CE QUE LE JURY CHERCHERA À COMPRENDRE** 
 
-Il ne vous est pas demandé de fabriquer en quatre jours une plateforme de paiement industrielle prête à être mise en production. **Vous devez en revanche démontrer une chaîne de cyber-résilience crédible, en vous appuyant sur les composants et technologies prescrits, suffisamment aboutie pour être exécutée et discutée techniquement.** 
+Il ne vous est pas demandé de fabriquer en quatre jours une plateforme de paiement industrielle prête à être mise en production. **Vous devez en revanche démontrer une chaîne de résilience crédible, en vous appuyant sur les composants et technologies prescrits, suffisamment aboutie pour être exécutée et discutée techniquement.** 
 
 Vous serez jugés sur ce que vous avez réellement construit, sur les preuves de fonctionnement présentées et sur votre capacité à expliquer les décisions prises sous contrainte de temps. 
 
@@ -372,7 +372,7 @@ Les sigles les plus utilisés dans le sujet sont rappelés ci-dessous.
 |**Blue Team**|**WAF**|
 |Activités défensives de détection et de réponse.|Pare-feu applicatif.|
 |**SIEM**|**EBIOS RM**|
-|Collecte et corrélation des événements de|Méthode d’appréciation des risques cyber.|
+|Collecte et corrélation des événements de|Méthode d’appréciation des risques de sécurité.|
 |**NIS2**|**DORA**|
 |Directive européenne relative à la sécurité des|Règlement européen sur la résilience|
 |**PCA / PRA**|**Zero-Touch Recovery**|

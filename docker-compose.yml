@@ -1,4 +1,4 @@
-# Resilience-Alpha — démonstrateur de cyber-résilience (SI de paiement fictif + chaîne d'observation et de reprise)
+# Resilience-Alpha — démonstrateur de résilience (SI de paiement fictif + chaîne d'observation et de reprise)
 # Seul le WAF est publié sur le réseau du groupe. Les interfaces de gestion (Grafana, Prometheus, Loki, Alertmanager)
 # ne sont publiées que sur 127.0.0.1 (MGMT_BIND) : base, API, secrets et outils internes ne sont jamais exposés.
 name: resilience-alpha
@@ -92,7 +92,7 @@ services:
     tmpfs: ["/tmp"]
     networks: [dmz, app]
 
-  # ───────────────────────────── Défense (pilier CYBER) ─────────────────────────────
+  # ───────────────────────────── Défense (pilier SÉCURITÉ) ─────────────────────────────
   # WAF ModSecurity + OWASP CRS : unique point d'entrée publié, relaie vers le frontal nginx.
   waf:
     <<: *hardening

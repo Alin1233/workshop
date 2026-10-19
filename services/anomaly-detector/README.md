@@ -14,7 +14,7 @@ Le sujet exclut les seuls seuils codés en dur : un modèle doit distinguer comp
 Débit et taux de 5xx par service, latence p95, échecs de connexion/min, blocages WAF/min, IP distinctes/min, `probe_success`.
 
 ## À faire
-- [ ] Constituer le jeu de données : trafic normal (générateur de charge) + trafic d'attaque étiqueté (scripts de la branche `cyber`) → `ml/`
+- [ ] Constituer le jeu de données : trafic normal (générateur de charge) + trafic d'attaque étiqueté (scripts de la branche de tests de sécurité) → `ml/`
 - [ ] Choisir et entraîner le modèle (Isolation Forest, autoencodeur, z-score multivarié…), mesurer précision/rappel/faux positifs
 - [ ] Service d'inférence en boucle (toutes les 10 s) + Dockerfile + entrée compose (réseau `obs`)
 - [ ] Décommenter la règle `AnomalyDetected` et le job Prometheus `anomaly-detector`
