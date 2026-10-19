@@ -96,6 +96,8 @@ Procédure, mesures et limites : [docs/runbooks/restauration-base.md](../docs/ru
   les empreintes SHA-256 et l'**état d'intégrité du registre** relevé avant et après les dumps.
 - `restore_database.yml` restaure par défaut la **dernière sauvegarde saine** : une sauvegarde prise après une corruption
   n'est jamais choisie d'office. L'état courant est conservé avant écrasement (`pre-restore`), pour l'investigation.
+- Les scripts écrivent leurs mesures pour node-exporter (`/var/lib/node-exporter/textfile/*.prom`) : alertes
+  `BackupFailed` et `BackupMissing`, rangée « PC Hôte et sauvegardes » du tableau Grafana « Santé du service ».
 - Ni les rôles ni leurs mots de passe ne sont sauvegardés : `db/init/01-create-service-databases.sh` les recrée depuis les secrets.
 
 | Playbook | Rôle | État |

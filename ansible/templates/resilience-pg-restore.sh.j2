@@ -60,5 +60,23 @@ log "registre cohérent après restauration"
 END=$(date +%s.%N)
 CREATED="$(sed -n 's/.*"created_at": "\([^"]*\)".*/\1/p' "$SRC/meta.json")"
 AGE=$(( $(date +%s) - $(date -d "$CREATED" +%s) ))
-printf '{"restored": "%s", "backup_created_at": "%s", "backup_age_seconds": %d, "restore_seconds": %.1f}\n' \
-  "$(basename "$SRC")" "$CREATED" "$AGE" "$(awk -v a="$START" -v b="$END" 'BEGIN { print b - a }')"
+DURATION="$(awk -v a="$START" -v b="$END" 'BEGIN { printf "%.1f", b - a }')"
+
+# Mesures exposées par node-exporter (tableau « Santé du service », PCA/PRA)
+TEXTFILE_DIR={{ pc_hote_node_textfile_dir }}
+cat > "$TEXTFILE_DIR/.resilience_restore.prom.tmp" <<PROM
+# HELP resilience_restore_last_timestamp_seconds Horodatage de la dernière restauration PostgreSQL réussie
+# TYPE resilience_restore_last_timestamp_seconds gauge
+resilience_restore_last_timestamp_seconds $(date +%s)
+# HELP resilience_restore_last_duration_seconds Durée de la dernière restauration (RTO mesuré de l'opération)
+# TYPE resilience_restore_last_duration_seconds gauge
+resilience_restore_last_duration_seconds $DURATION
+# HELP resilience_restore_last_backup_age_seconds Âge de la sauvegarde restaurée (borne des données perdues)
+# TYPE resilience_restore_last_backup_age_seconds gauge
+resilience_restore_last_backup_age_seconds $AGE
+PROM
+chmod 0644 "$TEXTFILE_DIR/.resilience_restore.prom.tmp"
+mv "$TEXTFILE_DIR/.resilience_restore.prom.tmp" "$TEXTFILE_DIR/resilience_restore.prom"
+
+printf '{"restored": "%s", "backup_created_at": "%s", "backup_age_seconds": %d, "restore_seconds": %s}\n' \
+  "$(basename "$SRC")" "$CREATED" "$AGE" "$DURATION"

@@ -108,6 +108,7 @@
             content: |
               # Géré par Ansible (deploy.yml) : chemins stables d'une version à l'autre
               SECRETS_DIR={{ shared_secrets }}
+              NODE_TEXTFILE_DIR={{ pc_hote_node_textfile_dir }}
             owner: root
             group: root
             mode: "0644"

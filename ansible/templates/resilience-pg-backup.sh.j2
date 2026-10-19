@@ -16,7 +16,27 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 NAME="$STAMP-$KIND"
 # Écrit dans un répertoire temporaire puis renommé : une sauvegarde visible est toujours complète
 TMP="$BACKUP_DIR/.tmp-$NAME"
-trap 'rm -rf "$TMP"' EXIT
+TEXTFILE_DIR={{ pc_hote_node_textfile_dir }}
+
+write_metrics() {
+  # Fichier .prom lu par node-exporter (utilisateur non root) : écrit à part, rendu lisible, puis renommé
+  cat > "$TEXTFILE_DIR/.$1.prom.tmp"
+  chmod 0644 "$TEXTFILE_DIR/.$1.prom.tmp"
+  mv "$TEXTFILE_DIR/.$1.prom.tmp" "$TEXTFILE_DIR/$1.prom"
+}
+
+on_exit() {
+  local status=$?
+  rm -rf "$TMP"
+  if [ "$status" -ne 0 ]; then
+    write_metrics resilience_backup_failure <<PROM || true
+# HELP resilience_backup_last_failure_timestamp_seconds Horodatage du dernier échec de sauvegarde PostgreSQL
+# TYPE resilience_backup_last_failure_timestamp_seconds gauge
+resilience_backup_last_failure_timestamp_seconds $(date +%s)
+PROM
+  fi
+}
+trap on_exit EXIT
 mkdir -p "$TMP"
 cd "$APP_DIR"
 
@@ -54,5 +74,20 @@ LATEST_OK="$(grep -l '"integrity": "ok"' "$BACKUP_DIR"/*/meta.json 2>/dev/null |
 find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -name '2*' | sort -r | tail -n +{{ pc_hote_backup_keep + 1 }} | while read -r old; do
   [ "$old" = "$LATEST_OK" ] || rm -rf "$old"
 done
+
+write_metrics resilience_backup <<PROM
+# HELP resilience_backup_last_success_timestamp_seconds Horodatage de la dernière sauvegarde PostgreSQL réussie
+# TYPE resilience_backup_last_success_timestamp_seconds gauge
+resilience_backup_last_success_timestamp_seconds $(date +%s)
+# HELP resilience_backup_last_integrity_ok Registre cohérent (1) ou non (0) dans la dernière sauvegarde
+# TYPE resilience_backup_last_integrity_ok gauge
+resilience_backup_last_integrity_ok $([ "$STATUS" = ok ] && echo 1 || echo 0)
+# HELP resilience_backup_last_size_bytes Taille des dumps de la dernière sauvegarde
+# TYPE resilience_backup_last_size_bytes gauge
+resilience_backup_last_size_bytes $(cat "$BACKUP_DIR/$NAME"/*.dump | wc -c)
+# HELP resilience_backup_stored Nombre de sauvegardes conservées sur l'hôte
+# TYPE resilience_backup_stored gauge
+resilience_backup_stored $(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -name '2*' | wc -l)
+PROM
 
 cat "$BACKUP_DIR/$NAME/meta.json"

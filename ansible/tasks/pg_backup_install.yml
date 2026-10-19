@@ -8,6 +8,14 @@
     group: root
     mode: "0700"
 
+- name: Créer le répertoire des métriques lues par node-exporter (textfile)
+  ansible.builtin.file:
+    path: "{{ pc_hote_node_textfile_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Installer les scripts de sauvegarde et de restauration
   ansible.builtin.template:
     src: "templates/{{ item }}.sh.j2"

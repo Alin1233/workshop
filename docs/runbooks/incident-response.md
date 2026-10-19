@@ -12,3 +12,5 @@
 | LedgerIntegrityBroken | registre incohérent | restauration de la dernière sauvegarde saine, déclenchée par un opérateur ([restauration-base.md](restauration-base.md)) | `/api/payments/admin/integrity` |
 | AuthBruteForce | force brute depuis une IP | à définir (blocage IP au WAF) | tableau SOC |
 | WafAttackBlocked | attaques bloquées en série | à définir | journal d'audit du WAF |
+| BackupFailed / BackupMissing | la dernière sauvegarde PostgreSQL a échoué / aucune réussie depuis 30 min (RPO dépassé) | aucune : opérateur ([restauration-base.md](restauration-base.md)) | `journalctl -u resilience-pg-backup`, puis `sudo systemctl start resilience-pg-backup` |
+| HostDiskSpaceLow / HostMemoryLow | PC Hôte à moins de 15 % de disque / 10 % de mémoire | aucune : opérateur | rangée « PC Hôte et sauvegardes » du tableau « Santé du service » |

@@ -533,13 +533,366 @@
     },
     {
       "type": "row",
-      "title": "Alertes et journaux",
+      "title": "PC Hôte et sauvegardes (node-exporter, timer resilience-pg-backup)",
       "collapsed": false,
       "panels": [],
       "id": 14,
       "gridPos": {
         "x": 0,
         "y": 27,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "CPU",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])))",
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value"
+      },
+      "id": 15,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Mémoire utilisée",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value"
+      },
+      "id": 16,
+      "gridPos": {
+        "x": 4,
+        "y": 28,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Disque / utilisé",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})",
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value"
+      },
+      "id": 17,
+      "gridPos": {
+        "x": 8,
+        "y": 28,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Âge de la dernière sauvegarde",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "time() - resilience_backup_last_success_timestamp_seconds",
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1800
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value"
+      },
+      "id": 18,
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Registre dans la dernière sauvegarde",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "resilience_backup_last_integrity_ok",
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "KO",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "OK",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value"
+      },
+      "id": 19,
+      "gridPos": {
+        "x": 16,
+        "y": 28,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Dernière restauration",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "resilience_restore_last_duration_seconds",
+          "legendFormat": "durée"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "resilience_restore_last_backup_age_seconds",
+          "legendFormat": "données perdues ≤"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "id": 20,
+      "gridPos": {
+        "x": 20,
+        "y": 28,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "row",
+      "title": "Alertes et journaux",
+      "collapsed": false,
+      "panels": [],
+      "id": 21,
+      "gridPos": {
+        "x": 0,
+        "y": 32,
         "w": 24,
         "h": 1
       }
@@ -579,10 +932,10 @@
           }
         }
       ],
-      "id": 15,
+      "id": 22,
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 33,
         "w": 10,
         "h": 8
       }
@@ -610,10 +963,10 @@
         "wrapLogMessage": true,
         "sortOrder": "Descending"
       },
-      "id": 16,
+      "id": 23,
       "gridPos": {
         "x": 10,
-        "y": 28,
+        "y": 33,
         "w": 14,
         "h": 8
       }

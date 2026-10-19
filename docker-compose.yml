@@ -195,6 +195,21 @@ services:
     depends_on: [loki]
     networks: [obs]
 
+  # Métriques du PC Hôte (CPU, mémoire, disques) et des sauvegardes PostgreSQL (fichiers .prom écrits par
+  # resilience-pg-backup / resilience-pg-restore). Aucun accès au socket Docker : l'hôte est lu en lecture seule.
+  node-exporter:
+    <<: *hardening
+    image: prom/node-exporter:v1.12.1
+    command:
+      - --path.rootfs=/host
+      - --collector.textfile.directory=/textfile
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|run|sys|var/lib/docker/.+)($$|/)
+    read_only: true
+    volumes:
+      - /:/host:ro,rslave
+      - ${NODE_TEXTFILE_DIR:-/var/lib/node-exporter/textfile}:/textfile:ro
+    networks: [obs]
+
   grafana:
     <<: *hardening
     image: grafana/grafana:13.2.4
