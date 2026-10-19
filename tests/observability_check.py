@@ -2,11 +2,14 @@
 
 Usage (sur le PC Hôte, les interfaces de gestion n'étant publiées que sur 127.0.0.1) :
     python tests/observability_check.py
+Les URL se surchargent par variables d'environnement (RA_FRONT_URL, RA_PROMETHEUS_URL, RA_LOKI_URL,
+RA_ALERTMANAGER_URL, RA_GRAFANA_URL), par exemple pour viser la stack d'un worktree.
 Code de sortie 0 si toutes les vérifications passent. Bibliothèque standard uniquement.
 """
 
 import base64
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -14,11 +17,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-FRONT = "http://127.0.0.1:8080"
-PROMETHEUS = "http://127.0.0.1:9090"
-LOKI = "http://127.0.0.1:3100"
-ALERTMANAGER = "http://127.0.0.1:9093"
-GRAFANA = "http://127.0.0.1:3000"
+FRONT = os.environ.get("RA_FRONT_URL", "http://127.0.0.1:8080")
+PROMETHEUS = os.environ.get("RA_PROMETHEUS_URL", "http://127.0.0.1:9090")
+LOKI = os.environ.get("RA_LOKI_URL", "http://127.0.0.1:3100")
+ALERTMANAGER = os.environ.get("RA_ALERTMANAGER_URL", "http://127.0.0.1:9093")
+GRAFANA = os.environ.get("RA_GRAFANA_URL", "http://127.0.0.1:3000")
 SECRETS = Path(__file__).resolve().parent.parent / "secrets"
 
 results: list[bool] = []
