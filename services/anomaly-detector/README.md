@@ -6,7 +6,7 @@ Le sujet exclut les seuls seuils codés en dur : un modèle doit distinguer comp
 
 | Entrée / sortie | Détail |
 |---|---|
-| Données | API Prometheus `http://prometheus:9090/api/v1/query_range` et Loki `http://loki:3100/loki/api/v1/query_range` (réseau `obs`) ; depuis le PC Hôte : `127.0.0.1:9090` / `127.0.0.1:3100` |
+| Données | API Prometheus `http://prometheus:9090/api/v1/query_range` et Loki `http://loki:3100/loki/api/v1/query_range` (réseau `obs`) ; depuis le PC Hôte : `127.0.0.1:9090` / `127.0.0.1:3100`. Prometheus et Alertmanager exigent une authentification basique, réseau interne compris : `admin` / `/run/secrets/<service>_password` (secret Compose). Loki interne (`loki:3100`) est sans identifiant ; depuis le PC Hôte, `127.0.0.1:3100` passe par `loki-proxy` (admin / `secrets/loki_password`). |
 | Sortie | `GET /metrics` exposant `anomaly_score{service}` (0..1) et `anomaly_model_info{version}` |
 | Alerte | règle `AnomalyDetected` déjà rédigée (commentée) dans `infra/prometheus/rules/availability.yml` → Alertmanager → remédiation |
 

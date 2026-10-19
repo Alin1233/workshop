@@ -15,6 +15,7 @@ Grafana (127.0.0.1:3000) fournit déjà les vues « Santé du service » et « S
 
 ## À faire
 - [ ] Projet Vite + React + Tailwind (même base que `services/frontend`), servi par nginx non privilégié, publié sur `MGMT_BIND`
-- [ ] Back-for-front ou proxy nginx vers Prometheus/Alertmanager/Loki/remédiation (le navigateur ne doit pas joindre les réseaux internes)
+- [ ] Back-for-front ou proxy nginx vers Prometheus/Alertmanager/Loki/remédiation (le navigateur ne doit pas joindre les réseaux internes).
+  Prometheus et Alertmanager exigent une authentification basique, réseau interne compris : `admin` / `/run/secrets/<service>_password` (secret Compose). Loki interne (`loki:3100`) est sans identifiant ; depuis le PC Hôte, `127.0.0.1:3100` passe par `loki-proxy` (admin / `secrets/loki_password`). Les identifiants restent côté serveur, jamais dans le navigateur.
 - [ ] Vue chronologique : état avant / pendant / après l'incident, étapes de la remédiation, résultat de la transaction témoin
 - [ ] Carte des composants (vert/rouge) et liste des alertes

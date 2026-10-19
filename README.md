@@ -51,9 +51,10 @@ alimenter le moteur de remédiation.
 | Service | Rôle | Accès (PC Hôte uniquement) |
 |---|---|---|
 | `grafana` | tableaux « Santé du service » et « SOC » provisionnés | http://127.0.0.1:3000 (admin / `secrets/grafana_admin_password`) |
-| `prometheus` | métriques, sondes de bout en bout, 12 règles (`infra/prometheus/rules` : service, intégrité, PC Hôte, sauvegardes) | http://127.0.0.1:9090 |
-| `alertmanager` | regroupe les alertes et les envoie au moteur de remédiation | http://127.0.0.1:9093 |
-| `loki` | journaux centralisés + 5 règles SOC LogQL (`infra/loki/rules/fake/soc.yml`) | http://127.0.0.1:3100 |
+| `prometheus` | métriques, sondes de bout en bout, 12 règles (`infra/prometheus/rules` : service, intégrité, PC Hôte, sauvegardes) | http://127.0.0.1:9090 (admin / `secrets/prometheus_password`) |
+| `alertmanager` | regroupe les alertes et les envoie au moteur de remédiation | http://127.0.0.1:9093 (admin / `secrets/alertmanager_password`) |
+| `loki` | journaux centralisés + 5 règles SOC LogQL (`infra/loki/rules/fake/soc.yml`) | via `loki-proxy` |
+| `loki-proxy` | nginx : authentification basique devant Loki, qui n'en a pas (les accès internes d'Alloy et Grafana restent directs) | http://127.0.0.1:3100 (admin / `secrets/loki_password`) |
 | `alloy` | collecte les journaux en lisant les fichiers Docker (aucun accès au socket) | — |
 | `blackbox` | sonde le parcours client WAF → nginx → API → base | — |
 | `node-exporter` | ressources du PC Hôte (CPU, mémoire, disque) et état des sauvegardes PostgreSQL, sans accès au socket Docker | — |
@@ -75,11 +76,11 @@ Les interfaces de gestion ne sont publiées que sur `127.0.0.1` (`MGMT_BIND`), c
 Prérequis : Docker Desktop (WSL2) et Python 3.10+ (pour les scripts). OpenSSL ou `pip install cryptography` pour générer la clé JWT.
 
 ```bash
-python scripts/init_secrets.py      # crée ./secrets (mots de passe + paire RSA), jamais versionné
+python scripts/init_secrets.py      # crée ./secrets (mots de passe, hash bcrypt, paire RSA), jamais versionné
 cp .env.example .env                # facultatif
 docker compose up -d --build
 python tests/smoke_test.py          # 28 vérifications de bout en bout
-python tests/observability_check.py # 17 vérifications : WAF, Prometheus, Loki, règles SOC, Grafana
+python tests/observability_check.py # 23 vérifications : WAF, Prometheus, Loki, règles SOC, Alertmanager, Grafana, refus sans identifiant
 ```
 
 Secrets versionnés chiffrés (SOPS + age) : `python scripts/sops_secrets.py keygen|encrypt|decrypt` (voir l'en-tête du script).

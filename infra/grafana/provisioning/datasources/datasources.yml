@@ -1,4 +1,5 @@
 # Sources de données provisionnées (UID stables, référencés par les tableaux de bord et le futur dashboard React)
+# Prometheus et Alertmanager exigent une authentification basique ; Loki est joint directement sur le réseau interne "obs".
 apiVersion: 1
 datasources:
   - name: Prometheus
@@ -7,6 +8,9 @@ datasources:
     access: proxy
     url: http://prometheus:9090
     isDefault: true
+    basicAuth: true
+    basicAuthUser: admin
+    secureJsonData: { basicAuthPassword: "$__file{/run/secrets/prometheus_password}" }
     jsonData: { timeInterval: 10s }
   - name: Loki
     uid: loki
@@ -19,4 +23,7 @@ datasources:
     type: alertmanager
     access: proxy
     url: http://alertmanager:9093
+    basicAuth: true
+    basicAuthUser: admin
+    secureJsonData: { basicAuthPassword: "$__file{/run/secrets/alertmanager_password}" }
     jsonData: { implementation: prometheus, handleGrafanaManagedAlerts: false }

@@ -45,6 +45,10 @@ ruler:
       directory: /etc/loki/rules
   rule_path: /tmp/loki-rules
   alertmanager_url: http://alertmanager:9093
+  # Alertmanager exige une authentification basique : en-tête « Basic <base64(admin:mot de passe)> » dérivé par init_secrets.py
+  alertmanager_client:
+    type: Basic
+    credentials_file: /run/secrets/alertmanager_basic_auth
   evaluation_interval: 15s
   enable_api: true
 

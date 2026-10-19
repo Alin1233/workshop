@@ -37,9 +37,9 @@
 - ☐ Générer les clés age de l'équipe, remplir `.sops.yaml`, chiffrer et versionner `secrets.enc.json` — **nécessaire au PRA « perte du PC Hôte »** : sans les anciens secrets, le compte admin restauré n'accepte plus le nouveau mot de passe ; installer aussi `sops` sur le PC Hôte (ou déchiffrer sur le poste de l'opérateur)
 - ☐ Sécuriser l'accès du moteur de remédiation à Docker (docker-socket-proxy restreint, webhook authentifié)
 - ☐ Revue de durcissement (Trivy, mots de passe, en-têtes, réglage du niveau de paranoïa du WAF)
-- ☐ Authentifier Prometheus (aujourd'hui sans identifiant, protégé seulement par `127.0.0.1`) : `--web.config.file` avec `basic_auth_users` (mot de passe bcrypt généré par `init_secrets.py`), puis mettre à jour la source de données Grafana et `tests/observability_check.py`
-- ☐ Authentifier Alertmanager (sans identifiant : n'importe quel processus local peut créer des silences et masquer une alerte) : `--web.config.file` avec `basic_auth_users`, puis mettre à jour Prometheus (`alerting`), le ruler Loki, Grafana et `observability_check.py`
-- ☐ Authentifier Loki (aucune authentification native, `auth_enabled` ne gère que les tenants) : proxy nginx avec authentification basique devant le port publié, accès interne d'Alloy et de Grafana inchangé ou aligné, puis mettre à jour `observability_check.py`
+- ✅ Prometheus authentifié (`--web.config.file`, compte `admin`, hash bcrypt dérivé par `init_secrets.py`) : interface, API et `/metrics` ; Grafana et `observability_check.py` à jour
+- ✅ Alertmanager authentifié (`--web.config.file`) : Prometheus (`alerting`) et le ruler Loki notifient avec leur identifiant (vérifié par une alerte réelle de chaque source), Grafana et `observability_check.py` à jour
+- ✅ Loki authentifié par `loki-proxy` (nginx, authentification basique) sur le port publié ; Loki ne quitte plus le réseau `obs`, où Alloy, Grafana et Prometheus le joignent directement
 
 ## Transformation / Gouvernance
 - ☐ EBIOS RM (`docs/governance/ebios-rm.md`), relié aux alertes et aux remédiations réelles
