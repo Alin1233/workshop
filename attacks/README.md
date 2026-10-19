@@ -15,6 +15,7 @@ tout script refuse une cible hors des réseaux autorisés (`192.168.137.0/24`, `
 | 01 | [`01-dos-applicatif/`](01-dos-applicatif/) | **DoS applicatif L7 — principal** | `HighLatencyP95`, `HighErrorRate`, `EndToEndProbeFailed` |
 | 02 | [`02-bruteforce-login/`](02-bruteforce-login/) | Force brute `/api/auth/login` | `AuthBruteForce`, `LoginFailureSpike` |
 | 03 | [`03-sqli/`](03-sqli/) | Injection SQL (sqlmap L1/R1) | `WafAttackBlocked` |
+| 04 | [`04-integrity-violation/`](04-integrity-violation/) | Altération du registre (chaos, Hôte only) | `LedgerIntegrityBroken`, `LedgerIntegrityViolationLogged` |
 
 **Clip Chrono / démo de bout en bout** : [`clip-chrono.sh`](clip-chrono.sh) enchaîne, en une prise et sans
 coupe, la transaction témoin (`tests/smoke_test.py`) → l'attaque L7 → l'attente de reprise automatique (sans
