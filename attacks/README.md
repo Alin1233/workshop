@@ -29,6 +29,21 @@ TARGET=192.168.137.1 ./clip-chrono.sh
 `nmap hydra hping3 ffuf slowhttptest sqlmap`. Sur Fedora : `sudo dnf install -y nmap hydra hping3 ffuf`,
 `slowhttptest` se compile depuis les sources, `sqlmap` via `git clone` / `pipx`.
 
+## Boucle d'attaque automatisée — skill `/redteam`
+
+Le skill [`redteam`](../.claude/skills/redteam/SKILL.md) donne à un agent la **procédure** qui pilote ces scripts :
+il enchaîne les vecteurs et **escalade** jusqu'à ce qu'une attaque **aboutisse** (`lands`), puis capture la preuve.
+Les scripts restent la source de vérité des vecteurs ; le skill n'ajoute que la boucle, l'oracle de réussite et l'échelle d'escalade.
+
+- **Objectif** : présenter une **infrastructure et des vecteurs d'attaque modernes** et prouver que la chaîne de détection réagit.
+- **Oracle de réussite** : une attaque n'aboutit que si une **alerte nommée** se déclenche (voir le tableau des signaux),
+  de façon **reproductible** (deux fois), avec les preuves dans `logs/`. Un simple ralentissement ne compte pas.
+- **Boucle** : baseline (`00-recon` + `smoke_test` vert) → lancer un vecteur → vérifier l'alerte sur le Hôte
+  (`curl -s http://127.0.0.1:9090/api/v1/alerts`, `:9093/api/v2/alerts`) → si rien, escalader ou changer de vecteur → restaurer.
+- **Périmètre** : identique aux scripts — `192.168.137.0/24` uniquement, runs ≤ 60 s, coordination avec le Blue.
+
+Appel : `/redteam` (ou l'agent le déclenche sur « attaquer / pentester le SI, provoquer un incident »).
+
 ## Signaux déjà en place pour la détection
 | Attaque | Signal | Alerte existante |
 |---|---|---|
