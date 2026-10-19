@@ -11,3 +11,8 @@ pc_hote_waf_port: 8080
 
 # Clé de signature du dépôt Docker, vérifiée avant d'être utilisée par apt
 docker_gpg_fingerprint: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+# Déploiement : releases/<commit> (une version par commit), current -> version active,
+# shared/secrets conservé d'une version à l'autre (répertoire 0700, root)
+pc_hote_app_root: /opt/resilience-alpha
+pc_hote_releases_kept: 3
