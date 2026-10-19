@@ -46,6 +46,7 @@ Each vector's objective, command, and expected response live in its own README �
 | Login brute force | [`02-bruteforce-login/`](../../../attacks/02-bruteforce-login/) | `AuthBruteForce`, `LoginFailureSpike` |
 | SQL injection | [`03-sqli/`](../../../attacks/03-sqli/) | `WafAttackBlocked` |
 | Ledger integrity (chaos, Hôte-only) | [`04-integrity-violation/`](../../../attacks/04-integrity-violation/) | `LedgerIntegrityBroken`, `LedgerIntegrityViolationLogged` |
+| Business-logic / BOLA abuse | [`05-business-logic/`](../../../attacks/05-business-logic/) | mostly legit 422/403/404; `auth_failure` on token forgery |
 
 The L7 DoS is the headliner because its oracle maps to a response the remediation engine can actually heal. Brute force and SQLi are compromise-attempt scenarios: they prove detection and WAF/SIEM response, not availability recovery. The integrity violation is a **data-compromise** scenario, run on the Hôte (the DB is not attacker-reachable): its recovery is a data restore, not a restart — keep availability and compromise outcomes distinct.
 
