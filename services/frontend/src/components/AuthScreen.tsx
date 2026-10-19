@@ -3,9 +3,14 @@ import { api, ApiError, type Session } from "../lib/api";
 import type { ServiceHealth } from "../lib/useServiceHealth";
 import Brand from "./Brand";
 import { StatusDot } from "./ServiceStatus";
+import { EMAIL_MAX, FULL_NAME_MAX, loginSchema, PASSWORD_MAX, registerSchema, validate, type FieldErrors } from "../lib/validation";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-field px-3 py-2.5 text-sm text-ink placeholder:text-faint transition focus:border-teal focus:bg-white focus:ring-3 focus:ring-teal/15 focus:outline-none";
+
+type Errors = FieldErrors<{ fullName: string; email: string; password: string }>;
+
+const invalidClass = "border-brick focus:border-brick focus:ring-brick/15";
 
 type Props = { onLogin: (session: Session) => void; health: ServiceHealth };
 
@@ -18,15 +23,29 @@ export default function AuthScreen({ onLogin, health }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Errors>({});
+
+  // Cette méthode permet de mettre à jour un champ et d'effacer son message d'erreur.
+  const edit = (field: keyof Errors, setter: (value: string) => void) => (value: string) => {
+    setter(value);
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
 
   // Cette méthode permet de soumettre le formulaire ; une inscription réussie enchaîne directement sur la connexion.
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    const register = mode === "register" ? validate(registerSchema, { fullName, email, password }) : null;
+    const login = validate(loginSchema, { email, password });
+    const errors = register ? register.errors : login.errors;
+    if (errors || !login.data) {
+      setFieldErrors(errors ?? {});
+      return;
+    }
     setBusy(true);
     try {
-      if (mode === "register") await api.register(email, fullName, password);
-      onLogin(await api.login(email, password));
+      if (register?.data) await api.register(register.data.email, register.data.fullName, register.data.password);
+      onLogin(await api.login(login.data.email, login.data.password));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erreur inattendue.");
     } finally {
@@ -66,6 +85,7 @@ export default function AuthScreen({ onLogin, health }: Props) {
               onClick={() => {
                 setMode(value);
                 setError(null);
+                setFieldErrors({});
               }}
               className={`rounded-md py-1.5 transition ${mode === value ? "bg-white font-semibold text-ink shadow-sm" : "text-muted hover:text-ink"}`}
             >
@@ -73,29 +93,50 @@ export default function AuthScreen({ onLogin, health }: Props) {
             </button>
           ))}
         </div>
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} noValidate className="space-y-4">
           {mode === "register" && (
             <label className="block space-y-1.5 text-sm">
               <span className="font-medium text-muted">Nom complet</span>
-              <input className={inputClass} value={fullName} onChange={(e) => setFullName(e.target.value)} required minLength={2} maxLength={80} />
+              <input
+                className={`${inputClass} ${fieldErrors.fullName ? invalidClass : ""}`}
+                value={fullName}
+                onChange={(e) => edit("fullName", setFullName)(e.target.value)}
+                maxLength={FULL_NAME_MAX}
+                aria-invalid={!!fieldErrors.fullName}
+              />
+              {fieldErrors.fullName && <span className="block text-xs text-brick">{fieldErrors.fullName}</span>}
             </label>
           )}
           <label className="block space-y-1.5 text-sm">
             <span className="font-medium text-muted">Email</span>
-            <input className={inputClass} type="email" autoComplete="username" placeholder="vous@exemple.fr" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input
+              className={`${inputClass} ${fieldErrors.email ? invalidClass : ""}`}
+              type="email"
+              autoComplete="username"
+              placeholder="vous@exemple.fr"
+              value={email}
+              onChange={(e) => edit("email", setEmail)(e.target.value)}
+              maxLength={EMAIL_MAX}
+              aria-invalid={!!fieldErrors.email}
+            />
+            {fieldErrors.email && <span className="block text-xs text-brick">{fieldErrors.email}</span>}
           </label>
           <label className="block space-y-1.5 text-sm">
             <span className="font-medium text-muted">Mot de passe</span>
             <input
-              className={inputClass}
+              className={`${inputClass} ${fieldErrors.password ? invalidClass : ""}`}
               type="password"
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={mode === "register" ? 10 : 1}
+              onChange={(e) => edit("password", setPassword)(e.target.value)}
+              maxLength={PASSWORD_MAX}
+              aria-invalid={!!fieldErrors.password}
             />
-            {mode === "register" && <span className="text-xs text-muted">10 caractères minimum.</span>}
+            {fieldErrors.password ? (
+              <span className="block text-xs text-brick">{fieldErrors.password}</span>
+            ) : (
+              mode === "register" && <span className="text-xs text-muted">10 caractères minimum.</span>
+            )}
           </label>
           {error && (
             <p className="rounded-lg border border-brick-line bg-brick-soft px-3 py-2 text-sm text-brick" role="alert">
