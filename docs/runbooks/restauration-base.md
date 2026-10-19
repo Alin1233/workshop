@@ -12,6 +12,9 @@ Un redémarrage ne corrige **pas** des données corrompues : il faut restaurer u
 - Une sauvegarde = `pg_dump` de `authdb` et `paydb`, empreintes SHA-256 et `meta.json`, qui indique si le registre
   était **cohérent** (`"integrity": "ok"`) au moment de la sauvegarde.
 - Stockées dans `/var/backups/resilience-alpha/` (root uniquement), 96 conservées (24 h), la dernière saine toujours gardée.
+- Surveillance : alertes **BackupFailed** (dernière sauvegarde en échec) et **BackupMissing** (aucune sauvegarde réussie
+  depuis 30 min) ; âge de la dernière sauvegarde et durée de la dernière restauration dans la rangée « PC Hôte et
+  sauvegardes » du tableau Grafana « Santé du service » (métriques `resilience_backup_*` et `resilience_restore_*`).
 - Copie hors de l'hôte : `ansible-playbook -i ansible/inventory.ini ansible/backup_database.yml` (sur le poste de l'opérateur,
   dans `~/.local/share/resilience-alpha/backups/`).
 

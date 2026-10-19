@@ -21,5 +21,7 @@ pc_hote_releases_kept: 3
 pc_hote_backup_dir: /var/backups/resilience-alpha
 pc_hote_backup_calendar: "*:0/15"   # RPO visé : 15 min
 pc_hote_backup_keep: 96             # 24 h de sauvegardes planifiées ; la dernière saine est toujours gardée
+# Métriques des sauvegardes pour node-exporter (même chemin que NODE_TEXTFILE_DIR dans docker-compose.yml)
+pc_hote_node_textfile_dir: /var/lib/node-exporter/textfile
 # Copie hors de l'hôte, sur le poste de l'opérateur (jamais dans le dépôt : les bases contiennent des empreintes de mots de passe)
 pc_hote_backup_local_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.local/share/resilience-alpha/backups"

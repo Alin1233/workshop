@@ -70,10 +70,13 @@ class Dashboard:
         print(f"  + {path.relative_to(OUT.parent.parent.parent)}")
 
 
-def red_above(value: float) -> dict:
-    # Cette méthode permet de construire des seuils « vert puis rouge à partir de value » pour un compteur.
+def red_above(value: float, unit: str | None = None) -> dict:
+    # Cette méthode permet de construire des seuils « vert puis rouge à partir de value » pour un compteur, avec son unité.
     steps = [{"color": "green", "value": None}, {"color": "red", "value": value}]
-    return {"defaults": {"thresholds": {"mode": "absolute", "steps": steps}}, "overrides": []}
+    defaults = {"thresholds": {"mode": "absolute", "steps": steps}}
+    if unit:
+        defaults["unit"] = unit
+    return {"defaults": defaults, "overrides": []}
 
 
 def service_health() -> Dashboard:
@@ -102,6 +105,21 @@ def service_health() -> Dashboard:
     d.panel("stat", "Comptes / virements enregistrés", 16, 8, 7, PROM,
             [("payment_accounts", "comptes"), ("payment_transfers_stored", "virements")], options={**STAT, "colorMode": "none"})
     d.next_line(7)
+    d.row("PC Hôte et sauvegardes (node-exporter, timer resilience-pg-backup)")
+    host = [
+        ("CPU", '100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[1m])))', 85, "percent"),
+        ("Mémoire utilisée", "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)", 90, "percent"),
+        ("Disque / utilisé", '100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})', 85, "percent"),
+        ("Âge de la dernière sauvegarde", "time() - resilience_backup_last_success_timestamp_seconds", 1800, "s"),
+    ]
+    for index, (title, expr, threshold, unit) in enumerate(host):
+        d.panel("stat", title, index * 4, 4, 4, PROM, [(expr, "")], fieldConfig=red_above(threshold, unit), options={**STAT, "textMode": "value"})
+    d.panel("stat", "Registre dans la dernière sauvegarde", 16, 4, 4, PROM, [("resilience_backup_last_integrity_ok", "")],
+            fieldConfig=UP_DOWN, options={**STAT, "textMode": "value"})
+    d.panel("stat", "Dernière restauration", 20, 4, 4, PROM,
+            [("resilience_restore_last_duration_seconds", "durée"), ("resilience_restore_last_backup_age_seconds", "données perdues ≤")],
+            fieldConfig={"defaults": {"unit": "s"}, "overrides": []}, options={**STAT, "colorMode": "none"})
+    d.next_line(4)
     d.row("Alertes et journaux")
     d.panel("table", "Alertes Prometheus en cours", 0, 10, 8, PROM,
             [('ALERTS{alertstate="firing"}', "", {"instant": True, "range": False, "format": "table"})],

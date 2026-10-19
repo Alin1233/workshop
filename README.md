@@ -51,12 +51,13 @@ alimenter le moteur de remédiation.
 | Service | Rôle | Accès (PC Hôte uniquement) |
 |---|---|---|
 | `grafana` | tableaux « Santé du service » et « SOC » provisionnés | http://127.0.0.1:3000 (admin / `secrets/grafana_admin_password`) |
-| `prometheus` | métriques, sondes de bout en bout, 7 règles (`infra/prometheus/rules`) | http://127.0.0.1:9090 (admin / `secrets/prometheus_password`) |
+| `prometheus` | métriques, sondes de bout en bout, 12 règles (`infra/prometheus/rules` : service, intégrité, PC Hôte, sauvegardes) | http://127.0.0.1:9090 (admin / `secrets/prometheus_password`) |
 | `alertmanager` | regroupe les alertes et les envoie au moteur de remédiation | http://127.0.0.1:9093 (admin / `secrets/alertmanager_password`) |
 | `loki` | journaux centralisés + 5 règles SOC LogQL (`infra/loki/rules/fake/soc.yml`) | via `loki-proxy` |
 | `loki-proxy` | nginx : authentification basique devant Loki, qui n'en a pas (les accès internes d'Alloy et Grafana restent directs) | http://127.0.0.1:3100 (admin / `secrets/loki_password`) |
 | `alloy` | collecte les journaux en lisant les fichiers Docker (aucun accès au socket) | — |
 | `blackbox` | sonde le parcours client WAF → nginx → API → base | — |
+| `node-exporter` | ressources du PC Hôte (CPU, mémoire, disque) et état des sauvegardes PostgreSQL, sans accès au socket Docker | — |
 | `ollama` | LLM local, profil optionnel `--profile ai` | non publié |
 
 Les interfaces de gestion ne sont publiées que sur `127.0.0.1` (`MGMT_BIND`), conformément au §4 du sujet.
