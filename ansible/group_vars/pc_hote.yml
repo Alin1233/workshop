@@ -1,0 +1,13 @@
+# PC Hôte (VM Proxmox du labo, Debian 13)
+ansible_python_interpreter: /usr/bin/python3
+
+pc_hote_timezone: Europe/Paris
+
+# SSH n'est accepté que depuis le réseau du labo : les postes du wifi labo y arrivent par 172.16.255.252
+pc_hote_ssh_sources: [172.16.0.0/16]
+
+# Seul port applicatif publié (WAF) ; les interfaces de gestion restent sur 127.0.0.1 (tunnel SSH)
+pc_hote_waf_port: 8080
+
+# Clé de signature du dépôt Docker, vérifiée avant d'être utilisée par apt
+docker_gpg_fingerprint: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88

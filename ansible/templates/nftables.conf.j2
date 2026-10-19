@@ -1,0 +1,31 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+# Pare-feu du PC Hôte. Pas de « flush ruleset » : il effacerait les règles de Docker (NAT des ports publiés,
+# isolation des réseaux). Seule la table host_filter est recréée.
+# Le trafic vers les conteneurs passe par FORWARD (géré par Docker) : cette table ne filtre que l'hôte lui-même.
+
+table inet host_filter
+delete table inet host_filter
+
+table inet host_filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        iif "lo" accept
+        ct state established,related accept
+        ct state invalid drop
+
+        # ICMPv6 indispensable (découverte de voisins) ; ping limité
+        meta l4proto ipv6-icmp accept
+        meta l4proto icmp limit rate 10/second accept
+
+        # Administration : SSH depuis le réseau du labo uniquement
+        ip saddr { {{ pc_hote_ssh_sources | join(', ') }} } tcp dport 22 accept
+
+        # Point d'entrée applicatif (WAF), publié par Docker
+        tcp dport {{ pc_hote_waf_port }} accept
+
+        limit rate 5/minute log prefix "nft-host-drop: " level info
+        counter drop
+    }
+}
