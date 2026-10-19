@@ -30,7 +30,7 @@
 - ✅ SOC intégré : 5 règles LogQL (force brute, rafale de jetons invalides, blocages WAF, violations d'intégrité, pannes de dépendance) → Alertmanager — testées
 - ✅ Script SOPS + age (`scripts/sops_secrets.py`) — **non testé** (sops/age absents du poste)
 - ☐ Générer les clés age de l'équipe, remplir `.sops.yaml`, chiffrer et versionner `secrets.enc.json`
-- ☐ **Scénario d'attaque principal** depuis le PC Attaquant (`attacks/`) + 1 ou 2 secondaires
+- ☐ **Scénario d'attaque principal** depuis le PC Attaquant (branche `cyber`) + 1 ou 2 secondaires
 - ☐ Sécuriser l'accès du moteur de remédiation à Docker (docker-socket-proxy restreint, webhook authentifié)
 - ☐ Revue de durcissement (Trivy, mots de passe, en-têtes, réglage du niveau de paranoïa du WAF)
 
