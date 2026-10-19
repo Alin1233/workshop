@@ -1,12 +1,25 @@
 import { useState } from "react";
 import { loadSession, saveSession, type Session } from "./lib/api";
+import { useServiceHealth } from "./lib/useServiceHealth";
 import AuthScreen from "./components/AuthScreen";
+import Brand from "./components/Brand";
 import Dashboard from "./components/Dashboard";
 import ServiceStatus from "./components/ServiceStatus";
+
+// Cette méthode permet de calculer les initiales affichées dans l'avatar à partir du nom complet.
+function initials(fullName: string): string {
+  return fullName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
 
 // Cette méthode permet d'afficher l'écran de connexion ou l'espace client selon l'état de la session.
 export default function App() {
   const [session, setSession] = useState<Session | null>(loadSession);
+  const health = useServiceHealth();
 
   // Cette méthode permet de mettre à jour la session en mémoire et dans le stockage de l'onglet.
   const updateSession = (next: Session | null) => {
@@ -14,39 +27,38 @@ export default function App() {
     setSession(next);
   };
 
+  if (!session) {
+    return (
+      <main className="grid min-h-screen place-items-center px-4 py-10">
+        <AuthScreen onLogin={updateSession} health={health} />
+      </main>
+    );
+  }
+
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <img src="/favicon.svg" alt="" className="h-8 w-8" />
-            <div>
-              <p className="font-semibold leading-tight">Resilience Pay</p>
-              <p className="text-xs text-slate-500">Plateforme de paiement fictive — démonstrateur</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <ServiceStatus />
-            {session && (
-              <div className="flex items-center gap-3 text-sm">
-                <span className="hidden text-slate-600 sm:inline">{session.user.full_name}</span>
-                <button
-                  onClick={() => updateSession(null)}
-                  className="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-100"
-                >
-                  Déconnexion
-                </button>
-              </div>
-            )}
-          </div>
+      <header className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 pt-5 pb-2">
+        <Brand />
+        <div className="flex items-center gap-3">
+          <ServiceStatus state={health.state} />
+          <span className="hidden text-sm text-muted md:inline">{session.user.full_name}</span>
+          <span
+            className="grid h-8 w-8 place-items-center rounded-full bg-ink-2 text-xs font-semibold text-white"
+            aria-hidden
+            title={session.user.full_name}
+          >
+            {initials(session.user.full_name)}
+          </span>
+          <button
+            onClick={() => updateSession(null)}
+            className="rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-ink transition-colors hover:bg-chip"
+          >
+            Déconnexion
+          </button>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        {session ? (
-          <Dashboard session={session} onSessionExpired={() => updateSession(null)} />
-        ) : (
-          <AuthScreen onLogin={updateSession} />
-        )}
+      <main className="mx-auto max-w-5xl px-4 py-6">
+        <Dashboard session={session} health={health} onSessionExpired={() => updateSession(null)} />
       </main>
     </div>
   );
