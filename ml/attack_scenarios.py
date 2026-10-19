@@ -20,6 +20,8 @@ Usage :
 
 import argparse
 import csv
+import json
+import secrets
 import subprocess
 import sys
 import time
@@ -28,6 +30,9 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Mot de passe des comptes fictifs créés par les scénarios, tiré à chaque exécution (aucun secret dans le dépôt).
+DEMO_PASSWORD = secrets.token_urlsafe(16)
 
 LABELS = Path(__file__).resolve().parent / "data" / "labels.csv"
 
@@ -68,7 +73,7 @@ def brute_force(base, duration):
     # Cette méthode permet de simuler une force brute : connexions répétées avec de mauvais mots de passe.
     email = "victime@demo.local"
     _request(base, "POST", "/api/auth/register",
-             body=f'{{"email":"{email}","full_name":"Victime","password":"Demo-password-2026"}}',
+             body=json.dumps({"email": email, "full_name": "Victime", "password": DEMO_PASSWORD}),
              headers={"Content-Type": "application/json"})
     deadline = time.time() + duration
     n = 0
@@ -97,11 +102,11 @@ def transfer_abuse(base, duration):
     # Cette méthode permet de simuler un usage anormal de virements : cadence élevée, dont des soldes insuffisants.
     email = f"abus-{uuid.uuid4().hex[:8]}@demo.local"
     _request(base, "POST", "/api/auth/register",
-             body=f'{{"email":"{email}","full_name":"Abus","password":"Demo-password-2026"}}',
+             body=json.dumps({"email": email, "full_name": "Abus", "password": DEMO_PASSWORD}),
              headers={"Content-Type": "application/json"})
     import json as _json
     req = urllib.request.Request(base + "/api/auth/login", method="POST",
-                                 data=_json.dumps({"email": email, "password": "Demo-password-2026"}).encode(),
+                                 data=_json.dumps({"email": email, "password": DEMO_PASSWORD}).encode(),
                                  headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=6) as res:

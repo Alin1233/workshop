@@ -15,6 +15,7 @@ import argparse
 import json
 import math
 import random
+import secrets
 import sys
 import time
 import urllib.error
@@ -55,7 +56,7 @@ class Population:
     def register_user(self):
         # Cette méthode permet de créer un nouvel utilisateur fictif, de le connecter et de mémoriser son compte.
         email = f"user-{uuid.uuid4().hex[:10]}@demo.local"
-        password = "Demo-password-2026"
+        password = secrets.token_urlsafe(16)  # compte fictif jetable : aucun mot de passe écrit dans le dépôt
         status, _ = call(self.base, "POST", "/api/auth/register", {"email": email, "full_name": "Utilisateur Démo", "password": password})
         if status not in (201, 409):
             return

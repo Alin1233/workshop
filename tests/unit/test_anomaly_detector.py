@@ -243,8 +243,10 @@ def test_prometheus_client_sends_basic_auth(monkeypatch):
     import base64
     import io
     import json
+    import uuid
 
     seen = []
+    password = uuid.uuid4().hex
 
     def fake_urlopen(request, timeout):
         seen.append(request)
@@ -252,8 +254,8 @@ def test_prometheus_client_sends_basic_auth(monkeypatch):
         return io.BytesIO(json.dumps(body).encode())
 
     monkeypatch.setattr(promclient.urllib.request, "urlopen", fake_urlopen)
-    assert promclient.PrometheusClient("http://prometheus:9090", username="admin", password="s3cret").query("up") == 1.0
+    assert promclient.PrometheusClient("http://prometheus:9090", username="admin", password=password).query("up") == 1.0
     assert promclient.LokiClient("http://loki:3100").query("count_over_time({service=\"waf\"}[1m])") == 1.0
-    expected = "Basic " + base64.b64encode(b"admin:s3cret").decode()
+    expected = "Basic " + base64.b64encode(f"admin:{password}".encode()).decode()
     assert seen[0].get_header("Authorization") == expected
     assert seen[1].get_header("Authorization") is None
