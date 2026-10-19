@@ -1,0 +1,38 @@
+# Déploiement reproductible de la plateforme sur le PC Hôte.
+- name: Déployer Resilience-Alpha
+  hosts: host
+  gather_facts: false
+  vars:
+    project_dir: "{{ playbook_dir }}/.."
+  tasks:
+    - name: Restaurer les secrets chiffrés (SOPS) s'ils sont versionnés
+      ansible.builtin.command: python3 scripts/sops_secrets.py decrypt
+      args:
+        chdir: "{{ project_dir }}"
+        removes: "{{ project_dir }}/secrets.enc.json"
+      changed_when: true
+
+    - name: Générer les secrets manquants (première installation)
+      ansible.builtin.command: python3 scripts/init_secrets.py
+      args:
+        chdir: "{{ project_dir }}"
+      register: init_secrets
+      changed_when: "'+ ' in init_secrets.stdout"
+
+    - name: Construire et démarrer la stack, attendre les healthchecks
+      ansible.builtin.command: docker compose up -d --build --wait --wait-timeout 180
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: true
+
+    - name: Vérifier le service métier (transaction témoin)
+      ansible.builtin.command: python3 tests/smoke_test.py
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+
+    - name: Vérifier la chaîne d'observation
+      ansible.builtin.command: python3 tests/observability_check.py
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false

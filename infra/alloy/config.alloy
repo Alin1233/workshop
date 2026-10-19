@@ -1,0 +1,61 @@
+// Grafana Alloy — collecte des journaux des conteneurs du projet vers Loki.
+// Lecture directe des fichiers json-file (montés en lecture seule) : aucun accès au socket Docker n'est nécessaire.
+// Le service Compose est connu grâce à l'option de journalisation `labels` définie dans docker-compose.yml.
+
+local.file_match "containers" {
+  path_targets = [{"__path__" = "/var/lib/docker/containers/*/*-json.log"}]
+  sync_period  = "5s"
+}
+
+loki.source.file "containers" {
+  targets       = local.file_match.containers.targets
+  forward_to    = [loki.process.containers.receiver]
+  tail_from_end = true
+}
+
+loki.process "containers" {
+  // Enveloppe json-file : {"log": "...", "stream": "stdout", "time": "...", "attrs": {...}}
+  stage.json {
+    expressions = { output = "log", stream = "stream", time = "time", attrs = "attrs" }
+  }
+  stage.json {
+    source      = "attrs"
+    expressions = { compose_project = "\"com.docker.compose.project\"", service = "\"com.docker.compose.service\"" }
+  }
+  stage.labels {
+    values = { compose_project = "", service = "", stream = "" }
+  }
+  // On ne conserve que les conteneurs de ce projet Compose (les autres conteneurs du PC Hôte sont ignorés).
+  stage.match {
+    selector = "{compose_project!=\"" + sys.env("COMPOSE_PROJECT") + "\"}"
+    action   = "drop"
+  }
+  stage.timestamp {
+    source = "time"
+    format = "RFC3339Nano"
+  }
+  stage.template {
+    source   = "output"
+    template = "{{ TrimSpace .Value }}"
+  }
+  stage.output {
+    source = "output"
+  }
+  // Journaux applicatifs JSON : level et event_type deviennent des labels (faible cardinalité) pour le SOC.
+  stage.json {
+    expressions = { level = "level", event_type = "event_type" }
+  }
+  stage.labels {
+    values = { level = "", event_type = "" }
+  }
+  stage.label_drop {
+    values = ["filename"]
+  }
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

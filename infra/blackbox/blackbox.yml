@@ -1,0 +1,11 @@
+# Blackbox exporter — sonde HTTP « comme un client » à travers le WAF.
+modules:
+  http_2xx:
+    prober: http
+    timeout: 4s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      preferred_ip_protocol: ip4
+      headers:
+        User-Agent: resilience-alpha-probe/1.0

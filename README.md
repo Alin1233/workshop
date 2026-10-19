@@ -1,7 +1,10 @@
 # Resilience-Alpha — SI de paiement fictif
 
-Démonstrateur du Workshop EPSI 2026 « PROJECT RESILIENCE-ALPHA ». Ce dépôt contient pour l'instant le **SI métier** (pilier Développement) :
-une plateforme de virements entre comptes fictifs, conteneurisée, observable et conçue pour être remise en service automatiquement.
+Démonstrateur du Workshop EPSI 2026 « PROJECT RESILIENCE-ALPHA » : une plateforme de virements entre comptes fictifs,
+protégée par un WAF, observée par Prometheus / Loki / Grafana, avec une fonction SOC et une chaîne d'alertes prête à
+alimenter le moteur de remédiation.
+
+**Reste à faire, par domaine : [docs/TODO.md](docs/TODO.md).**
 
 > Toutes les données sont fictives. Aucune donnée bancaire réelle ne doit être saisie.
 
@@ -11,6 +14,10 @@ une plateforme de virements entre comptes fictifs, conteneurisée, observable et
                 PA du groupe (192.168.137.0/24)
                            │  :8080
                  ┌─────────▼─────────┐   réseau "edge"
+                 │ waf (ModSecurity  │   OWASP CRS, journal d'audit JSON
+                 │   + OWASP CRS)    │
+                 └─────────┬─────────┘   réseau "dmz" (interne)
+                 ┌─────────▼─────────┐
                  │ frontend (nginx)  │   React + Tailwind, reverse proxy /api/*
                  └───┬───────────┬───┘
         /api/auth/*  │           │  /api/payments/*        réseau "app" (interne)
@@ -27,10 +34,31 @@ une plateforme de virements entre comptes fictifs, conteneurisée, observable et
 
 | Service | Rôle | Exposé |
 |---|---|---|
-| `frontend` | SPA React/Vite/Tailwind servie par nginx non privilégié, reverse proxy vers les API | **oui**, port 8080 |
+| `waf` | ModSecurity + OWASP CRS (paranoïa 1), unique point d'entrée | **oui**, port 8080 |
+| `frontend` | SPA React/Vite/Tailwind servie par nginx non privilégié, reverse proxy vers les API | non (derrière le WAF) |
 | `auth-service` | Inscription, connexion (argon2id), émission de JWT RS256 (15 min), compte admin initial | non |
 | `payment-api` | Comptes, virements en partie double, idempotence, contrôle d'intégrité | non |
 | `postgres` | `authdb` (rôle `auth_svc`) et `paydb` (rôle `pay_svc`), isolées | non |
+
+### Observabilité et SOC (pilier Infrastructure / Cyber)
+
+```
+ conteneurs ──stdout JSON──▶ fichiers json-file ──▶ alloy ──▶ loki ──règles SOC──┐
+ API /metrics, sondes blackbox (à travers le WAF) ──▶ prometheus ──règles──────────┼──▶ alertmanager ──▶ remediation-engine (à développer)
+                                       grafana ◀── prometheus, loki, alertmanager ┘
+```
+
+| Service | Rôle | Accès (PC Hôte uniquement) |
+|---|---|---|
+| `grafana` | tableaux « Santé du service » et « SOC » provisionnés | http://127.0.0.1:3000 (admin / `secrets/grafana_admin_password`) |
+| `prometheus` | métriques, sondes de bout en bout, 7 règles (`infra/prometheus/rules`) | http://127.0.0.1:9090 |
+| `alertmanager` | regroupe les alertes et les envoie au moteur de remédiation | http://127.0.0.1:9093 |
+| `loki` | journaux centralisés + 5 règles SOC LogQL (`infra/loki/rules/fake/soc.yml`) | http://127.0.0.1:3100 |
+| `alloy` | collecte les journaux en lisant les fichiers Docker (aucun accès au socket) | — |
+| `blackbox` | sonde le parcours client WAF → nginx → API → base | — |
+| `ollama` | LLM local, profil optionnel `--profile ai` | non publié |
+
+Les interfaces de gestion ne sont publiées que sur `127.0.0.1` (`MGMT_BIND`), conformément au §4 du sujet.
 
 ### Modèle métier
 
@@ -50,7 +78,11 @@ python scripts/init_secrets.py      # crée ./secrets (mots de passe + paire RSA
 cp .env.example .env                # facultatif
 docker compose up -d --build
 python tests/smoke_test.py          # 28 vérifications de bout en bout
+python tests/observability_check.py # 17 vérifications : WAF, Prometheus, Loki, règles SOC, Grafana
 ```
+
+Secrets versionnés chiffrés (SOPS + age) : `python scripts/sops_secrets.py keygen|encrypt|decrypt` (voir l'en-tête du script).
+Déploiement automatisé depuis WSL : `ansible-playbook -i ansible/inventory.ini ansible/deploy.yml` (voir `ansible/README.md`).
 
 - Application : http://127.0.0.1:8080 (depuis un autre poste : `http://192.168.137.1:8080`)
 - Documentation OpenAPI : http://127.0.0.1:8080/api/auth/docs et http://127.0.0.1:8080/api/payments/docs
@@ -83,13 +115,21 @@ python tests/smoke_test.py          # 28 vérifications de bout en bout
 ## Arborescence
 
 ```
+ansible/                 playbooks de déploiement et de reprise
+attacks/                 scénarios Red Team (à développer)
 db/init/                 création des bases et rôles (1er démarrage du volume)
+docs/                    TODO par domaine, gouvernance (EBIOS RM, PCA/PRA, NIS2/DORA), runbooks (corpus du RAG)
+infra/                   configuration Prometheus, Alertmanager, Blackbox, Loki, Alloy, Grafana, WAF
+ml/                      données et entraînement du détecteur d'anomalies (à développer)
 scripts/init_secrets.py  génération des secrets locaux
+scripts/sops_secrets.py  chiffrement des secrets (SOPS + age)
+services/remediation-engine/, anomaly-detector/, ops-assistant/, supervision-dashboard/   contrats d'intégration (à développer)
 services/common/         journaux JSON, métriques, pool PostgreSQL, lecture des secrets (partagé)
 services/auth-service/   FastAPI — authentification
 services/payment-api/    FastAPI — registre et virements
 services/frontend/       React + Vite + Tailwind, nginx
-tests/smoke_test.py      test de bout en bout (stdlib uniquement)
+tests/smoke_test.py      test de bout en bout = transaction témoin (stdlib uniquement)
+tests/observability_check.py  vérification de la chaîne d'observation et de défense
 ```
 
 Développement du front avec rechargement à chaud : `cd services/frontend && npm install && npm run dev` (les appels `/api` sont relayés vers la stack sur le port 8080).

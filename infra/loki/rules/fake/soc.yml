@@ -1,0 +1,49 @@
+# Règles SOC (SIEM intégré) évaluées par Loki sur les journaux centralisés, envoyées à Alertmanager.
+# Mêmes conventions de labels que infra/prometheus/rules (severity, domain, service).
+groups:
+  - name: soc
+    interval: 15s
+    rules:
+      - alert: AuthBruteForce
+        expr: |
+          sum by (client_ip) (
+            count_over_time({service="auth-service", event_type="auth_failure"} | json client_ip="client_ip" [1m])
+          ) > 10
+        for: 0s
+        labels: { severity: warning, domain: security, service: auth-service }
+        annotations:
+          summary: "Force brute probable depuis {{ $labels.client_ip }} (plus de 10 échecs en 1 min)"
+
+      - alert: InvalidTokenFlood
+        expr: |
+          sum by (client_ip) (
+            count_over_time({service="payment-api", event_type="auth_failure"} | json client_ip="client_ip" [1m])
+          ) > 20
+        for: 0s
+        labels: { severity: warning, domain: security, service: payment-api }
+        annotations:
+          summary: "Jetons invalides en rafale depuis {{ $labels.client_ip }}"
+
+      - alert: WafAttackBlocked
+        expr: |
+          sum by (client_ip) (
+            count_over_time({service="waf"} |= "\"transaction\"" | json client_ip="transaction.client_ip", code="transaction.response.http_code" | code="403" [2m])
+          ) > 5
+        for: 0s
+        labels: { severity: warning, domain: security, service: waf }
+        annotations:
+          summary: "Le WAF bloque des requêtes malveillantes en série depuis {{ $labels.client_ip }}"
+
+      - alert: LedgerIntegrityViolationLogged
+        expr: count_over_time({service="payment-api", event_type="integrity_violation"}[2m]) > 0
+        for: 0s
+        labels: { severity: critical, domain: integrity, service: payment-api }
+        annotations:
+          summary: "Violation d'intégrité du registre journalisée par payment-api"
+
+      - alert: DependencyFailures
+        expr: sum by (service) (count_over_time({event_type="dependency_failure"}[1m])) > 3
+        for: 0s
+        labels: { severity: critical, domain: availability }
+        annotations:
+          summary: "{{ $labels.service }} n'arrive plus à joindre sa base de données"

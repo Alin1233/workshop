@@ -1,0 +1,74 @@
+# Prometheus — collecte des métriques du SI et de la chaîne d'observation.
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  external_labels:
+    platform: resilience-alpha
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # Microservices métier (endpoint /metrics, joignable uniquement sur le réseau interne "app")
+  - job_name: auth-service
+    static_configs:
+      - targets: ["auth-service:8000"]
+        labels: { service: auth-service }
+
+  - job_name: payment-api
+    static_configs:
+      - targets: ["payment-api:8000"]
+        labels: { service: payment-api }
+
+  # Sondes de bout en bout : WAF -> nginx -> API -> PostgreSQL, comme un vrai client.
+  # Un conteneur "up" ne suffit pas : c'est probe_success qui atteste que le service est utilisable.
+  - job_name: blackbox-http
+    scrape_interval: 5s
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://waf:8080/
+          - http://waf:8080/api/auth/health
+          - http://waf:8080/api/payments/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        regex: ".*/api/([^/]+)/.*"
+        target_label: service
+        replacement: "$1"
+      - source_labels: [__param_target]
+        regex: "http://waf:8080/"
+        target_label: service
+        replacement: frontend
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # Auto-surveillance de la chaîne d'observation
+  - job_name: observability
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels: { service: prometheus }
+      - targets: ["alertmanager:9093"]
+        labels: { service: alertmanager }
+      - targets: ["loki:3100"]
+        labels: { service: loki }
+      - targets: ["alloy:12345"]
+        labels: { service: alloy }
+      - targets: ["blackbox:9115"]
+        labels: { service: blackbox }
+
+  # À activer quand les composants existeront (sinon ServiceDown se déclencherait en permanence)
+  # - job_name: anomaly-detector
+  #   static_configs: [{ targets: ["anomaly-detector:8000"], labels: { service: anomaly-detector } }]
+  # - job_name: remediation-engine
+  #   static_configs: [{ targets: ["remediation-engine:8000"], labels: { service: remediation-engine } }]

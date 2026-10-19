@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 SECRETS_DIR = Path(__file__).resolve().parent.parent / "secrets"
-PASSWORDS = ("postgres_password", "auth_db_password", "pay_db_password", "admin_password")
+PASSWORDS = ("postgres_password", "auth_db_password", "pay_db_password", "admin_password", "grafana_admin_password")
 
 
 def write_secret(name: str, content: str, force: bool) -> None:
@@ -69,6 +69,7 @@ def main() -> None:
     else:
         print("  = jwt_private.pem / jwt_public.pem (conservés)")
     print(f"Mot de passe admin (admin@resilience.local) : {(SECRETS_DIR / 'admin_password').read_text().strip()}")
+    print(f"Mot de passe Grafana (admin) : {(SECRETS_DIR / 'grafana_admin_password').read_text().strip()}")
 
 
 if __name__ == "__main__":

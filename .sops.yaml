@@ -1,0 +1,5 @@
+# Destinataires autorisés à déchiffrer secrets.enc.json (une clé publique age par membre / par PC Hôte).
+# Obtenir sa clé : python scripts/sops_secrets.py keygen — puis `sops updatekeys secrets.enc.json` après modification.
+creation_rules:
+  - age: >-
+      AGE_PUBLIC_KEY_A_REMPLACER

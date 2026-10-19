@@ -1,0 +1,29 @@
+# Opération de reprise : redémarre un service puis prouve que le métier fonctionne de nouveau.
+# Usage : ansible-playbook -i ansible/inventory.ini ansible/restart_service.yml -e service=payment-api
+- name: Redémarrer un service et vérifier la reprise
+  hosts: host
+  gather_facts: false
+  vars:
+    project_dir: "{{ playbook_dir }}/.."
+    allowed_services: [auth-service, payment-api, frontend, waf]
+  tasks:
+    - name: Refuser tout service hors liste (le playbook ne doit pas devenir une porte d'administration)
+      ansible.builtin.assert:
+        that: service in allowed_services
+        fail_msg: "Service non autorisé : {{ service | default('non fourni') }}"
+
+    - name: Recréer le conteneur et attendre son healthcheck
+      ansible.builtin.command: "docker compose up -d --force-recreate --wait --wait-timeout 90 {{ service }}"
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: true
+
+    - name: Transaction témoin
+      ansible.builtin.command: python3 tests/smoke_test.py
+      args:
+        chdir: "{{ project_dir }}"
+      retries: 5
+      delay: 5
+      register: smoke
+      until: smoke.rc == 0
+      changed_when: false
