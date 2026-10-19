@@ -82,7 +82,8 @@ python tests/observability_check.py # 17 vérifications : WAF, Prometheus, Loki,
 ```
 
 Secrets versionnés chiffrés (SOPS + age) : `python scripts/sops_secrets.py keygen|encrypt|decrypt` (voir l'en-tête du script).
-Déploiement automatisé depuis WSL : `ansible-playbook -i ansible/inventory.ini ansible/deploy.yml` (voir `ansible/README.md`).
+Déploiement automatisé sur le PC Hôte (VM Proxmox `172.16.147.10`), depuis WSL : `ansible-playbook -i ansible/inventory.ini ansible/deploy.yml`
+(création et préparation de la VM, retour arrière, accès aux interfaces de gestion : voir `ansible/README.md`).
 
 - Application : http://127.0.0.1:8080 (depuis un autre poste : `http://192.168.137.1:8080`)
 - Documentation OpenAPI : http://127.0.0.1:8080/api/auth/docs et http://127.0.0.1:8080/api/payments/docs ;

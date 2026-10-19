@@ -1,13 +1,14 @@
 # Ansible — automatisation du déploiement et des opérations de reprise (pilier INFRA)
 
-Ansible ne s'exécute pas nativement sous Windows : lancer les playbooks depuis WSL2 (Docker Desktop doit avoir
-l'intégration WSL activée pour que `docker compose` y fonctionne).
+Les playbooks se lancent depuis WSL2 (Ansible ne s'exécute pas nativement sous Windows), à la racine du dépôt.
+Ils pilotent le PC Hôte, la VM Proxmox du groupe 6 (`[pc_hote]` dans `inventory.ini`), par SSH.
 
 ```bash
-# dans WSL, à la racine du dépôt
-python3 -m pip install --user ansible-core
-ansible-playbook -i ansible/inventory.ini ansible/deploy.yml
-ansible-playbook -i ansible/inventory.ini ansible/restart_service.yml -e service=payment-api
+python3 -m pip install --user ansible-core       # ou : sudo apt install ansible
+ansible-playbook ansible/provision_proxmox.yml   # 1. créer la VM (une fois)
+ansible-playbook -i ansible/inventory.ini ansible/prepare_host.yml   # 2. Docker, pare-feu, SSH (une fois)
+ansible-playbook -i ansible/inventory.ini ansible/deploy.yml         # 3. déployer le commit courant
+ansible-playbook -i ansible/inventory.ini ansible/restart_service.yml -e service=payment-api   # reprise
 ```
 
 ## Provisionnement de la VM PC Hôte (Proxmox du labo)
@@ -54,16 +55,39 @@ ssh -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 resilience@172.16.147.10
 
 - **Mises à jour** : sécurité Debian automatique, sans redémarrage ; Docker, hors de ces dépôts, ne bouge pas pendant la démo.
 
+## Déploiement
+
+```bash
+ansible-playbook -i ansible/inventory.ini ansible/deploy.yml                    # commit courant (HEAD)
+ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e deploy_ref=v1  # un commit, une branche ou un tag
+```
+
+```
+/opt/resilience-alpha/
+├── releases/<commit>/     une version par commit (git archive), jamais modifiée après extraction ; 3 conservées
+│   └── secrets -> ../../shared/secrets
+├── shared/secrets/        0700 root : générés au premier déploiement (ou restaurés par SOPS), conservés ensuite
+└── current -> releases/<commit>
+```
+
+- **Ce qui est déployé est un commit**, pas la copie de travail : les modifications non commitées sont signalées et ignorées.
+- **Retour arrière** : redéployer le commit précédent (`-e deploy_ref=<commit>`) ; la base et les volumes nommés sont conservés.
+- Compose est lancé depuis le chemin réel de la version : les conteneurs qui montent une configuration du dépôt
+  sont recréés à chaque nouvelle version, jamais laissés sur l'ancienne configuration.
+- Vérifications : transaction témoin et chaîne d'observation **sur l'hôte**, puis transaction témoin **depuis le poste
+  de l'opérateur**, à travers le réseau et le pare-feu, comme le PC attaquant ou le jury.
+- Les mots de passe affichés par `init_secrets.py` sont masqués (`no_log`). Pour les lire :
+  `ssh resilience@172.16.147.10 sudo cat /opt/resilience-alpha/shared/secrets/admin_password`.
+
 | Playbook | Rôle | État |
 |---|---|---|
 | `provision_proxmox.yml` | clone du template Debian 13 cloud-init → ressources → disque → démarrage → SSH | testé (19/10) |
 | `prepare_host.yml` | Docker Engine + Compose, pare-feu nftables, durcissement SSH, mises à jour de sécurité | testé (19/10) |
-| `deploy.yml` | secrets (SOPS) → `docker compose up --wait` → test de bout en bout | prêt, non testé (pas d'Ansible sur le poste de dev) |
-| `restart_service.yml` | redémarre un service et vérifie la reprise réelle | prêt, non testé |
+| `deploy.yml` | commit → version extraite → secrets → `docker compose up --wait` → tests sur l'hôte et à travers le réseau | testé (19/10) |
+| `restart_service.yml` | recrée un service autorisé de la version active et vérifie la reprise réelle | testé (19/10) |
 | `backup_database.yml` / `restore_database.yml` | sauvegarde / restauration PostgreSQL | **à faire** |
 
 ## À faire
-- [ ] Tester les deux playbooks depuis WSL
 - [ ] Sauvegarde `pg_dump` planifiée + restauration (base des scénarios PRA « données corrompues »)
 - [ ] Décider si le moteur de remédiation appelle ces playbooks ou l'API Docker (expliquer le choix au jury)
-- [ ] Adapter `deploy.yml` et `restart_service.yml` au PC Hôte distant (groupe `pc_hote`)
+- [ ] SOPS sur le PC Hôte : installer `sops` et la clé age (ou déchiffrer sur le poste de l'opérateur) avant de versionner `secrets.enc.json`

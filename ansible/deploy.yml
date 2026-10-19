@@ -1,38 +1,207 @@
-# Déploiement reproductible de la plateforme sur le PC Hôte.
+# Déploiement reproductible de la plateforme sur le PC Hôte (groupe pc_hote).
+# On déploie un commit du dépôt local (git archive), jamais la copie de travail : la version qui tourne est identifiable.
+# Chaque commit est extrait dans releases/<commit>, current pointe sur la version active ; les secrets (shared/secrets)
+# et les volumes Docker nommés (base, métriques, journaux) sont conservés : revenir en arrière = redéployer un ancien commit.
+# Usage : ansible-playbook -i ansible/inventory.ini ansible/deploy.yml [-e deploy_ref=<commit|branche|tag>]
 - name: Déployer Resilience-Alpha
-  hosts: host
+  hosts: pc_hote
+  become: true
   gather_facts: false
   vars:
-    project_dir: "{{ playbook_dir }}/.."
+    deploy_ref: HEAD
+    repo_dir: "{{ playbook_dir }}/.."
+    releases_dir: "{{ pc_hote_app_root }}/releases"
+    shared_secrets: "{{ pc_hote_app_root }}/shared/secrets"
   tasks:
-    - name: Restaurer les secrets chiffrés (SOPS) s'ils sont versionnés
-      ansible.builtin.command: python3 scripts/sops_secrets.py decrypt
+    # ───────────────────────────── Sur le poste de l'opérateur ─────────────────────────────
+    - name: Résoudre la version à déployer
+      ansible.builtin.command: git rev-parse --short=12 "{{ deploy_ref }}^{commit}"
       args:
-        chdir: "{{ project_dir }}"
-        removes: "{{ project_dir }}/secrets.enc.json"
-      changed_when: true
-
-    - name: Générer les secrets manquants (première installation)
-      ansible.builtin.command: python3 scripts/init_secrets.py
-      args:
-        chdir: "{{ project_dir }}"
-      register: init_secrets
-      changed_when: "'+ ' in init_secrets.stdout"
-
-    - name: Construire et démarrer la stack, attendre les healthchecks
-      ansible.builtin.command: docker compose up -d --build --wait --wait-timeout 180
-      args:
-        chdir: "{{ project_dir }}"
-      changed_when: true
-
-    - name: Vérifier le service métier (transaction témoin)
-      ansible.builtin.command: python3 tests/smoke_test.py
-      args:
-        chdir: "{{ project_dir }}"
+        chdir: "{{ repo_dir }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: deploy_commit
       changed_when: false
 
-    - name: Vérifier la chaîne d'observation
-      ansible.builtin.command: python3 tests/observability_check.py
+    - name: Repérer les modifications non commitées
+      ansible.builtin.command: git status --porcelain --untracked-files=no
       args:
-        chdir: "{{ project_dir }}"
+        chdir: "{{ repo_dir }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: worktree_status
       changed_when: false
+
+    - name: Prévenir qu'elles ne seront pas déployées
+      ansible.builtin.debug:
+        msg: "Modifications non commitées ignorées : seul le commit {{ deploy_commit.stdout }} est déployé."
+      when: worktree_status.stdout | length > 0
+
+    - name: Préparer la version sur le PC Hôte
+      vars:
+        release_dir: "{{ releases_dir }}/{{ deploy_commit.stdout }}"
+      block:
+        - name: Créer l'arborescence de déploiement
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: directory
+            owner: root
+            group: root
+            mode: "{{ item.mode }}"
+          loop:
+            - { path: "{{ pc_hote_app_root }}", mode: "0755" }
+            - { path: "{{ releases_dir }}", mode: "0755" }
+            - { path: "{{ pc_hote_app_root }}/shared", mode: "0755" }
+            # Les fichiers de secrets restent lisibles par les conteneurs (montés en /run/secrets),
+            # mais aucun compte de l'hôte autre que root ne peut traverser ce répertoire
+            - { path: "{{ shared_secrets }}", mode: "0700" }
+
+        - name: Vérifier si cette version est déjà extraite
+          ansible.builtin.stat:
+            path: "{{ release_dir }}/docker-compose.yml"
+          register: release_present
+
+        - name: Extraire la version (une version extraite n'est plus jamais modifiée)
+          when: not release_present.stat.exists
+          block:
+            - name: Créer l'archive du commit sur le poste de l'opérateur
+              ansible.builtin.command: git archive --format=tar.gz -o "/tmp/resilience-alpha-{{ deploy_commit.stdout }}.tar.gz" {{ deploy_commit.stdout }}
+              args:
+                chdir: "{{ repo_dir }}"
+              delegate_to: localhost
+              become: false
+              changed_when: false
+
+            - name: Créer le répertoire de la version
+              ansible.builtin.file:
+                path: "{{ release_dir }}"
+                state: directory
+                mode: "0755"
+
+            - name: Copier et extraire l'archive (sans le répertoire secrets/ du dépôt)
+              ansible.builtin.unarchive:
+                src: "/tmp/resilience-alpha-{{ deploy_commit.stdout }}.tar.gz"
+                dest: "{{ release_dir }}"
+                exclude: [secrets]
+
+          always:
+            - name: Supprimer l'archive locale
+              ansible.builtin.file:
+                path: "/tmp/resilience-alpha-{{ deploy_commit.stdout }}.tar.gz"
+                state: absent
+              delegate_to: localhost
+              become: false
+              changed_when: false
+
+        - name: Relier la version aux secrets partagés
+          ansible.builtin.file:
+            src: ../../shared/secrets
+            dest: "{{ release_dir }}/secrets"
+            state: link
+
+        # ─────────────────────────────────── Secrets ───────────────────────────────────
+        - name: Restaurer les secrets chiffrés (SOPS) s'ils sont versionnés
+          ansible.builtin.command: python3 scripts/sops_secrets.py decrypt
+          args:
+            chdir: "{{ release_dir }}"
+            removes: "{{ release_dir }}/secrets.enc.json"
+          changed_when: true
+
+        - name: Générer les secrets manquants (première installation)
+          ansible.builtin.command: python3 scripts/init_secrets.py
+          args:
+            chdir: "{{ release_dir }}"
+          register: init_secrets
+          changed_when: "'+ ' in init_secrets.stdout"
+          # le script affiche les mots de passe admin et Grafana : rien ne doit sortir dans la console Ansible
+          no_log: true
+
+        # ─────────────────────────────────── Démarrage ──────────────────────────────────
+        - name: Lire la version active
+          ansible.builtin.stat:
+            path: "{{ pc_hote_app_root }}/current"
+          register: previous_release
+
+        # Compose est lancé depuis le chemin réel de la version : les montages changent de chemin à chaque version,
+        # donc les conteneurs qui lisent une configuration du dépôt sont recréés avec la bonne.
+        - name: Construire et démarrer la stack, attendre les healthchecks
+          ansible.builtin.command: docker compose up -d --build --remove-orphans --wait --wait-timeout 300
+          args:
+            chdir: "{{ release_dir }}"
+          changed_when: true
+
+        - name: Désigner la version active
+          ansible.builtin.file:
+            src: "{{ release_dir }}"
+            dest: "{{ pc_hote_app_root }}/current"
+            state: link
+            force: true
+
+        # ─────────────────────────────────── Vérifications ──────────────────────────────
+        - name: Vérifier le service métier sur le PC Hôte (transaction témoin, contrôle admin compris)
+          ansible.builtin.command: python3 tests/smoke_test.py
+          args:
+            chdir: "{{ release_dir }}"
+          changed_when: false
+
+        - name: Vérifier la chaîne d'observation
+          ansible.builtin.command: python3 tests/observability_check.py
+          args:
+            chdir: "{{ release_dir }}"
+          register: observability
+          retries: 6
+          delay: 10
+          until: observability.rc == 0
+          changed_when: false
+
+        # Test du commit déployé, extrait dans un répertoire sans secrets/ : le contrôle admin (déjà fait sur l'hôte)
+        # est ignoré au lieu d'essayer le mot de passe local d'un poste de développement
+        - name: Vérifier le service depuis le réseau, comme le PC attaquant ou le jury (à travers le pare-feu)
+          delegate_to: localhost
+          become: false
+          block:
+            - name: Créer un répertoire temporaire
+              ansible.builtin.tempfile:
+                state: directory
+              register: smoke_tmp
+              changed_when: false
+
+            - name: Extraire le test du commit déployé
+              ansible.builtin.shell: git archive {{ deploy_commit.stdout }} tests/smoke_test.py | tar -x -C {{ smoke_tmp.path }}
+              args:
+                chdir: "{{ repo_dir }}"
+              changed_when: false
+
+            - name: Transaction témoin à travers le réseau
+              ansible.builtin.command: python3 {{ smoke_tmp.path }}/tests/smoke_test.py http://{{ ansible_host }}:{{ pc_hote_waf_port }}
+              changed_when: false
+          always:
+            - name: Supprimer le répertoire temporaire
+              ansible.builtin.file:
+                path: "{{ smoke_tmp.path }}"
+                state: absent
+              changed_when: false
+
+        # ─────────────────────────────────── Ménage ────────────────────────────────────
+        - name: Lister les versions extraites
+          ansible.builtin.find:
+            paths: "{{ releases_dir }}"
+            file_type: directory
+          register: releases
+
+        - name: Ne garder que les {{ pc_hote_releases_kept }} versions les plus récentes (dont l'active)
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: "{{ (releases.files | sort(attribute='mtime', reverse=true))[pc_hote_releases_kept:] | rejectattr('path', 'equalto', release_dir) | list }}"
+          loop_control:
+            label: "{{ item.path | basename }}"
+
+        - name: Résumé du déploiement
+          ansible.builtin.debug:
+            msg:
+              - "Version active : {{ deploy_commit.stdout }} ({{ release_dir }})"
+              - "Version précédente : {{ (previous_release.stat.lnk_source | default('aucune')) | basename }}"
+              - "Application : http://{{ ansible_host }}:{{ pc_hote_waf_port }}"
