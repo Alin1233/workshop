@@ -73,8 +73,13 @@ scrape_configs:
       - targets: ["blackbox:9115"]
         labels: { service: blackbox }
 
+  # Détecteur d'anomalies ML : expose anomaly_score{service} et anomaly_model_info{version} sur /metrics.
+  # honor_labels: le label `service` porté par anomaly_score (auth-service/payment-api/frontend) doit être
+  # conservé tel quel (sinon il serait écrasé par celui de la cible) — l'alerte et la remédiation s'y réfèrent.
+  - job_name: anomaly-detector
+    honor_labels: true
+    static_configs: [{ targets: ["anomaly-detector:8000"], labels: { service: anomaly-detector } }]
+
   # À activer quand les composants existeront (sinon ServiceDown se déclencherait en permanence)
-  # - job_name: anomaly-detector
-  #   static_configs: [{ targets: ["anomaly-detector:8000"], labels: { service: anomaly-detector } }]
   # - job_name: remediation-engine
   #   static_configs: [{ targets: ["remediation-engine:8000"], labels: { service: remediation-engine } }]

@@ -1,0 +1,73 @@
+{
+  "scenarios": {
+    "brute_force@auth-service": {
+      "duration_s": 60,
+      "peak_score": 1.0,
+      "delay_score_s": 17.3,
+      "delay_firing_s": 43.3,
+      "delay_alertmanager_s": 43.3
+    },
+    "brute_force@frontend": {
+      "duration_s": 60,
+      "peak_score": 0.737,
+      "delay_score_s": 67.3,
+      "delay_firing_s": 93.3,
+      "delay_alertmanager_s": 93.3
+    }
+  },
+  "normal": {
+    "auth-service": {
+      "samples": 202,
+      "max_score": 0.51
+    },
+    "payment-api": {
+      "samples": 267,
+      "max_score": 0.18
+    },
+    "frontend": {
+      "samples": 202,
+      "max_score": 0.454
+    }
+  },
+  "smoke": [
+    {
+      "start": 1792415946,
+      "max_scores": {
+        "auth-service": 0.127,
+        "payment-api": 0.18,
+        "frontend": 0.123
+      }
+    },
+    {
+      "start": 1792416077,
+      "max_scores": {
+        "auth-service": 0.51,
+        "payment-api": 0.155,
+        "frontend": 0.454
+      }
+    }
+  ],
+  "idle": {
+    "auth-service": {
+      "samples": 55,
+      "max_score": 0.0
+    },
+    "payment-api": {
+      "samples": 55,
+      "max_score": 0.0
+    },
+    "frontend": {
+      "samples": 55,
+      "max_score": 0.0
+    }
+  },
+  "false_alerts": [
+    {
+      "service": "auth-service",
+      "first": 1792416280,
+      "count_polls": 1
+    }
+  ],
+  "polls": 267,
+  "degraded_seen": true
+}

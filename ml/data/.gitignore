@@ -1,0 +1,6 @@
+# Exports volumineux non versionnés. Sont versionnés : un petit échantillon et les deux jeux de référence
+# (~30 Ko chacun) qui produisent les résultats chiffrés du dossier (evaluation*.json).
+features*.csv
+!features_sample.csv
+!features_train.csv
+!features_test.csv
