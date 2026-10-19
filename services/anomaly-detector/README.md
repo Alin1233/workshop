@@ -13,7 +13,7 @@ n'est dupliquée, l'entraînement et l'inférence calculent exactement les même
 
 | Entrée / sortie | Détail |
 |---|---|
-| Données | Prometheus `http://prometheus:9090` (`/api/v1/query`) et Loki `http://loki:3100` (requêtes métriques LogQL), réseau `obs` ; depuis le PC Hôte : `127.0.0.1:9090` / `127.0.0.1:3100` |
+| Données | Prometheus `http://prometheus:9090` (`/api/v1/query`) et Loki `http://loki:3100` (requêtes métriques LogQL), réseau `obs`. Prometheus exige une authentification basique, réseau interne compris : le détecteur utilise `admin` / `/run/secrets/prometheus_password` (secret Compose, `PROMETHEUS_PASSWORD_FILE`). Loki interne est sans identifiant. Depuis le PC Hôte (`ml/export_features.py`) : `127.0.0.1:9090` (admin / `secrets/prometheus_password`) et `127.0.0.1:3100` via `loki-proxy` (admin / `secrets/loki_password`) |
 | Sortie | `GET /metrics` (port 8000) : `anomaly_score{service}` (0..1), `anomaly_severity{service}`, `anomaly_model_info{version}`, `anomaly_detector_source_degraded` |
 | Santé | `GET /health` → 200 (`status: ok` ou `degraded` si une source est momentanément injoignable) |
 | Alerte | `AnomalyDetected` (`anomaly_score > 0.8 for 20s`, labels `severity=critical, domain=anomaly, service`) dans `infra/prometheus/rules/availability.yml` |

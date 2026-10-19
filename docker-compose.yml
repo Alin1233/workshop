@@ -1,6 +1,7 @@
 # Resilience-Alpha — démonstrateur de résilience (SI de paiement fictif + chaîne d'observation et de reprise)
 # Seul le WAF est publié sur le réseau du groupe. Les interfaces de gestion (Grafana, Prometheus, Loki, Alertmanager)
-# ne sont publiées que sur 127.0.0.1 (MGMT_BIND) : base, API, secrets et outils internes ne sont jamais exposés.
+# ne sont publiées que sur 127.0.0.1 (MGMT_BIND) et demandent un identifiant (admin / secrets/<service>_password) :
+# base, API, secrets et outils internes ne sont jamais exposés.
 name: resilience-alpha
 
 # Le pilote json-file recopie les labels Compose dans chaque ligne de journal :
@@ -127,7 +128,10 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-7d}
+      # Authentification basique sur toute l'API (et /metrics) : interface web, Grafana et futurs composants
+      - --web.config.file=/run/secrets/prometheus_web.yml
     read_only: true
+    secrets: [prometheus_web.yml, prometheus_password, alertmanager_password]
     volumes:
       - ./infra/prometheus:/etc/prometheus:ro
       - prometheus-data:/prometheus
@@ -150,7 +154,10 @@ services:
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
+      # Sans identifiant, n'importe quel processus local pourrait poser un silence et masquer une alerte
+      - --web.config.file=/run/secrets/alertmanager_web.yml
     read_only: true
+    secrets: [alertmanager_web.yml]
     volumes:
       - ./infra/alertmanager:/etc/alertmanager:ro
       - alertmanager-data:/alertmanager
@@ -158,18 +165,33 @@ services:
       - "${MGMT_BIND:-127.0.0.1}:${ALERTMANAGER_PORT:-9093}:9093"
     networks: [obs, mgmt]
 
+  # Loki n'a pas d'authentification native : il n'est joignable que sur le réseau interne "obs" (Alloy, Grafana,
+  # Prometheus), le port de gestion publié passe par loki-proxy.
   loki:
     <<: *hardening
     image: grafana/loki:3.7.8
     command: ["-config.file=/etc/loki/loki.yml"]
     read_only: true
     tmpfs: ["/tmp"]
+    secrets: [alertmanager_basic_auth]
     volumes:
       - ./infra/loki/loki.yml:/etc/loki/loki.yml:ro
       - ./infra/loki/rules:/etc/loki/rules:ro
       - loki-data:/loki
+    networks: [obs]
+
+  # Seul accès à Loki depuis le PC Hôte : authentification basique (admin / secrets/loki_password) puis relais.
+  loki-proxy:
+    <<: *hardening
+    image: nginxinc/nginx-unprivileged:1.29-alpine
+    read_only: true
+    tmpfs: ["/tmp"]
+    secrets: [loki_htpasswd]
+    volumes:
+      - ./infra/loki-proxy/default.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
-      - "${MGMT_BIND:-127.0.0.1}:${LOKI_PORT:-3100}:3100"
+      - "${MGMT_BIND:-127.0.0.1}:${LOKI_PORT:-3100}:8080"
+    depends_on: [loki]
     networks: [obs, mgmt]
 
   # Collecteur de journaux : lit en lecture seule les fichiers json-file des conteneurs (aucun accès au socket Docker).
@@ -225,7 +247,7 @@ services:
       GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
       GF_NEWS_NEWS_FEED_ENABLED: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/service-health.json
-    secrets: [grafana_admin_password]
+    secrets: [grafana_admin_password, prometheus_password, alertmanager_password]
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -359,3 +381,10 @@ secrets:
   grafana_admin_password: { file: "${SECRETS_DIR:-./secrets}/grafana_admin_password" }
   jwt_private.pem: { file: "${SECRETS_DIR:-./secrets}/jwt_private.pem" }
   jwt_public.pem: { file: "${SECRETS_DIR:-./secrets}/jwt_public.pem" }
+  # Comptes des interfaces de gestion : mot de passe en clair pour les clients, hash bcrypt pour les serveurs
+  prometheus_password: { file: "${SECRETS_DIR:-./secrets}/prometheus_password" }
+  prometheus_web.yml: { file: "${SECRETS_DIR:-./secrets}/prometheus_web.yml" }
+  alertmanager_password: { file: "${SECRETS_DIR:-./secrets}/alertmanager_password" }
+  alertmanager_web.yml: { file: "${SECRETS_DIR:-./secrets}/alertmanager_web.yml" }
+  alertmanager_basic_auth: { file: "${SECRETS_DIR:-./secrets}/alertmanager_basic_auth" }
+  loki_htpasswd: { file: "${SECRETS_DIR:-./secrets}/loki_htpasswd" }

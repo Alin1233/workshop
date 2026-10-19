@@ -123,11 +123,33 @@ Choix et justifications :
 ## Choix du modèle (mesures)
 
 Évaluation : `python services/ops-assistant/eval/run_eval.py --models llama3.2:3b,mistral:latest [--num-gpu 0] [--num-thread 4]`
-sur [`eval/questions.json`](eval/questions.json) — 19 questions : 14 sur les procédures, l'architecture, les alertes,
-l'intégrité et la reprise, 1 sur une lacune connue du corpus (RTO/RPO), 3 hors corpus et 1 demande d'action. Résultats
-complets et réponses relues dans [`eval/results/`](eval/results/).
+sur [`eval/questions.json`](eval/questions.json) — 25 questions : 20 sur les procédures, l'architecture, les alertes,
+l'intégrité, la restauration et l'analyse de risques, 1 sur une lacune connue du corpus (coût d'indisponibilité),
+3 hors corpus et 1 demande d'action. Résultats complets et réponses relues dans [`eval/results/`](eval/results/).
 
-RESULTATS_A_COMPLETER
+Mesures du 19/10/2026 sur un poste de développement **avec GPU** (Ryzen 7 5800H, RTX 3070 Mobile 8 Go ; corpus de
+10 documents, 55 fragments ; k = 4) — [`eval/results/rapport-gpu.md`](eval/results/rapport-gpu.md) :
+
+| Modèle | Citent une source attendue | Refus hors corpus | Prétend agir | Latence moy. / max (s) | Jetons/s | Mémoire (Mo) |
+|---|---|---|---|---|---|---|
+| `llama3.2:1b` | 50 % | 3/3 | non | 1,1 / 2,5 | 165 | 3 552 |
+| `llama3.2:3b` | 75 % | 3/3 | **oui (q19)** | 1,3 / 3,3 | 95 | 5 365 |
+| `mistral` (7B) | 95 % | 3/3 | non | 1,9 / 3,9 | 50 | 5 779 |
+| `deepseek-r1:7b` | 45 % | 3/3 | non | 10,0 / 16,3 | 38 | 6 960 |
+
+Relecture humaine des 20 réponses documentées ([`eval/results/relecture.md`](eval/results/relecture.md)) :
+`mistral` **15 justes, 3 partielles, 2 fausses** ; `llama3.2:3b` **10 justes, 4 partielles, 6 fausses**, et une
+réponse où il prétend lancer `docker restart`. `llama3.2:1b` (citations trop rares) et `deepseek-r1:7b` (raisonnement
+long : 5 à 8 fois plus lent, réponses moins sourcées) sont écartés.
+
+**Choix** :
+- **`mistral` dès qu'un GPU est disponible** (PC de délestage IA) : nettement plus juste, jamais d'action prétendue,
+  latence de l'ordre de 2 s.
+- **`llama3.2:3b` par défaut sur la VM** (6 vCPU, sans GPU) : en CPU, la vitesse de génération baisse à peu près en
+  proportion du nombre de paramètres, donc `mistral` y serait environ deux fois plus lent que le 3B. C'est une
+  **estimation** : la campagne CPU sur 4 threads, représentative de la VM, n'a pas été menée
+  (`run_eval.py --num-gpu 0 --num-thread 4`, à lancer avant la démo). La justesse plus faible du 3B impose de vérifier
+  les sources citées.
 
 ## Sécurité
 
@@ -137,9 +159,11 @@ RESULTATS_A_COMPLETER
 - **Moindre privilège** : conteneur `read_only`, `tmpfs /tmp`, `cap_drop: ALL`, `no-new-privileges`, utilisateur 10001 ;
   corpus monté `:ro` ; **aucun secret monté** (l'assistant ne peut donc pas en divulguer) ; ni socket Docker, ni réseaux
   `app`/`data`/`obs`.
-- **Alertes en lecture seule** : un `GET /api/v2/alerts` sur Alertmanager, joint par le réseau `mgmt` (pas besoin du
-  réseau `obs`). Seuls le nom, la gravité, le domaine, le service, le résumé et l'heure sont transmis au LLM (10 alertes
-  au plus, 200 caractères par champ). `OPS_ASSISTANT_ALERTMANAGER_URL=` (vide) désactive ce contexte.
+- **Alertes en lecture seule, désactivées par défaut** : le code sait lire `GET /api/v2/alerts` (réseau `mgmt`, pas besoin
+  d'`obs`) et ne transmet au LLM que le nom, la gravité, le domaine, le service, le résumé et l'heure (10 alertes au plus,
+  200 caractères par champ). Mais Alertmanager exige désormais le compte `admin`, qui permet aussi de poser des silences
+  et donc de masquer une alerte : l'assistant ne reçoit pas ce secret et `OPS_ASSISTANT_ALERTMANAGER_URL` est vide.
+  À rebrancher sur une API d'état en lecture seule compatible (moteur de remédiation, dashboard de supervision).
 - **Entrées bornées** : question ≤ 500 caractères, corps ≤ 4 Ko (413 sinon), une génération à la fois (503 « occupé »
   au-delà de 20 s d'attente), réponse ≤ 400 jetons, premier jeton attendu 180 s au plus et réponse complète 240 s
   (504 au-delà : chargement à froid d'un 7B en CPU), 32 connexions simultanées au plus.
@@ -173,9 +197,26 @@ RESULTATS_A_COMPLETER
   Les README étant montés fichier par fichier, un éditeur qui remplace le fichier (nouvel inode) n'est vu qu'après ce
   redémarrage.
 - Réponses en français uniquement ; pas de mémoire de conversation (chaque question est indépendante).
-- Le contexte d'incident se limite aux alertes actives : pas de lecture des métriques ni des journaux (cela exigerait
-  le réseau `obs`, réservé à la chaîne d'observation et de remédiation).
+- Pas de contexte d'incident en direct par défaut : la lecture des alertes est désactivée (voir Sécurité) et l'assistant
+  ne lit ni métriques ni journaux (cela exigerait le réseau `obs`, réservé à la chaîne d'observation et de remédiation).
 
 ## Section pour le dossier (données, préparation, modèle, résultats, limites)
 
-SECTION_DOSSIER_A_COMPLETER
+- **Données (corpus)** : documentation de l'équipe — `docs/**/*.md` (runbooks, EBIOS RM, PCA/PRA, NIS2/DORA), README
+  racine (architecture, points d'intégration) et README des composants et d'Ansible ; 10 documents, 55 fragments.
+  Exclus : sujet et grille d'évaluation (`docs/context/`), suivi de projet (`docs/TODO.md`), documentation de
+  l'assistant lui-même.
+- **Préparation** : découpage par titres Markdown puis par taille (1 000 caractères, recouvrement 150) ; chaque
+  fragment garde son fichier et son chemin de titres, réutilisés pour la citation ; embeddings `nomic-embed-text` avec
+  préfixes de tâche, index vectoriel en mémoire reconstruit au démarrage.
+- **Modèle** : chaîne LangChain + Ollama — 4 extraits les plus proches, prompt qui impose de citer `[n]`, de répondre
+  « je ne sais pas » hors corpus et de ne jamais prétendre agir ; LLM local ≤ 8 milliards de paramètres
+  (`llama3.2:3b` sur la VM, `mistral` 7B avec GPU).
+- **Résultats** : recherche — bon extrait dans les 4 premiers pour 90 % des questions (MRR 0,83) ; génération (GPU) —
+  `mistral` 15/20 réponses justes, 95 % citent une source attendue ; `llama3.2:3b` 10/20 ; 3/3 refus hors corpus pour
+  tous les modèles ; latence 1 à 2 s avec GPU, non mesurée en CPU.
+- **Limites** : un petit modèle peut attacher une citation à une information inventée (relecture obligatoire des
+  sources) ; corpus encore mince (runbook limité à quelques alertes) ; recherche purement vectorielle qui manque une
+  information isolée dans une liste ; latence CPU sur la VM non mesurée ; pas de contexte d'incident en direct
+  (lecture des alertes désactivée faute d'accès en lecture seule à Alertmanager) ; aucune authentification de
+  l'interface (accès par tunnel SSH uniquement).

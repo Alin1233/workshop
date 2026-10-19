@@ -1,0 +1,81 @@
+# Supprime une VM jetable (profil marqué disposable, la VM de recette) sur le Proxmox du labo, disques compris.
+# Le PC Hôte n'est jamais concerné : son profil n'est pas jetable.
+# Usage (WSL, racine du dépôt) :
+#   set -a; . ~/.config/proxmox/claude.env; set +a
+#   ansible-playbook ansible/destroy_proxmox_vm.yml -e vm_profile=recette -e confirm_destroy=true
+- name: Supprimer une VM jetable
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - vars/proxmox_vm.yml
+  vars:
+    pve_api: "{{ lookup('ansible.builtin.env', 'PROXMOX_URL') }}/api2/json"
+    pve_vm_api: "{{ pve_api }}/nodes/{{ vm.node }}/qemu/{{ vm.vmid }}"
+  module_defaults:
+    ansible.builtin.uri:
+      headers:
+        Authorization: "PVEAPIToken={{ lookup('ansible.builtin.env', 'PROXMOX_TOKEN_ID') }}={{ lookup('ansible.builtin.env', 'PROXMOX_TOKEN_SECRET') }}"
+      ca_path: "{{ pve_ca_path }}"
+      return_content: true
+  tasks:
+    - name: Vérifier les prérequis (token chargé, VM jetable, confirmation, pas de trace verbeuse)
+      ansible.builtin.assert:
+        that:
+          - lookup('ansible.builtin.env', 'PROXMOX_TOKEN_SECRET') | length > 0
+          - vm.disposable | bool
+          - vm.vmid in pve_allowed_vmids
+          - confirm_destroy | default(false) | bool
+          - ansible_verbosity < 3
+        fail_msg: "Seul un profil jetable (disposable: true) se supprime, avec -e confirm_destroy=true, au plus -vv."
+
+    - name: Lister les VM visibles du cluster
+      ansible.builtin.uri:
+        url: "{{ pve_api }}/cluster/resources?type=vm"
+      register: pve_resources
+
+    - name: Repérer la VM
+      ansible.builtin.set_fact:
+        vm_existing: "{{ pve_resources.json.data | selectattr('vmid', 'equalto', vm.vmid) | first | default({}) }}"
+
+    - name: Refuser de supprimer une VM qui n'est pas celle du profil
+      ansible.builtin.assert:
+        that: vm_existing == {} or (vm_existing.name == vm.name and vm_existing.node == vm.node)
+        fail_msg: "L'ID {{ vm.vmid }} porte {{ vm_existing.name | default('?') }} sur {{ vm_existing.node | default('?') }} : suppression refusée."
+        quiet: true
+
+    - name: Suppression
+      when: vm_existing != {}
+      block:
+        - name: Arrêter la VM
+          ansible.builtin.uri:
+            url: "{{ pve_vm_api }}/status/stop"
+            method: POST
+          register: pve_stop
+          when: vm_existing.status == 'running'
+          changed_when: true
+
+        - name: Attendre l'arrêt
+          ansible.builtin.include_tasks: tasks/pve_wait_task.yml
+          vars:
+            pve_upid: "{{ pve_stop.json.data }}"
+          when: vm_existing.status == 'running'
+
+        - name: Supprimer la VM et ses disques
+          ansible.builtin.uri:
+            url: "{{ pve_vm_api }}?purge=1&destroy-unreferenced-disks=1"
+            method: DELETE
+          register: pve_delete
+          changed_when: true
+
+        - name: Attendre la suppression
+          ansible.builtin.include_tasks: tasks/pve_wait_task.yml
+          vars:
+            pve_upid: "{{ pve_delete.json.data }}"
+
+    # Une VM recréée à la même adresse aura une nouvelle clé d'hôte SSH
+    - name: Oublier la clé d'hôte SSH de la VM
+      ansible.builtin.command: ssh-keygen -R {{ vm.ip_cidr.split('/')[0] }}
+      register: known_hosts
+      changed_when: "'updated' in known_hosts.stdout"
+      failed_when: false
