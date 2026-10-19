@@ -3,7 +3,7 @@
 # certificat auto-signé du labo (CN sans SAN) ; uri utilise le ssl standard et garde la vérification TLS.
 # Usage (WSL, racine du dépôt) :
 #   set -a; . ~/.config/proxmox/claude.env; set +a
-#   ansible-playbook ansible/provision_proxmox.yml
+#   ansible-playbook ansible/provision_proxmox.yml [-e vm_profile=recette]
 - name: Provisionner la VM PC Hôte sur Proxmox
   hosts: localhost
   connection: local
