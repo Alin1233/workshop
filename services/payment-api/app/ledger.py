@@ -5,6 +5,10 @@ import uuid
 from datetime import datetime, timezone
 
 from psycopg import Connection, errors
+from sqlalchemy.orm import Session
+
+from .models.ledger_entries import LedgerEntry
+from .models.transfer import Transfer
 
 TREASURY_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 WELCOME_CREDIT_CENTS = 100_000  # 1 000,00 € fictifs
@@ -27,18 +31,37 @@ def _new_account_number() -> str:
 def _insert_transfer(conn: Connection, from_id, to_id, amount_cents: int, label: str, initiated_by, idempotency_key) -> dict:
     # Cette méthode permet d'écrire un virement et ses deux écritures, puis de mettre à jour les soldes ;
     # elle doit être appelée dans une transaction où les deux comptes sont déjà verrouillés.
-    transfer = conn.execute(
-        """INSERT INTO transfers (id, from_account_id, to_account_id, amount_cents, label, initiated_by, idempotency_key)
-           VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *""",
-        (uuid.uuid4(), from_id, to_id, amount_cents, label, initiated_by, idempotency_key),
-    ).fetchone()
-    conn.execute(
-        "INSERT INTO ledger_entries (transfer_id, account_id, amount_cents) VALUES (%s, %s, %s), (%s, %s, %s)",
-        (transfer["id"], from_id, -amount_cents, transfer["id"], to_id, amount_cents),
+    session = Session(bind=conn)
+    transfer = Transfer(
+        id=uuid.uuid4(),
+        from_account_id=from_id,
+        to_account_id=to_id,
+        amount_cents=amount_cents,
+        label=label,
+        status="completed",
+        initiated_by=initiated_by,
+        idempotency_key=idempotency_key,
     )
-    conn.execute("UPDATE accounts SET balance_cents = balance_cents - %s WHERE id = %s", (amount_cents, from_id))
-    conn.execute("UPDATE accounts SET balance_cents = balance_cents + %s WHERE id = %s", (amount_cents, to_id))
-    return transfer
+    session.add(transfer)
+    session.add_all(
+        [
+            LedgerEntry(transfer=transfer, account_id=from_id, amount_cents=-amount_cents),
+            LedgerEntry(transfer=transfer, account_id=to_id, amount_cents=amount_cents),
+        ]
+    )
+    session.flush()
+    session.close()
+    return {
+        "id": transfer.id,
+        "from_account_id": transfer.from_account_id,
+        "to_account_id": transfer.to_account_id,
+        "amount_cents": transfer.amount_cents,
+        "label": transfer.label,
+        "status": transfer.status,
+        "initiated_by": transfer.initiated_by,
+        "idempotency_key": transfer.idempotency_key,
+        "created_at": transfer.created_at,
+    }
 
 
 def get_or_open_account(conn: Connection, claims: dict) -> tuple[dict, bool]:
