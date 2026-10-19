@@ -36,6 +36,9 @@
 - ☐ Générer les clés age de l'équipe, remplir `.sops.yaml`, chiffrer et versionner `secrets.enc.json`
 - ☐ Sécuriser l'accès du moteur de remédiation à Docker (docker-socket-proxy restreint, webhook authentifié)
 - ☐ Revue de durcissement (Trivy, mots de passe, en-têtes, réglage du niveau de paranoïa du WAF)
+- ☐ Authentifier Prometheus (aujourd'hui sans identifiant, protégé seulement par `127.0.0.1`) : `--web.config.file` avec `basic_auth_users` (mot de passe bcrypt généré par `init_secrets.py`), puis mettre à jour la source de données Grafana et `tests/observability_check.py`
+- ☐ Authentifier Alertmanager (sans identifiant : n'importe quel processus local peut créer des silences et masquer une alerte) : `--web.config.file` avec `basic_auth_users`, puis mettre à jour Prometheus (`alerting`), le ruler Loki, Grafana et `observability_check.py`
+- ☐ Authentifier Loki (aucune authentification native, `auth_enabled` ne gère que les tenants) : proxy nginx avec authentification basique devant le port publié, accès interne d'Alloy et de Grafana inchangé ou aligné, puis mettre à jour `observability_check.py`
 
 ## Transformation / Gouvernance
 - ☐ EBIOS RM (`docs/governance/ebios-rm.md`), relié aux alertes et aux remédiations réelles
