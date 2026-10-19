@@ -62,20 +62,20 @@ def generate_rsa_pair() -> tuple[str, str]:
     return private_pem, public_pem
 
 
-def bcrypt_hash(password: str) -> str:
+def bcrypt_hash(plain: str) -> str:
     # Cette méthode permet de calculer le hash bcrypt d'un mot de passe, via la bibliothèque bcrypt si elle est installée,
     # sinon via htpasswd dans un conteneur jetable (le mot de passe passe par stdin, jamais par la ligne de commande).
     try:
         import bcrypt
 
-        return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=10)).decode()
+        return bcrypt.hashpw(plain.encode(), bcrypt.gensalt(rounds=10)).decode()
     except ImportError:
         pass
     if not shutil.which("docker"):
         sys.exit("Ni bcrypt ni docker : faites `pip install bcrypt`, puis relancez.")
     line = subprocess.run(
         ["docker", "run", "--rm", "-i", "httpd:2.4-alpine", "htpasswd", "-niBC", "10", OBSERVABILITY_USER],
-        input=password, check=True, capture_output=True, text=True,
+        input=plain, check=True, capture_output=True, text=True,
     ).stdout.strip()
     return line.split(":", 1)[1]
 
