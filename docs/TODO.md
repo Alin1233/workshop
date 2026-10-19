@@ -22,7 +22,7 @@
 - ✅ PC Hôte et sauvegardes supervisés : node-exporter (sans socket Docker), alertes disque, mémoire, sauvegarde manquante ou en échec, rangée dédiée dans « Santé du service »
 - ☐ cAdvisor / postgres-exporter : non déployés (le contrat du détecteur d'anomalies n'utilise que des métriques applicatives ; cAdvisor exige le socket Docker) — à rouvrir si le pilier IA en a besoin
 - ☐ Point d'accès RESILIENCE-G6 : le PC Hôte est une VM du labo (172.16.147.10), joignable par le wifi labo et non par un point d'accès du groupe — **à faire valider par le coach** (tous les postes y arrivent avec la même IP, 172.16.255.252)
-- ☐ README de déploiement final vérifié sur une machine vierge
+- ✅ Déploiement vérifié sur une machine vierge depuis un clone neuf (VM de recette jetable : hôte reconstruit en 311 s) ; PRA « perte du PC Hôte » joué : données restaurées, mais **secrets à restaurer aussi** (voir Cybersécurité)
 
 ## IA / Data
 - ☐ **Détecteur d'anomalies ML** (`services/anomaly-detector/` + `ml/`) : jeu de données normal/attaque, modèle, `anomaly_score` exposé à Prometheus, règle `AnomalyDetected` à décommenter
@@ -34,13 +34,13 @@
 - ✅ WAF ModSecurity + OWASP CRS en unique point d'entrée (SQLi/XSS bloquées en 403, IP réelle propagée jusqu'aux API)
 - ✅ SOC intégré : 5 règles LogQL (force brute, rafale de jetons invalides, blocages WAF, violations d'intégrité, pannes de dépendance) → Alertmanager — testées
 - ✅ Script SOPS + age (`scripts/sops_secrets.py`) — **non testé** (sops/age absents du poste)
-- ☐ Générer les clés age de l'équipe, remplir `.sops.yaml`, chiffrer et versionner `secrets.enc.json`
+- ☐ Générer les clés age de l'équipe, remplir `.sops.yaml`, chiffrer et versionner `secrets.enc.json` — **nécessaire au PRA « perte du PC Hôte »** : sans les anciens secrets, le compte admin restauré n'accepte plus le nouveau mot de passe ; installer aussi `sops` sur le PC Hôte (ou déchiffrer sur le poste de l'opérateur)
 - ☐ Sécuriser l'accès du moteur de remédiation à Docker (docker-socket-proxy restreint, webhook authentifié)
 - ☐ Revue de durcissement (Trivy, mots de passe, en-têtes, réglage du niveau de paranoïa du WAF)
 
 ## Transformation / Gouvernance
 - ☐ EBIOS RM (`docs/governance/ebios-rm.md`), relié aux alertes et aux remédiations réelles
-- ☐ PCA/PRA avec RTO/RPO **mesurés** sur le démonstrateur (`docs/governance/pca-pra.md`) ; premières mesures (restauration de la base) dans `docs/runbooks/restauration-base.md`
+- ☐ PCA/PRA avec RTO/RPO **mesurés** sur le démonstrateur (`docs/governance/pca-pra.md`) ; premières mesures (restauration de la base : 10,6 s ; reconstruction complète du PC Hôte : ≈ 6 min) dans `docs/runbooks/restauration-base.md`
 - ☐ Analyse NIS2/DORA : exigences pertinentes vs démontrables (`docs/governance/nis2-dora.md`)
 - ☐ Runbooks (`docs/runbooks/`) — servent aussi de corpus au RAG
 
