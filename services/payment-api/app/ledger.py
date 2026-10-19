@@ -155,6 +155,8 @@ def _run_integrity_checks(conn: Connection) -> dict:
              ON e.account_id = a.id
            WHERE a.balance_cents <> COALESCE(e.total, 0)"""
     ).fetchall()
+    # SUM(bigint) renvoie un numeric (Decimal côté Python) : converti en entier pour rester sérialisable en JSON.
+    mismatched = [{**row, "ledger_cents": int(row["ledger_cents"])} for row in mismatched]
     unbalanced = conn.execute(
         """SELECT t.id FROM transfers t LEFT JOIN ledger_entries e ON e.transfer_id = t.id
            GROUP BY t.id, t.amount_cents
