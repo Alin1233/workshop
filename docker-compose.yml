@@ -283,11 +283,13 @@ volumes:
   grafana-data: {}
   ollama-data: {}
 
+# SECRETS_DIR : chemin stable hors des versions sur le PC Hôte (.env écrit par deploy.yml) ; ./secrets en local.
+# Compose ne recrée pas un conteneur quand seul le chemin d'un secret change : il ne doit donc pas changer d'une version à l'autre.
 secrets:
-  postgres_password: { file: ./secrets/postgres_password }
-  auth_db_password: { file: ./secrets/auth_db_password }
-  pay_db_password: { file: ./secrets/pay_db_password }
-  admin_password: { file: ./secrets/admin_password }
-  grafana_admin_password: { file: ./secrets/grafana_admin_password }
-  jwt_private.pem: { file: ./secrets/jwt_private.pem }
-  jwt_public.pem: { file: ./secrets/jwt_public.pem }
+  postgres_password: { file: "${SECRETS_DIR:-./secrets}/postgres_password" }
+  auth_db_password: { file: "${SECRETS_DIR:-./secrets}/auth_db_password" }
+  pay_db_password: { file: "${SECRETS_DIR:-./secrets}/pay_db_password" }
+  admin_password: { file: "${SECRETS_DIR:-./secrets}/admin_password" }
+  grafana_admin_password: { file: "${SECRETS_DIR:-./secrets}/grafana_admin_password" }
+  jwt_private.pem: { file: "${SECRETS_DIR:-./secrets}/jwt_private.pem" }
+  jwt_public.pem: { file: "${SECRETS_DIR:-./secrets}/jwt_public.pem" }

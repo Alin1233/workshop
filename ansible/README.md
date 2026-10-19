@@ -73,6 +73,11 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e deploy_ref=v1  #
 ```
 
 - **Ce qui est déployé est un commit**, pas la copie de travail : les modifications non commitées sont signalées et ignorées.
+- **Secrets hors des versions** : `shared/.env` (écrit par le playbook, relié dans chaque version) fixe `SECRETS_DIR` sur
+  `shared/secrets`. Compose ne recrée pas un conteneur dont seul le chemin d'un secret change : avec un chemin par version,
+  les API restaient montées sur une version supprimée ensuite et ne redémarraient plus (`bind source path does not exist`).
+- **Aucun conteneur sur une ancienne version** : après `up`, les conteneurs qui montent encore un fichier d'une autre version
+  sont recréés, et une version encore montée n'est jamais supprimée par le ménage.
 - **Retour arrière** : redéployer le commit précédent (`-e deploy_ref=<commit>`) ; la base et les volumes nommés sont conservés.
 - Compose est lancé depuis le chemin réel de la version : les conteneurs qui montent une configuration du dépôt
   sont recréés à chaque nouvelle version, jamais laissés sur l'ancienne configuration.
