@@ -1,0 +1,54 @@
+# Sauvegarde PostgreSQL à la demande, avec copie hors de l'hôte sur le poste de l'opérateur.
+# Les sauvegardes planifiées (toutes les 15 min) sont installées par deploy.yml ; ce playbook les (ré)installe aussi.
+# Usage : ansible-playbook -i ansible/inventory.ini ansible/backup_database.yml
+- name: Sauvegarder les bases PostgreSQL
+  hosts: pc_hote
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Installer les scripts et la sauvegarde planifiée
+      ansible.builtin.include_tasks: tasks/pg_backup_install.yml
+
+    - name: Lancer une sauvegarde
+      ansible.builtin.command: /usr/local/sbin/resilience-pg-backup manual
+      register: backup_run
+      changed_when: true
+
+    - name: Lire le résultat
+      ansible.builtin.set_fact:
+        backup: "{{ backup_run.stdout_lines[-1] | from_json }}"
+
+    - name: Signaler une sauvegarde d'un registre incohérent (elle ne sera pas choisie par défaut à la restauration)
+      ansible.builtin.debug:
+        msg: "Registre {{ backup.integrity }} au moment de la sauvegarde {{ backup.name }}"
+      when: backup.integrity != 'ok'
+
+    - name: Préparer le répertoire local des copies (hors du dépôt, lisible par vous seul)
+      ansible.builtin.file:
+        path: "{{ pc_hote_backup_local_dir }}/{{ backup.name }}"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: Copier la sauvegarde sur le poste de l'opérateur
+      ansible.builtin.fetch:
+        src: "{{ pc_hote_backup_dir }}/{{ backup.name }}/{{ item }}"
+        dest: "{{ pc_hote_backup_local_dir }}/{{ backup.name }}/"
+        flat: true
+      loop: [authdb.dump, paydb.dump, meta.json, SHA256SUMS]
+
+    - name: Vérifier la copie locale
+      ansible.builtin.command: sha256sum --check --quiet SHA256SUMS
+      args:
+        chdir: "{{ pc_hote_backup_local_dir }}/{{ backup.name }}"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+
+    - name: Résumé
+      ansible.builtin.debug:
+        msg:
+          - "Sauvegarde : {{ backup.name }} (registre {{ backup.integrity }}, version {{ backup.release }})"
+          - "Sur l'hôte : {{ pc_hote_backup_dir }}/{{ backup.name }}"
+          - "Copie locale : {{ pc_hote_backup_local_dir }}/{{ backup.name }}"

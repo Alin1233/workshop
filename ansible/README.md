@@ -9,6 +9,8 @@ ansible-playbook ansible/provision_proxmox.yml   # 1. créer la VM (une fois)
 ansible-playbook -i ansible/inventory.ini ansible/prepare_host.yml   # 2. Docker, pare-feu, SSH (une fois)
 ansible-playbook -i ansible/inventory.ini ansible/deploy.yml         # 3. déployer le commit courant
 ansible-playbook -i ansible/inventory.ini ansible/restart_service.yml -e service=payment-api   # reprise
+ansible-playbook -i ansible/inventory.ini ansible/backup_database.yml                          # sauvegarde + copie locale
+ansible-playbook -i ansible/inventory.ini ansible/restore_database.yml -e confirm_restore=true  # PRA données
 ```
 
 ## Provisionnement de la VM PC Hôte (Proxmox du labo)
@@ -79,15 +81,29 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e deploy_ref=v1  #
 - Les mots de passe affichés par `init_secrets.py` sont masqués (`no_log`). Pour les lire :
   `ssh resilience@172.16.147.10 sudo cat /opt/resilience-alpha/shared/secrets/admin_password`.
 
+## Sauvegarde et restauration PostgreSQL
+
+Procédure, mesures et limites : [docs/runbooks/restauration-base.md](../docs/runbooks/restauration-base.md).
+
+- `deploy.yml` installe `/usr/local/sbin/resilience-pg-backup` et `resilience-pg-restore` (`templates/`) et le timer
+  systemd `resilience-pg-backup.timer` : une sauvegarde toutes les 15 min (`pc_hote_backup_calendar`), soit un RPO ≤ 15 min.
+- Chaque sauvegarde (`/var/backups/resilience-alpha/<horodatage>-<type>/`, 0700 root) contient un `pg_dump` par base,
+  les empreintes SHA-256 et l'**état d'intégrité du registre** relevé avant et après les dumps.
+- `restore_database.yml` restaure par défaut la **dernière sauvegarde saine** : une sauvegarde prise après une corruption
+  n'est jamais choisie d'office. L'état courant est conservé avant écrasement (`pre-restore`), pour l'investigation.
+- Ni les rôles ni leurs mots de passe ne sont sauvegardés : `db/init/01-create-service-databases.sh` les recrée depuis les secrets.
+
 | Playbook | Rôle | État |
 |---|---|---|
 | `provision_proxmox.yml` | clone du template Debian 13 cloud-init → ressources → disque → démarrage → SSH | testé (19/10) |
 | `prepare_host.yml` | Docker Engine + Compose, pare-feu nftables, durcissement SSH, mises à jour de sécurité | testé (19/10) |
 | `deploy.yml` | commit → version extraite → secrets → `docker compose up --wait` → tests sur l'hôte et à travers le réseau | testé (19/10) |
 | `restart_service.yml` | recrée un service autorisé de la version active et vérifie la reprise réelle | testé (19/10) |
-| `backup_database.yml` / `restore_database.yml` | sauvegarde / restauration PostgreSQL | **à faire** |
+| `backup_database.yml` | sauvegarde à la demande + copie vérifiée sur le poste de l'opérateur ; (ré)installe la sauvegarde planifiée | testé (19/10) |
+| `restore_database.yml` | restaure la dernière sauvegarde saine (ou `-e backup=<nom>`), contrôle d'intégrité, transaction témoin | testé (19/10) |
 
 ## À faire
-- [ ] Sauvegarde `pg_dump` planifiée + restauration (base des scénarios PRA « données corrompues »)
+- [ ] Chiffrer la copie locale des sauvegardes (age, clé de l'équipe)
+- [ ] Pendant une restauration, suspendre les alertes de disponibilité (silence Alertmanager) pour que le moteur de remédiation ne relance pas les API
 - [ ] Décider si le moteur de remédiation appelle ces playbooks ou l'API Docker (expliquer le choix au jury)
 - [ ] SOPS sur le PC Hôte : installer `sops` et la clé age (ou déchiffrer sur le poste de l'opérateur) avant de versionner `secrets.enc.json`

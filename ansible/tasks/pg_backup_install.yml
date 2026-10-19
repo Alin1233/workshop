@@ -1,0 +1,60 @@
+# Installe les scripts de sauvegarde/restauration PostgreSQL et la sauvegarde planifiée (timer systemd).
+# Inclus par deploy.yml, backup_database.yml et restore_database.yml : toujours la version du dépôt.
+- name: Créer le répertoire des sauvegardes (root uniquement)
+  ansible.builtin.file:
+    path: "{{ pc_hote_backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Installer les scripts de sauvegarde et de restauration
+  ansible.builtin.template:
+    src: "templates/{{ item }}.sh.j2"
+    dest: "/usr/local/sbin/{{ item }}"
+    owner: root
+    group: root
+    mode: "0750"
+    validate: bash -n %s
+  loop: [resilience-pg-backup, resilience-pg-restore]
+
+- name: Déclarer le service et le timer de sauvegarde
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    content: "{{ item.content }}"
+    mode: "0644"
+  loop:
+    - name: resilience-pg-backup.service
+      content: |
+        [Unit]
+        Description=Sauvegarde PostgreSQL de Resilience-Alpha
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/resilience-pg-backup scheduled
+        Nice=10
+        IOSchedulingClass=idle
+    - name: resilience-pg-backup.timer
+      content: |
+        [Unit]
+        Description=Sauvegarde PostgreSQL de Resilience-Alpha ({{ pc_hote_backup_calendar }})
+
+        [Timer]
+        OnCalendar={{ pc_hote_backup_calendar }}
+        # rattrape une sauvegarde manquée pendant un arrêt de la VM
+        Persistent=true
+
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  register: backup_units
+
+- name: Activer la sauvegarde planifiée
+  ansible.builtin.systemd_service:
+    name: resilience-pg-backup.timer
+    enabled: true
+    state: started
+    daemon_reload: "{{ backup_units.changed }}"
