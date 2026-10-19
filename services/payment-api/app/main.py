@@ -45,7 +45,7 @@ class AccountOut(BaseModel):
 class TransferIn(BaseModel):
     to_account_number: str = Field(pattern=r"^RA\d{10}$")
     amount_cents: int = Field(gt=0, le=1_000_000, description="Montant en centimes (max 10 000,00 €)")
-    label: str = Field(default="", max_length=140)
+    label: str = Field(default="", max_length=60)
 
 
 class TransferOut(BaseModel):

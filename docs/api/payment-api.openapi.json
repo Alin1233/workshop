@@ -285,7 +285,7 @@
           },
           "label": {
             "type": "string",
-            "maxLength": 140,
+            "maxLength": 60,
             "title": "Label",
             "default": ""
           }

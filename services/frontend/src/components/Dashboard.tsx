@@ -82,8 +82,9 @@ export default function Dashboard({ session, health, onSessionExpired }: Props) 
         </div>
       )}
 
-      <div className="grid items-start gap-4 md:grid-cols-[1.1fr_1fr]">
-        <div className="space-y-4">
+      {/* minmax(0, …) : sans plancher à 0, un libellé long sans espace élargit la colonne au-delà de l'écran. */}
+      <div className="grid items-start gap-4 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-4">
           <section className="relative overflow-hidden rounded-2xl bg-[radial-gradient(120%_140%_at_100%_0%,var(--color-ink-glow)_0%,var(--color-ink)_55%)] p-6 text-white">
             <span aria-hidden className="absolute -right-12 -bottom-16 h-52 w-52 rounded-full border-[32px] border-mint/8" />
             <p className="text-[11px] font-medium tracking-wider text-mist uppercase">Solde disponible</p>
@@ -108,16 +109,16 @@ export default function Dashboard({ session, health, onSessionExpired }: Props) 
               </div>
             </dl>
             <div className="relative mt-5 flex items-center justify-between gap-3 rounded-lg bg-white/[0.06] px-3 py-2.5">
-              <div>
+              <div className="min-w-0">
                 <p className="text-[11px] tracking-wider text-mist uppercase">N° de compte</p>
-                <p className="font-mono tracking-widest" data-testid="account-number" data-value={account?.account_number}>
+                <p className="truncate font-mono tracking-widest" data-testid="account-number" data-value={account?.account_number}>
                   {account ? formatAccountNumber(account.account_number) : "…"}
                 </p>
               </div>
               <button
                 onClick={copyAccountNumber}
                 disabled={!account}
-                className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20 disabled:opacity-50"
+                className="shrink-0 rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20 disabled:opacity-50"
               >
                 {copied ? "Copié ✓" : "Copier"}
               </button>
@@ -135,7 +136,7 @@ export default function Dashboard({ session, health, onSessionExpired }: Props) 
           </section>
         </div>
 
-        <div className="md:sticky md:top-4">
+        <div className="min-w-0 md:sticky md:top-4">
           <TransferForm token={session.token} onDone={refresh} onSessionExpired={onSessionExpired} />
         </div>
       </div>
@@ -185,7 +186,7 @@ function TransferHistory({ transfers }: { transfers: Transfer[] | null }) {
                     {credit ? "↓" : "↑"}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{t.label || (credit ? "Virement reçu" : "Virement émis")}</p>
+                    <p className="truncate font-medium" title={t.label || undefined}>{t.label || (credit ? "Virement reçu" : "Virement émis")}</p>
                     <p className="truncate text-xs text-muted" title={t.counterparty_account_number}>
                       {credit ? "De" : "Vers"} {t.counterparty_name} · {timeFormat.format(new Date(t.created_at))}
                     </p>
