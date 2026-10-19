@@ -48,6 +48,17 @@ Each vector's objective, command, and expected response live in its own README �
 
 The L7 DoS is the headliner because its oracle maps to a response the remediation engine can actually heal. Brute force and SQLi are compromise-attempt scenarios: they prove detection and WAF/SIEM response, not availability recovery — keep the two outcomes distinct.
 
+## CVE path — version-specific flaws
+
+A separate branch from the behavioural vectors: find a **known vulnerability in a library version the SI actually runs**, then exploit it only when it is genuinely reachable here. Honest discipline, in order — do not skip a step to reach an exploit:
+
+1. **Inventory.** Run [`00-recon/vuln-scan.sh`](../../../attacks/00-recon/vuln-scan.sh). It reads versions as *built/running* (the Python manifests are ranges, so the real version lives in the image) and lists HIGH/CRITICAL CVEs with their fixed-in version.
+2. **Triage.** Keep only a CVE that is (a) present in a version actually installed, (b) **reachable** given this app's config and exposure (most infra UIs are bound to `127.0.0.1`, so a CVE there is not attacker-reachable), and (c) backed by a **public PoC**. Drop the rest to the hardening report.
+3. **Exploit — only on a confirmed, reachable CVE with a PoC.** Adapt that published PoC against the lab target under the scope guard; never author a generic weapon for an unverified flaw. Put it in a new `attacks/<nn>-cve-<id>/` with the usual README (objectif, prérequis, commande, effet, détection, remédiation).
+4. **Oracle.** The expected signal depends on the CVE: an RCE/exfil shows up as a WAF block, a `DependencyFailures`/`ServiceDown` alert, or a `LedgerIntegrityBroken`/`integrity_violation` if data is touched. Note which alert (if any) catches it — a CVE that fires **no** oracle is itself a reportable detection gap.
+
+Known lead on this stack: `ollama/ollama:latest` is unpinned (tag drift + supply-chain risk) and Ollama has a CVE history — but it is only reachable under the `--profile ai` and is not published. Scan it before assuming it is exploitable.
+
 ## Escalation ladder — when the oracle stays silent
 
 Climb one rung at a time, re-checking the oracle after each, staying inside the scope and 60s caps:
