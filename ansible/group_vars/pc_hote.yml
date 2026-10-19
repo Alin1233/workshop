@@ -25,3 +25,12 @@ pc_hote_backup_keep: 96             # 24 h de sauvegardes planifiées ; la derni
 pc_hote_node_textfile_dir: /var/lib/node-exporter/textfile
 # Copie hors de l'hôte, sur le poste de l'opérateur (jamais dans le dépôt : les bases contiennent des empreintes de mots de passe)
 pc_hote_backup_local_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.local/share/resilience-alpha/backups"
+
+# Assistant RAG (ops-assistant) : où tourne son LLM, écrit dans le .env de Compose à chaque déploiement.
+#   container : conteneur ollama de la VM (profil ai, CPU) ; les modèles sont tirés au premier déploiement
+#   offload   : PC de délestage IA, joint à pc_hote_ai_offload_url (ex. http://172.16.x.y:11434)
+#   off       : pas de LLM, l'assistant reste en mode dégradé (healthy, /ask en 503)
+pc_hote_ai_mode: container
+pc_hote_ai_offload_url: ""
+pc_hote_ai_llm_model: llama3.2:3b
+pc_hote_ai_embed_model: nomic-embed-text

@@ -12,10 +12,20 @@ Chaque variable est décrite par :
 
 Toutes les variables sont orientées « une hausse est suspecte » : seuls les écarts positifs à la
 normale comptent (un trafic faible ou nul — période creuse — n'est jamais une anomalie).
+
+Deux situations « sans valeur » sont soigneusement distinguées :
+- la requête a réussi mais ne renvoie rien (aucune activité) → NaN, puis comblé par `nan_fill` : c'est un
+  comportement normal (plateforme au repos) ;
+- la SOURCE est injoignable (Loki/Prometheus en panne, authentification refusée) → la variable est déclarée
+  **manquante** (`Observation.missing`) et n'est jamais comblée : elle ne doit pas passer pour « normale ».
+La dégradation est **par service** : Loki en panne n'empêche pas de scorer auth-service, dont toutes les
+variables viennent de Prometheus ; seuls payment-api et frontend (qui lisent Loki) deviennent incomplets.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isnan
+
+from .promclient import SourceUnavailable
 
 
 @dataclass(frozen=True)
@@ -104,17 +114,42 @@ def _client_for(source: str, prom, loki):
     raise ValueError(f"Source inconnue : {source}")
 
 
-def extract_instant(prom, loki, at: float | None = None) -> dict[str, dict[str, float]]:
-    # Cette méthode permet de calculer, pour chaque service, le vecteur de variables à l'instant courant.
-    # Les erreurs de source (Loki/Prometheus indisponible) remontent à l'appelant : c'est la boucle qui décide.
-    observations: dict[str, dict[str, float]] = {}
+@dataclass
+class Observation:
+    """Variables d'un service à un instant : valeurs obtenues et variables manquantes (source injoignable)."""
+
+    values: dict[str, float] = field(default_factory=dict)  # NaN = requête réussie mais sans donnée
+    missing: list[str] = field(default_factory=list)
+
+    @property
+    def complete(self) -> bool:
+        # Cette méthode permet de savoir si toutes les variables du service ont pu être interrogées.
+        return not self.missing
+
+
+def extract_instant(prom, loki, at: float | None = None) -> tuple[dict[str, Observation], dict[str, str]]:
+    # Cette méthode permet de calculer, pour chaque service, les variables à l'instant courant, en dégradant
+    # service par service : une source en échec rend « manquantes » ses variables, sans bloquer les autres services.
+    # Dès qu'une source échoue, ses requêtes suivantes sont sautées pour ce cycle (pas d'empilement de délais).
+    # Renvoie (observations par service, {source en échec: message d'erreur}).
+    clients = {"prom": prom, "loki": loki}
+    errors: dict[str, str] = {}
+    observations: dict[str, Observation] = {}
     for service, specs in FEATURES.items():
-        values: dict[str, float] = {}
+        obs = Observation()
         for spec in specs:
-            client = _client_for(spec.source, prom, loki)
-            values[spec.name] = client.query(spec.query, at)
-        observations[service] = values
-    return observations
+            if spec.source not in clients:
+                raise ValueError(f"Source inconnue : {spec.source}")
+            if spec.source in errors:
+                obs.missing.append(spec.name)
+                continue
+            try:
+                obs.values[spec.name] = clients[spec.source].query(spec.query, at)
+            except SourceUnavailable as exc:
+                errors[spec.source] = str(exc)
+                obs.missing.append(spec.name)
+        observations[service] = obs
+    return observations, errors
 
 
 def extract_range(prom, loki, start: float, end: float, step: float) -> list[dict]:
@@ -157,13 +192,23 @@ def feature_names(service: str) -> list[str]:
     return [spec.name for spec in FEATURES[service]]
 
 
-def clean_vector(service: str, values: dict[str, float], medians: dict[str, float]) -> list[float]:
-    # Cette méthode permet de remplacer les valeurs manquantes (NaN) selon la règle de chaque variable :
-    # "zero" (absence d'activité) ou "median" (valeur neutre apprise, pour ne pas inventer une anomalie).
-    cleaned: list[float] = []
+def clean_values(service: str, values: dict[str, float], medians: dict[str, float]) -> dict[str, float]:
+    # Cette méthode permet de nettoyer les variables obtenues d'un service, associées par nom : une valeur NaN
+    # (requête réussie, aucune donnée) est remplacée selon la règle de la variable — "zero" (absence d'activité)
+    # ou "median" (valeur neutre apprise sur le normal d'entraînement). Une variable ABSENTE de `values` (source
+    # injoignable) reste absente : elle n'est jamais comblée, pour ne pas la faire passer pour normale.
+    # C'est la fonction utilisée à l'inférence ET à l'évaluation (ml/train.py) : prétraitement identique.
+    cleaned: dict[str, float] = {}
     for spec in FEATURES[service]:
-        value = values.get(spec.name, float("nan"))
+        if spec.name not in values:
+            continue
+        value = values[spec.name]
         if value is None or isnan(value):
             value = medians.get(spec.name, 0.0) if spec.nan_fill == "median" else 0.0
-        cleaned.append(float(value))
+        cleaned[spec.name] = float(value)
     return cleaned
+
+
+def expected_features() -> dict[str, list[str]]:
+    # Cette méthode permet d'obtenir la liste des variables attendues par service (validation du modèle au chargement).
+    return {service: feature_names(service) for service in SERVICES}

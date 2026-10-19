@@ -7,6 +7,7 @@ le contrat de l'API (/ask, /health, /metrics), le mode dégradé quand Ollama es
 
 import dataclasses
 import re
+import secrets
 import threading
 import time
 from pathlib import Path
@@ -26,6 +27,8 @@ alerts_mod = load_service("ops-assistant", "alerts")
 config = load_service("ops-assistant", "config")
 
 REPO = Path(__file__).resolve().parents[2]
+# Mot de passe de l'interface généré à chaque session : aucun secret, même factice, écrit dans le dépôt.
+UI_PASSWORD = secrets.token_urlsafe(18)
 
 RUNBOOK = """# Runbook incident
 
@@ -120,7 +123,7 @@ def make_settings(root: Path, **overrides):
     base = config.Settings(
         corpus_root=str(root), corpus_include=("docs/**/*.md", "README.md"), corpus_exclude=("docs/context/*",),
         ollama_base_url="http://127.0.0.1:9", retrieval_min_score=0.0, retrieval_k=3, index_retry_seconds=0.05,
-        queue_timeout_seconds=0.2,
+        queue_timeout_seconds=0.2, auth_password=UI_PASSWORD,
     )
     return dataclasses.replace(base, **overrides)
 
@@ -146,11 +149,14 @@ def make_client(docs_root):
     # Cette méthode permet de démarrer l'application (lifespan compris) avec de faux embeddings / LLM.
     clients = []
 
-    def factory(llm: FakeLLM | None = None, embeddings: Embeddings | None = None, probe=healthy_probe, **overrides):
-        # Cette méthode permet de fabriquer un client HTTP pour une configuration donnée.
+    def factory(llm: FakeLLM | None = None, embeddings: Embeddings | None = None, probe=healthy_probe,
+                authenticated: bool = True, **overrides):
+        # Cette méthode permet de fabriquer un client HTTP (avec l'identifiant de l'interface, sauf demande contraire).
         app = main.create_app(make_settings(docs_root, **overrides), embeddings or BagOfWords(),
                               (llm or FakeLLM()).runnable, ollama_probe=probe)
         client = TestClient(app)
+        if authenticated:
+            client.auth = ("admin", UI_PASSWORD)
         client.__enter__()
         clients.append(client)
         return client
@@ -215,6 +221,10 @@ def test_default_corpus_of_the_repository_excludes_assignment_and_todo():
     ("Voir [1, 2] puis [2].", [1, 2]),
     ("Selon [extrait 2] et [Source 1].", [2, 1]),
     ("Numéro inexistant [7] et [0].", []),
+    ("Plage [1-3].", [1, 2, 3]),
+    ("Plage [3–1] inversée, tiret long.", [1, 2, 3]),
+    ("Plage bornée aux extraits fournis [2-9] puis [1 à 2].", [2, 3, 1]),
+    ("Liste mêlée [1, 2-3].", [1, 2, 3]),
     ("Pas de citation.", []),
 ])
 def test_parse_citations_keeps_existing_extract_numbers(text, expected):
@@ -330,6 +340,48 @@ def test_ask_contract_and_health_when_everything_is_up(make_client):
     metrics = client.get("/metrics").text
     assert 'ops_assistant_questions_total{result="answered"}' in metrics and "ops_assistant_index_ready 1.0" in metrics
     assert llm.warmups == 1  # LLM préchargé une fois l'index prêt
+
+
+def test_interface_requires_basic_auth_except_minimal_health(make_client, capsys):
+    client = make_client(authenticated=False)
+    for method, path in [("GET", "/"), ("GET", "/static/app.js"), ("GET", "/metrics"), ("GET", "/docs"),
+                         ("GET", "/openapi.json"), ("POST", "/ask")]:
+        res = client.request(method, path, json={"question": "Que faire ?"} if method == "POST" else None)
+        assert res.status_code == 401, path
+        assert res.headers["www-authenticate"].startswith("Basic realm=")
+    # Sans identifiant, /health reste joignable (healthcheck Docker) mais ne dit que l'état.
+    health = client.get("/health")
+    assert health.status_code == 200 and set(health.json()) == {"service", "status", "ready"}
+    assert "127.0.0.1:9" not in health.text and "incident.md" not in health.text
+    # Mauvais mot de passe : refusé et journalisé pour le SOC.
+    wrong = client.get("/", auth=("admin", secrets.token_urlsafe(18)))
+    assert wrong.status_code == 401
+    logged = [line for line in capsys.readouterr().out.splitlines() if "assistant_auth_failed" in line]
+    assert logged and '"event_type": "auth_failure"' in logged[0]  # journal JSON exploitable par le SOC (Loki)
+    assert client.get("/", auth=("intrus", UI_PASSWORD)).status_code == 401
+    assert client.get("/", headers={"Authorization": "Basic pas-du-base64"}).status_code == 401
+    # Avec l'identifiant : le détail complet.
+    detailed = client.get("/health", auth=("admin", UI_PASSWORD)).json()
+    assert detailed["checks"]["ollama"]["url"] == "http://127.0.0.1:9"
+    assert client.get("/metrics", auth=("admin", UI_PASSWORD)).status_code == 200
+
+
+def test_without_configured_password_everything_but_health_is_refused(make_client):
+    client = make_client(auth_password="")
+    assert client.get("/").status_code == 503 and client.get("/").json()["code"] == "auth_not_configured"
+    assert client.get("/health").status_code == 200
+
+
+def test_password_is_read_from_the_mounted_secret(monkeypatch, tmp_path):
+    generated = secrets.token_urlsafe(18)
+    (tmp_path / "ops_assistant_password").write_text(generated + "\n", encoding="utf-8")
+    monkeypatch.setenv("OPS_ASSISTANT_PASSWORD_FILE", str(tmp_path / "ops_assistant_password"))
+    settings = config.Settings.from_env()
+    assert settings.auth_password == generated and settings.auth_user == "admin"
+    assert generated not in repr(settings)  # jamais affiché dans un journal ou une trace
+    monkeypatch.delenv("OPS_ASSISTANT_PASSWORD_FILE")
+    monkeypatch.delenv("OPS_ASSISTANT_PASSWORD", raising=False)
+    assert config.Settings.from_env().auth_password == ""
 
 
 def test_static_page_is_served_with_strict_csp(make_client):

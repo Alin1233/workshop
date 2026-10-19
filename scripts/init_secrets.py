@@ -17,8 +17,9 @@ from pathlib import Path
 
 SECRETS_DIR = Path(__file__).resolve().parent.parent / "secrets"
 OBSERVABILITY = ("prometheus", "alertmanager", "loki")
+# ops_assistant_password : compte « admin » de l'assistant RAG (vérifié par le service lui-même, sans hash dérivé)
 PASSWORDS = ("postgres_password", "auth_db_password", "pay_db_password", "admin_password", "grafana_admin_password",
-             *(f"{service}_password" for service in OBSERVABILITY))
+             *(f"{service}_password" for service in OBSERVABILITY), "ops_assistant_password")
 OBSERVABILITY_USER = "admin"
 
 
@@ -126,6 +127,7 @@ def main() -> None:
     print(f"Mot de passe Grafana (admin) : {(SECRETS_DIR / 'grafana_admin_password').read_text().strip()}")
     for service in OBSERVABILITY:
         print(f"Mot de passe {service.capitalize()} ({OBSERVABILITY_USER}) : {(SECRETS_DIR / f'{service}_password').read_text().strip()}")
+    print(f"Mot de passe assistant RAG ({OBSERVABILITY_USER}) : {(SECRETS_DIR / 'ops_assistant_password').read_text().strip()}")
 
 
 if __name__ == "__main__":

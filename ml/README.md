@@ -16,7 +16,8 @@ ml/
     features_test.csv, labels_test.csv      session 2 (test indépendant)         → evaluation_test.json
     features_sample.csv                     extrait lisible (fenêtre autour de la force brute)
     live_*.json                             mesures en direct (Prometheus ALERTS + Alertmanager)
-  model/                trace des modèles : rz-2026-10-19.json (v1, remplacé) et rz-2026-10-19-v2.json (déployé)
+  model/                trace des modèles : rz-2026-10-19.json (v1), rz-2026-10-19-v2.json (v2), rz-2026-10-19-v3.json
+                        (déployé) et CURRENT, le pointeur vers le modèle actif (même contenu que dans le service)
 ```
 
 Les autres exports `features*.csv` restent non versionnés (`data/.gitignore`). Le modèle déployé est celui de
@@ -43,9 +44,22 @@ python ml/train.py --features ml/data/features_train.csv --labels ml/data/labels
 # 5. Session de test indépendante (étiquettes séparées), évaluée sans ré-entraîner.
 python ml/attack_scenarios.py --base http://127.0.0.1:8080 --scenario all --gap 80 --labels ml/data/labels_test.csv
 python ml/export_features.py --start <debut> --end <fin> --out ml/data/features_test.csv
-python ml/train.py --model services/anomaly-detector/model/rz-2026-10-19-v2.json --train-until 0 \
+python ml/train.py --model services/anomaly-detector/model/rz-2026-10-19-v3.json --train-until 0 \
     --features ml/data/features_test.csv --labels ml/data/labels_test.csv --report ml/data/evaluation_test.json
 ```
+
+Garanties des scripts :
+- `generate_normal.py` tire toutes ses décisions aléatoires dans le thread ordonnanceur (suite reproductible pour
+  une graine donnée) et borne le travail en vol (`--max-in-flight`) : en cas de ralentissement, les actions en
+  trop sont ignorées et comptées au lieu d'être empilées, les périodes creuses restent creuses, et l'arrêt est
+  net à `--duration` ;
+- `attack_scenarios.py` n'écrit une étiquette que si l'incident a réellement eu lieu (au moins la moitié des
+  réponses attendues — 401, 403, 404/422 —, jeton obtenu pour `transfer_abuse`, `docker stop` réussi pour
+  `stop_payment`) ; sinon erreur et code de sortie 1. Le conteneur arrêté est déduit des labels du projet
+  Compose (`--project`, défaut `$COMPOSE_PROJECT_NAME`) ou fixé par `--payment-container` ;
+- `train.py` évalue **chaque fenêtre** étiquetée séparément (`labels.csv` est en ajout seul : un scénario rejoué
+  a plusieurs fenêtres), puis agrège par `scénario@service` (fenêtres alertées, délai médian et maximal, détail
+  par fenêtre dans `per_window`) ; il met à jour le pointeur `CURRENT` du modèle actif.
 
 Pour rejouer les chiffres du dossier à partir des données versionnées, seules les étapes 4 et 5 (dernière
 commande) sont nécessaires : `--train-until 1792413876` pour la session 1.
@@ -78,8 +92,12 @@ Le port d'entrée est `8080` par défaut ; adapter si le WAF est publié ailleur
   « la hausse est suspecte ». Les débits ne comptent que le **trafic utilisateur** : les sondes blackbox, les
   `/health` et le healthcheck Docker sont exclus, si bien qu'une plateforme inactive vaut exactement 0.
 - **Valeurs manquantes.** Une série absente dans Prometheus (ex. aucun 5xx) est ramenée à 0 (`or vector(0)`).
-  À l'inférence, une variable manquante est comblée par 0 (absence d'activité) ou par la médiane apprise
-  (latence : valeur neutre) — l'absence de trafic ne crée jamais d'anomalie.
+  Une requête réussie sans donnée est comblée par 0 (absence d'activité) ou par la médiane apprise (latence :
+  valeur neutre) — l'absence de trafic ne crée jamais d'anomalie. **Même prétraitement à l'entraînement et en
+  production** : à l'apprentissage, la médiane de comblement est calculée sur le seul normal d'apprentissage (le
+  modèle la retrouve comme médiane apprise) ; à l'évaluation, chaque échantillon passe par `features.clean_values`
+  avec les médianes du modèle, exactement comme le service. (Une source injoignable est un cas distinct, propre
+  à l'inférence : ses variables sont « manquantes », jamais comblées — cf. README du service.)
 - **Étiquetage.** Un échantillon `(timestamp, service)` est « attaque » s'il tombe dans une fenêtre étiquetée
   pour **ce service**, sinon « normal ». Les services non impactés pendant une attaque restent « normal » : ils
   mesurent les faux positifs en conditions d'attaque. Les **70 s qui suivent** chaque attaque (la fenêtre d'1 min
@@ -125,7 +143,7 @@ Trois sessions sur la stack réelle (pas de 10 s, fenêtre glissante 1 min) :
 | 2 — test indépendant (16 min) | trafic normal (graine 99), transaction témoin ×2 (sous charge et plateforme au repos), 5 scénarios (pauses de 80 s), 3 min sans trafic | évaluation hors échantillon (`evaluation_test.json`) + mesure **en direct** (Alertmanager) |
 | 3 — validation en direct (9 min) | modèle final déployé : témoin au repos et sous charge, force brute, **Loki suspendu 30 s**, repos | vérification de bout en bout (`live_validation_model_v2.json`) |
 
-**Modèle final `rz-2026-10-19-v2`, au niveau échantillon (score ≥ 0,8) :**
+**Modèle final `rz-2026-10-19-v3`, au niveau échantillon (score ≥ 0,8) :**
 
 | Mesure | Session 1 (normal tenu à l'écart) | Session 2 (test indépendant) |
 |---|---|---|
@@ -178,9 +196,19 @@ session 2, le modèle v2 a ensuite été validé sur une **troisième** session 
 révélé deux défauts de préparation, corrigés avant les chiffres ci-dessus : une zone de transition qui masquait
 le début de l'attaque suivante, et une **fuite temporelle** à l'export (Loki omet les fenêtres sans événement ;
 l'export empruntait alors le point suivant, 10 s dans le futur). Rapport v1 en direct : `live_test_session_model_v1.json`.
+
+**v2 → v3 (revue de code).** L'évaluation comblait les latences manquantes avec une médiane calculée sur tout le
+jeu de données (attaques et normal tenu à l'écart compris), alors que le service utilise la médiane du normal
+d'apprentissage. Le prétraitement est désormais identique (voir §2) ; ré-entraîné sur les mêmes CSV, hors ligne,
+le modèle change marginalement (médianes de latence d'auth-service et de payment-api, donc β/T80 de ces
+services) → **v3**. Tous les chiffres ci-dessus sont identiques avec v3 (recalculés, `evaluation*.json`). Les
+mesures en direct des sessions 2 et 3 ont été faites avec v1/v2 ; v3 a été redéployé et vérifié en direct sans
+nouvelle collecte de données (authentification Prometheus, scores mis à jour, alertes de santé du détecteur).
 <!-- RESULTS:FIN -->
 
-**Seuil et fenêtre conservés : `anomaly_score > 0.8 for 20s`.** Sur les deux sessions, le score normal
+**Seuil et fenêtre conservés : `anomaly_score >= anomaly_threshold` (0,8) `for 20s`.** Le seuil n'est écrit
+qu'à un endroit (`THRESHOLD` dans `services/anomaly-detector/app/model.py`) : il est enregistré dans le modèle,
+exposé par le service et lu par la règle, avec la même comparaison `≥` partout (évaluation comprise). Sur les deux sessions, le score normal
 maximal reste à 0,74–0,76 (et 0,51 en direct sous charge), tandis que toutes les attaques atteignent 1,0 sur le
 service visé : 0,8 laisse une marge des deux côtés. Les 20 s (3 évaluations consécutives) absorbent un pic isolé
 (un seul échantillon normal à 0,80 en session 2, sans alerte) pour un coût de ~20 s sur le délai.

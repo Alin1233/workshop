@@ -9,6 +9,12 @@ async function refreshStatus() {
   try {
     const res = await fetch("/health", { cache: "no-store" });
     const body = await res.json();
+    if (!body.checks) {
+      // Réponse publique (sans identifiant) : l'état seul, sans le détail d'Ollama ni de l'index.
+      el.textContent = body.status === "ok" ? "Opérationnel" : "Mode dégradé";
+      el.className = `status ${body.status === "ok" ? "ok" : "degraded"}`;
+      return;
+    }
     const o = body.checks.ollama, idx = body.checks.index;
     if (body.status === "ok") {
       el.textContent = `Opérationnel — modèle ${o.llm_model}, ${idx.chunks} extraits de ${idx.documents.length} documents indexés`;

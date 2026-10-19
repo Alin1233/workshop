@@ -101,6 +101,14 @@
             dest: "{{ release_dir }}/secrets"
             state: link
 
+        - name: Vérifier le mode du LLM de l'assistant RAG (group_vars/pc_hote.yml)
+          ansible.builtin.assert:
+            that:
+              - pc_hote_ai_mode in ['container', 'offload', 'off']
+              - pc_hote_ai_mode != 'offload' or pc_hote_ai_offload_url | length > 0
+            fail_msg: "pc_hote_ai_mode doit valoir container, offload (avec pc_hote_ai_offload_url) ou off"
+            quiet: true
+
         # Compose lit .env dans le répertoire du projet : tous les appels (playbooks, scripts, opérateur) voient les mêmes chemins
         - name: Écrire la configuration Compose propre au PC Hôte
           ansible.builtin.copy:
@@ -109,6 +117,11 @@
               # Géré par Ansible (deploy.yml) : chemins stables d'une version à l'autre
               SECRETS_DIR={{ shared_secrets }}
               NODE_TEXTFILE_DIR={{ pc_hote_node_textfile_dir }}
+              # Assistant RAG, LLM en mode « {{ pc_hote_ai_mode }} » : profil ai = conteneur ollama de la VM
+              COMPOSE_PROFILES={{ 'ai' if pc_hote_ai_mode == 'container' else '' }}
+              OLLAMA_BASE_URL={{ pc_hote_ai_offload_url if pc_hote_ai_mode == 'offload' else 'http://ollama:11434' }}
+              OPS_ASSISTANT_LLM_MODEL={{ pc_hote_ai_llm_model }}
+              OPS_ASSISTANT_EMBED_MODEL={{ pc_hote_ai_embed_model }}
             owner: root
             group: root
             mode: "0644"
@@ -176,6 +189,42 @@
             chdir: "{{ release_dir }}"
           when: stale_services | length > 0
           changed_when: true
+
+        # Volume ollama-data vide au premier déploiement : seuls les modèles absents sont tirés (~2,3 Go, une fois).
+        # Pas d'Internet ou registre injoignable : avertissement seulement, l'assistant reste en mode dégradé (healthy)
+        # et reconstruit son index tout seul dès que les modèles sont là. Pas de service Compose « one-shot » :
+        # `docker compose up --wait` échoue dès qu'un conteneur se termine, même avec le code 0.
+        - name: Installer les modèles de l'assistant RAG dans le conteneur ollama
+          when: pc_hote_ai_mode == 'container'
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - exec
+              - -T
+              - ollama
+              - sh
+              - -c
+              - >-
+                for i in 1 2 3 4 5 6 7 8 9 10; do ollama list >/dev/null 2>&1 && break; sleep 2; done;
+                ollama list | grep -q "^$0[: ]" && exit 0;
+                ollama pull "$0" >/dev/null 2>&1 && echo pulled || { echo "échec du téléchargement de $0" >&2; exit 1; }
+              - "{{ item }}"
+          args:
+            chdir: "{{ release_dir }}"
+          loop: ["{{ pc_hote_ai_llm_model }}", "{{ pc_hote_ai_embed_model }}"]
+          register: ai_models
+          changed_when: "'pulled' in ai_models.stdout"
+          failed_when: false
+
+        - name: Signaler les modèles absents (assistant en mode dégradé tant qu'ils manquent)
+          ansible.builtin.debug:
+            msg: >-
+              Modèle {{ item.item }} non installé ({{ (item.stderr | default('')) | trim }}).
+              À tirer quand l'hôte a Internet : docker compose exec ollama ollama pull {{ item.item }}
+          loop: "{{ ai_models.results | default([]) | selectattr('rc', 'defined') | rejectattr('rc', 'equalto', 0) | list }}"
+          loop_control:
+            label: "{{ item.item }}"
 
         - name: Désigner la version active
           ansible.builtin.file:

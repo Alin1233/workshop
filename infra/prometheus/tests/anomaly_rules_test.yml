@@ -1,0 +1,77 @@
+# Tests unitaires des règles du détecteur d'anomalies (promtool, hors du répertoire chargé par Prometheus) :
+#   docker run --rm -v "$PWD/infra/prometheus:/p:ro" --entrypoint promtool prom/prometheus:v3.15.0 \
+#     test rules /p/tests/anomaly_rules_test.yml
+rule_files:
+- ../rules/availability.yml
+evaluation_interval: 10s
+tests:
+- name: AnomalyDetected lit le seuil exposé, compare avec >=, ignore NaN
+  interval: 10s
+  input_series:
+  - series: anomaly_score{job="anomaly-detector",instance="anomaly-detector:8000",service="auth-service"}
+    values: 0.9x10
+  - series: anomaly_score{job="anomaly-detector",instance="anomaly-detector:8000",service="payment-api"}
+    values: 0.8x10
+  - series: anomaly_score{job="anomaly-detector",instance="anomaly-detector:8000",service="frontend"}
+    values: NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN
+  - series: anomaly_threshold{job="anomaly-detector",instance="anomaly-detector:8000",service="anomaly-detector"}
+    values: 0.8x10
+  alert_rule_test:
+  - eval_time: 30s
+    alertname: AnomalyDetected
+    exp_alerts:
+    - exp_labels:
+        job: anomaly-detector
+        instance: anomaly-detector:8000
+        service: auth-service
+        severity: critical
+        domain: anomaly
+      exp_annotations:
+        summary: Comportement anormal détecté par le modèle sur auth-service (score 0.90)
+    - exp_labels:
+        job: anomaly-detector
+        instance: anomaly-detector:8000
+        service: payment-api
+        severity: critical
+        domain: anomaly
+      exp_annotations:
+        summary: Comportement anormal détecté par le modèle sur payment-api (score 0.80)
+- name: 'Santé du détecteur : source injoignable et boucle à l''arrêt'
+  interval: 10s
+  input_series:
+  - series: anomaly_detector_source_up{job="anomaly-detector",instance="anomaly-detector:8000",service="anomaly-detector",source="loki"}
+    values: '0x30'
+  - series: anomaly_detector_source_up{job="anomaly-detector",instance="anomaly-detector:8000",service="anomaly-detector",source="prometheus"}
+    values: 1x30
+  - series: up{job="anomaly-detector",instance="anomaly-detector:8000",service="anomaly-detector"}
+    values: 1x30
+  - series: anomaly_detector_last_run_timestamp{job="anomaly-detector",instance="anomaly-detector:8000",service="anomaly-detector"}
+    values: '0x30'
+  alert_rule_test:
+  - eval_time: 70s
+    alertname: AnomalyDetectorBlind
+    exp_alerts:
+    - exp_labels:
+        job: anomaly-detector
+        instance: anomaly-detector:8000
+        service: anomaly-detector
+        source: loki
+        severity: warning
+        domain: anomaly
+      exp_annotations:
+        summary: 'Détection ML partielle : la source loki est injoignable depuis 1 min'
+        description: 'Le détecteur ne reçoit plus les données de loki : les services qui en dépendent n''ont plus de score (anomaly_score = NaN, anomaly_data_available = 0). Ce n''est ni une panne du SI
+          métier ni une attaque. Action attendue : notification et vérification de loki (conteneur, authentification) ; ne redémarrer, n''isoler ni ne bloquer aucun service métier.'
+  - eval_time: 3m
+    alertname: AnomalyDetectorDown
+    exp_alerts:
+    - exp_labels:
+        job: anomaly-detector
+        instance: anomaly-detector:8000
+        service: anomaly-detector
+        severity: warning
+        domain: availability
+      exp_annotations:
+        summary: Le détecteur d'anomalies ne produit plus de score (arrêté, boucle bloquée, modèle ou secret illisible)
+        description: 'Plus aucune détection ML : la cause est donnée par GET /health du détecteur (no_model, model_mismatch, auth_secret_unreadable…). Le SI métier n''est pas en cause. Seule reprise sûre
+          : redémarrer anomaly-detector (sans état) ; aucune action sur les services métier.'

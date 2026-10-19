@@ -14,15 +14,19 @@ Sur le PC Hôte (VM Debian 13 du Proxmox, 6 vCPU, 16 Go, sans GPU), l'assistant 
 dans le conteneur `ollama` (profil `ai`) ou sur le PC de délestage IA :
 
 ```bash
-COMPOSE_PROFILES=ai docker compose up -d --build                       # stack + ollama (ou --profile ai)
-docker compose exec ollama ollama pull llama3.2:3b                     # une fois : modèles dans le volume ollama-data
-docker compose exec ollama ollama pull nomic-embed-text
+ansible-playbook -i ansible/inventory.ini ansible/deploy.yml           # mode du LLM : pc_hote_ai_mode (group_vars)
 ssh -N -L 8090:127.0.0.1:8090 resilience@172.16.147.10                 # depuis le poste de l'opérateur
-# puis http://127.0.0.1:8090 (page de consultation), ou :
-curl -s http://127.0.0.1:8090/health                                   # toujours 200 ; "status": "ok" ou "degraded"
-curl -s -X POST http://127.0.0.1:8090/ask -H 'Content-Type: application/json' \
+# puis http://127.0.0.1:8090 : identifiant admin, mot de passe dans secrets/ops_assistant_password
+#   (sur la VM : sudo cat /opt/resilience-alpha/shared/secrets/ops_assistant_password), ou :
+curl -s http://127.0.0.1:8090/health                                   # sans identifiant : état seul, toujours 200
+curl -s -u "admin:$PASS" http://127.0.0.1:8090/health                  # avec : détail (Ollama, index)
+curl -s -u "admin:$PASS" -X POST http://127.0.0.1:8090/ask -H 'Content-Type: application/json' \
      -d '{"question": "Que faire quand LedgerIntegrityBroken se déclenche ?"}'
 ```
+
+Hors Ansible (poste de développement) : `python scripts/init_secrets.py`, puis
+`COMPOSE_PROFILES=ai docker compose up -d --build` et, une fois, `docker compose exec ollama ollama pull llama3.2:3b`
+et `docker compose exec ollama ollama pull nomic-embed-text` (modèles stockés dans le volume `ollama-data`).
 
 Sans LLM joignable (profil `ai` non activé, modèle absent, PC IA éteint), l'assistant démarre quand même et reste
 **healthy** : `/health` répond 200 avec `"status": "degraded"`, `"ready": false` et la cause (`checks.ollama`,
@@ -30,9 +34,18 @@ Sans LLM joignable (profil `ai` non activé, modèle absent, PC IA éteint), l'a
 (nouvel essai toutes les 15 s) dès qu'Ollama répond, puis le LLM est préchargé. Un LLM absent ne fait donc jamais
 échouer `docker compose up --wait` (utilisé par `ansible/deploy.yml`).
 
-> `ansible/deploy.yml` n'active pas encore le profil `ai` : déployé tel quel, l'assistant tourne en mode dégradé.
-> Pour l'activer, lancer Compose avec `COMPOSE_PROFILES=ai` (environnement de la tâche « Construire et démarrer la
-> stack ») et tirer les deux modèles une fois dans le conteneur `ollama` (le réseau `ai` a une sortie Internet).
+**Déploiement Ansible** : `pc_hote_ai_mode` (`ansible/group_vars/pc_hote.yml`) choisit où tourne le LLM et
+`deploy.yml` l'écrit à chaque déploiement dans le `.env` de Compose (`/opt/resilience-alpha/shared/.env`) :
+
+| `pc_hote_ai_mode` | `.env` écrit | Effet |
+|---|---|---|
+| `container` (défaut) | `COMPOSE_PROFILES=ai`, `OLLAMA_BASE_URL=http://ollama:11434` | le conteneur `ollama` démarre avec la stack ; après `up --wait`, `deploy.yml` tire les modèles **absents** du volume `ollama-data` (une seule fois, ~2,3 Go). Sans Internet, simple avertissement : le déploiement continue, l'assistant reste dégradé et se rétablit seul dès que les modèles sont là |
+| `offload` | `OLLAMA_BASE_URL=<pc_hote_ai_offload_url>` | LLM sur le PC de délestage IA (modèles à tirer sur ce PC) |
+| `off` | aucun profil | pas de LLM : assistant dégradé, `/ask` en 503 |
+
+Le téléchargement n'est pas un service Compose « one-shot » : `docker compose up --wait` échoue dès qu'un conteneur se
+termine, même avec le code 0 (vérifié avec Compose 5.6) ; c'est donc une étape idempotente de `deploy.yml`
+(`ollama list`, puis `ollama pull` seulement si le modèle manque).
 
 ### Où tourne le LLM (`OLLAMA_BASE_URL`)
 
@@ -42,39 +55,43 @@ Sans LLM joignable (profil `ai` non activé, modèle absent, PC IA éteint), l'a
 | **PC de délestage IA** (3e PC) | `http://<ip-du-pc-ia>:11434` | Le LLM ne prend ni CPU ni RAM à la VM pendant la démo, et peut profiter d'un GPU (`mistral` devient alors aussi rapide que le 3B, voir les mesures). Sur ce PC : `OLLAMA_HOST=0.0.0.0:11434`, `OLLAMA_NUM_PARALLEL=1` et **pare-feu limité à l'IP de la VM** (172.16.147.10) : l'API Ollama n'a aucune authentification. |
 | **Ollama natif de l'hôte** | `http://host.docker.internal:11434` | **Développement uniquement**, sous Docker Desktop (joint l'Ollama local). Inutilisable sur la VM : le pare-feu nftables de l'hôte (entrée refusée sauf SSH et WAF) bloque un conteneur qui vise l'hôte, et un Ollama Linux n'écoute par défaut que sur 127.0.0.1. `extra_hosts: host-gateway` reste dans le compose pour les postes Linux de développement. |
 
-Les variables (`OLLAMA_BASE_URL`, `OPS_ASSISTANT_LLM_MODEL`, `OPS_ASSISTANT_LLM_NUM_THREAD`…) ont des valeurs par défaut
-dans `docker-compose.yml` adaptées à la VM : le déploiement Ansible ne copie pas de `.env` (seul le commit est déployé).
-`OPS_ASSISTANT_LLM_NUM_THREAD=4` (défaut) laisse 2 des 6 vCPU à la stack pendant qu'une réponse est générée.
+Les autres variables (`OPS_ASSISTANT_LLM_NUM_THREAD`, `OPS_ASSISTANT_PORT`…) gardent leurs valeurs par défaut de
+`docker-compose.yml`, adaptées à la VM. `OPS_ASSISTANT_LLM_NUM_THREAD=4` (défaut) laisse 2 des 6 vCPU à la stack
+pendant qu'une réponse est générée.
 
 ### Développement local (sans Docker)
 
 ```bash
 python -m pip install -r services/ops-assistant/requirements.txt
-cd services/ops-assistant && PYTHONPATH=../common:. python -m uvicorn app.main:app --port 8090
+cd services/ops-assistant && OPS_ASSISTANT_PASSWORD_FILE=../../secrets/ops_assistant_password \
+    PYTHONPATH=../common:. python -m uvicorn app.main:app --port 8090
 ```
 
 Par défaut le corpus est lu à la racine du dépôt et Ollama sur `http://127.0.0.1:11434` (`LLM_MODEL`, `LLM_NUM_THREAD`,
-`LLM_NUM_GPU` pour changer de modèle ou forcer le CPU).
+`LLM_NUM_GPU` pour changer de modèle ou forcer le CPU). Sans mot de passe configuré, tout est refusé sauf `/health`.
 
 ## Contrat d'intégration
 
 | Élément | Détail |
 |---|---|
+| Authentification | **Basic** `admin` / `secrets/ops_assistant_password` (généré par `scripts/init_secrets.py`, monté en secret Docker) sur tout sauf `/health` : page, `/static`, `/ask`, `/metrics`, `/docs`. 401 + `WWW-Authenticate` sans identifiant ; un mauvais mot de passe est journalisé (`event_type=auth_failure`, IP source) |
 | `POST /ask` | `{"question": "…" (3 à 500 caractères), "include_alerts": true}` → `answer`, `refused`, `cited`, `sources[]` (`id`, `source`, `section`, `score`, `cited`, `excerpt`), `alerts[]`, `alerts_error`, `model`, `timings_ms` |
 | Erreurs | `{code, detail}` : 422 question invalide, 411/413 corps absent ou > 4 Ko, 503 `index_unavailable` / `llm_unavailable` (avec la liste des documents à lire) / `assistant_busy`, 504 `llm_timeout` |
-| `GET /health` | **toujours 200** tant que le service répond (healthcheck Docker) ; `status` vaut `ok` et `ready` `true` si Ollama répond, que les deux modèles y sont installés et que l'index est prêt, sinon `degraded` / `false` avec `checks.ollama`, `checks.index` (état, essais, dernière erreur, documents indexés), `checks.alertmanager` |
+| `GET /health` | **toujours 200** tant que le service répond (healthcheck Docker, sans identifiant) ; `status` vaut `ok` et `ready` `true` si Ollama répond, que les deux modèles y sont installés et que l'index est prêt, sinon `degraded` / `false`. Sans identifiant, rien d'autre ; avec, `checks.ollama` (adresse, modèles), `checks.index` (état, essais, dernière erreur, documents indexés) |
 | `GET /metrics` | `http_requests_total`, `http_request_duration_seconds` (communs), `ops_assistant_questions_total{result}` (answered/refused/error/timeout/busy/unavailable), `ops_assistant_stage_duration_seconds{stage}` (indexing/retrieval/generation), `ops_assistant_index_ready`, `ops_assistant_index_chunks`, `ops_assistant_ollama_up` |
 | `GET /` | page de consultation (HTML + JS servis par le service, CSP stricte, aucun appel externe) |
 | Journaux | JSON sur stdout (→ Loki), `event_type=assistant_question` avec la question (300 caractères max), le modèle, les fichiers cités et les durées : traçabilité de l'usage |
 | LLM | `OLLAMA_BASE_URL`, `LLM_MODEL`, `EMBED_MODEL` (voir `.env.example`, variables `OPS_ASSISTANT_*`) |
 | Corpus | `docs/**/*.md` + README d'architecture, montés **en lecture seule** sous `/corpus` |
-| Réseaux | `ai` (Ollama conteneurisé) + `mgmt` (publication sur `127.0.0.1:8090`, joint par tunnel SSH ; lecture d'Alertmanager) ; **aucun** accès au socket Docker, à la base, aux secrets ni au moteur de remédiation |
+| Réseaux | `ai` seulement (Ollama conteneurisé ; ce réseau n'étant pas interne, il suffit à publier `127.0.0.1:8090`, joint par tunnel SSH) ; **aucun** accès au socket Docker, à la base, aux autres secrets, à la chaîne d'observation ni au moteur de remédiation |
 
-Prometheus ne scrape pas encore l'assistant (fichier partagé `infra/prometheus/prometheus.yml`). Les deux services
-partagent le réseau `mgmt`, il suffit d'ajouter :
+Prometheus ne scrape pas l'assistant : `/metrics` exige le même identifiant, et les deux services ne partagent aucun
+réseau. Pour le brancher : un réseau commun (par exemple un réseau interne dédié aux deux), le secret
+`ops_assistant_password` monté dans Prometheus et, dans `infra/prometheus/prometheus.yml` :
 
 ```yaml
   - job_name: ops-assistant
+    basic_auth: { username: admin, password_file: /run/secrets/ops_assistant_password }
     static_configs: [{ targets: ["ops-assistant:8000"], labels: { service: ops-assistant } }]
 ```
 
@@ -142,14 +159,36 @@ Relecture humaine des 20 réponses documentées ([`eval/results/relecture.md`](e
 réponse où il prétend lancer `docker restart`. `llama3.2:1b` (citations trop rares) et `deepseek-r1:7b` (raisonnement
 long : 5 à 8 fois plus lent, réponses moins sourcées) sont écartés.
 
+Mesures en **CPU seul, 4 threads** (proxy de la VM : `run_eval.py --models llama3.2:3b --num-gpu 0 --num-thread 4`,
+même poste, GPU désactivé requête par requête, 4 threads comme `OPS_ASSISTANT_LLM_NUM_THREAD` ; corpus de 65 fragments,
+charge machine 4 à 5,5 pendant la mesure car la stack tournait) —
+[`eval/results/rapport-cpu-4threads.md`](eval/results/rapport-cpu-4threads.md) :
+
+| `llama3.2:3b`, CPU 4 threads | Mesure |
+|---|---|
+| Latence par réponse (moyenne / p95 / max) | **56,5 s / 70,1 s / 91,6 s** (minimum 42 s ; un refus prend aussi 43 à 61 s) |
+| dont lecture du prompt (~1 650 jetons) / génération | 42,0 s / 14,4 s en moyenne — la lecture du contexte domine |
+| Vitesse de génération | 5,8 jetons/s (contre 95 avec GPU) |
+| Chargement à froid (1re question après démarrage) | 70,4 s — d'où le préchargement automatique du modèle |
+| Construction de l'index (65 fragments, par lots de 8) | 33 s |
+| Mémoire du modèle chargé | 3,8 Go (4 contextes réservés par l'Ollama de mesure ; `OLLAMA_NUM_PARALLEL=1` dans le conteneur `ollama`) |
+| Qualité | 90 % citent une source, 75 % une source attendue, 3/3 refus hors corpus, et de nouveau la réponse « je vais … `docker restart` » à q19 |
+
+Deux contrôles directs (même configuration, appel chronométré de l'extérieur) donnent 64,4 s et 60,8 s, identiques
+aux durées relevées par l'évaluation. La campagne complète (25 questions) a duré 51 min de bout en bout : `mistral` en
+CPU n'a donc **pas été mesuré** (seuil fixé : 15 min pour la campagne du 3B). Ordre de grandeur attendu, non mesuré :
+environ deux fois plus lent que le 3B (2,2 fois plus de paramètres), soit 2 min par réponse.
+
+**Sur la VM**, compter **au moins** ces durées : ses 6 vCPU (Proxmox) sont a priori moins rapides que les cœurs du
+Ryzen 7 5800H de mesure et partagés avec toute la stack. Levier principal : la lecture du prompt, proportionnelle au
+contexte (`RETRIEVAL_K=3` ou `CHUNK_SIZE` plus petit la réduiraient, au prix de la recherche — non mesuré).
+
 **Choix** :
-- **`mistral` dès qu'un GPU est disponible** (PC de délestage IA) : nettement plus juste, jamais d'action prétendue,
-  latence de l'ordre de 2 s.
-- **`llama3.2:3b` par défaut sur la VM** (6 vCPU, sans GPU) : en CPU, la vitesse de génération baisse à peu près en
-  proportion du nombre de paramètres, donc `mistral` y serait environ deux fois plus lent que le 3B. C'est une
-  **estimation** : la campagne CPU sur 4 threads, représentative de la VM, n'a pas été menée
-  (`run_eval.py --num-gpu 0 --num-thread 4`, à lancer avant la démo). La justesse plus faible du 3B impose de vérifier
-  les sources citées.
+- **`llama3.2:3b` par défaut sur la VM** (6 vCPU, sans GPU) : seul modèle mesuré dont la latence CPU reste de l'ordre
+  de la minute ; 3,8 Go de RAM au plus, compatibles avec les 16 Go de la VM (la stack en occupe ~1,4 Go). Sa justesse
+  plus faible (10/20 en relecture, une action prétendue) impose de vérifier les sources citées.
+- **`mistral` dès qu'un GPU est disponible** (PC de délestage IA, `pc_hote_ai_mode: offload`) : nettement plus juste
+  (15/20), jamais d'action prétendue, ~2 s par réponse avec GPU.
 
 ## Sécurité
 
@@ -157,27 +196,31 @@ long : 5 à 8 fois plus lent, réponses moins sourcées) sont écartés.
   a pas d'appel de fonctions (« tools »). Une injection de consignes (dans une question ou un document) peut au pire
   produire une réponse trompeuse, jamais une action — d'où l'obligation de citer la source, que l'opérateur vérifie.
 - **Moindre privilège** : conteneur `read_only`, `tmpfs /tmp`, `cap_drop: ALL`, `no-new-privileges`, utilisateur 10001 ;
-  corpus monté `:ro` ; **aucun secret monté** (l'assistant ne peut donc pas en divulguer) ; ni socket Docker, ni réseaux
-  `app`/`data`/`obs`.
-- **Alertes en lecture seule, désactivées par défaut** : le code sait lire `GET /api/v2/alerts` (réseau `mgmt`, pas besoin
-  d'`obs`) et ne transmet au LLM que le nom, la gravité, le domaine, le service, le résumé et l'heure (10 alertes au plus,
-  200 caractères par champ). Mais Alertmanager exige désormais le compte `admin`, qui permet aussi de poser des silences
-  et donc de masquer une alerte : l'assistant ne reçoit pas ce secret et `OPS_ASSISTANT_ALERTMANAGER_URL` est vide.
-  À rebrancher sur une API d'état en lecture seule compatible (moteur de remédiation, dashboard de supervision).
+  corpus monté `:ro` ; **un seul secret monté, son propre mot de passe** (aucun autre secret : le LLM ne peut pas en
+  divulguer, et ce mot de passe n'est jamais placé dans un prompt) ; ni socket Docker, ni réseaux `app`/`data`/`obs`/`mgmt`.
+- **Alertes en lecture seule, désactivées** : le code sait lire `GET /api/v2/alerts` et ne transmet au LLM que le nom, la
+  gravité, le domaine, le service, le résumé et l'heure (10 alertes au plus, 200 caractères par champ). Mais Alertmanager
+  exige désormais le compte `admin`, qui permet aussi de poser des silences et donc de masquer une alerte :
+  l'assistant ne reçoit pas ce secret, `OPS_ASSISTANT_ALERTMANAGER_URL` est vide et l'assistant n'est plus sur le
+  réseau `mgmt` (Alertmanager est injoignable). À rebrancher sur une API d'état en lecture seule (moteur de
+  remédiation, dashboard de supervision), sur un réseau partagé avec elle seule.
 - **Entrées bornées** : question ≤ 500 caractères, corps ≤ 4 Ko (413 sinon), une génération à la fois (503 « occupé »
   au-delà de 20 s d'attente), réponse ≤ 400 jetons, premier jeton attendu 180 s au plus et réponse complète 240 s
   (504 au-delà : chargement à froid d'un 7B en CPU), 32 connexions simultanées au plus.
 - **Exposition** : publié uniquement sur `127.0.0.1:8090` de la VM (`MGMT_BIND`), comme les autres interfaces de
-  gestion, et joint par tunnel SSH (`ssh -N -L 8090:127.0.0.1:8090 resilience@172.16.147.10`) ; pas
-  d'authentification applicative ; en-têtes `nosniff`, `X-Frame-Options: DENY`, CSP stricte sur la page.
+  gestion, et joint par tunnel SSH (`ssh -N -L 8090:127.0.0.1:8090 resilience@172.16.147.10`) ; **authentification
+  basique** comme Grafana, Prometheus, Alertmanager et Loki (`admin` / `secrets/ops_assistant_password`, comparaison à
+  temps constant), sauf `/health` réduit à l'état (ni adresse d'Ollama, ni documents, ni erreurs) ; en-têtes
+  `nosniff`, `X-Frame-Options: DENY`, CSP stricte sur la page.
 - **LLM conteneurisé non publié** : le conteneur `ollama` n'a aucun port publié, seul le réseau `ai` le joint. Sur le
   PC de délestage IA, l'API Ollama (sans authentification) doit être filtrée par pare-feu sur l'IP de la VM.
 - **Journaux** : volontairement pas `event_type=dependency_failure` quand Ollama tombe (`llm_unavailable` à la place) :
   la règle SOC `DependencyFailures` déclencherait sinon une alerte critique de disponibilité vers la remédiation.
-- **Risques résiduels** : le réseau `mgmt` est partagé avec Prometheus, Loki, Grafana et Alertmanager — un assistant
-  compromis pourrait joindre leurs API (dont la création de silences d'Alertmanager) ; `ai` et `mgmt` ne sont pas
-  `internal`, donc une sortie Internet reste possible (le code n'en fait aucune, le traçage LangSmith est désactivé).
-  En contexte industriel : proxy en lecture seule devant Alertmanager, réseau dédié, authentification de l'interface.
+- **Risques résiduels** : le réseau `ai` n'est pas `internal` (il sert à publier le port et au `ollama pull`), donc une
+  sortie Internet reste possible depuis l'assistant (le code n'en fait aucune, le traçage LangSmith est désactivé) ;
+  le mot de passe Basic circule en clair entre le navigateur et le service, ce qui n'est acceptable que dans le tunnel
+  SSH ; aucune limitation du nombre d'essais (les échecs sont journalisés pour le SOC). En contexte industriel : TLS,
+  comptes nominatifs (SSO), sortie Internet coupée une fois les modèles installés.
 
 ## Limites
 
@@ -189,8 +232,8 @@ long : 5 à 8 fois plus lent, réponses moins sourcées) sont écartés.
   communes aux modèles (q06, q14) viennent d'informations présentes seulement en liste ou ambiguës dans le corpus.
 - **Recherche** : 4 extraits par question ; une information isolée dans une liste (requête Loki du runbook) peut ne
   pas remonter. Une recherche hybride (mots-clés + vecteurs) ou des runbooks rédigés par alerte l'amélioreraient.
-- **Latence en CPU seul** : sur la VM (6 vCPU, sans GPU), chaque réponse prend plusieurs dizaines de secondes et
-  occupe 4 vCPU (voir les mesures) ; une seule question est traitée à la fois.
+- **Latence en CPU seul** : ~1 min par réponse mesurée sur 4 threads (56,5 s en moyenne, 92 s au pire), davantage sur
+  la VM ; chaque réponse occupe 4 vCPU et une seule question est traitée à la fois.
 - Jeu d'évaluation réduit (25 questions, une exécution par configuration, sortie non déterministe) : les taux sont
   indicatifs ; l'indicateur « termes clés » est grossier, d'où la relecture humaine.
 - L'index n'est reconstruit qu'au démarrage : après une mise à jour des documents, `docker compose restart ops-assistant`.
@@ -214,9 +257,10 @@ long : 5 à 8 fois plus lent, réponses moins sourcées) sont écartés.
   (`llama3.2:3b` sur la VM, `mistral` 7B avec GPU).
 - **Résultats** : recherche — bon extrait dans les 4 premiers pour 90 % des questions (MRR 0,83) ; génération (GPU) —
   `mistral` 15/20 réponses justes, 95 % citent une source attendue ; `llama3.2:3b` 10/20 ; 3/3 refus hors corpus pour
-  tous les modèles ; latence 1 à 2 s avec GPU, non mesurée en CPU.
+  tous les modèles ; latence 1 à 2 s avec GPU ; en CPU seul sur 4 threads (proxy de la VM), `llama3.2:3b` met
+  56,5 s en moyenne (70 s au 95e centile), dont 42 s de lecture du contexte.
 - **Limites** : un petit modèle peut attacher une citation à une information inventée (relecture obligatoire des
   sources) ; corpus encore mince (runbook limité à quelques alertes) ; recherche purement vectorielle qui manque une
-  information isolée dans une liste ; latence CPU sur la VM non mesurée ; pas de contexte d'incident en direct
-  (lecture des alertes désactivée faute d'accès en lecture seule à Alertmanager) ; aucune authentification de
-  l'interface (accès par tunnel SSH uniquement).
+  information isolée dans une liste ; environ une minute par réponse en CPU, sans doute plus sur la VM ; pas de
+  contexte d'incident en direct (lecture des alertes désactivée faute d'accès en lecture seule à Alertmanager) ;
+  authentification basique à compte unique, joignable seulement par tunnel SSH.
