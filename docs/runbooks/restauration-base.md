@@ -45,6 +45,22 @@ Scénario : 1 000 € crédités directement en base sur un compte client, sans 
 | Restauration + transaction témoin (playbook complet) | 19 s |
 | Données perdues | celles écrites depuis la sauvegarde restaurée (52 s d'écart dans l'essai ; 15 min au pire) |
 
+## Perte totale du PC Hôte
+Reconstruire l'hôte puis restaurer la dernière copie locale (procédure : `ansible/README.md`, « Recette sur une machine
+vierge ») :
+
+```bash
+ansible-playbook -i ansible/inventory.ini ansible/restore_database.yml -e confirm_restore=true -e backup_from_local=<nom>
+```
+
+Mesuré le 19/10 sur une VM neuve : hôte reconstruit en 311 s, données restaurées en 13,8 s (≈ 6 min 15 au total).
+Données perdues : depuis la dernière copie locale (`backup_database.yml`), pas depuis la dernière sauvegarde planifiée,
+restée sur l'hôte perdu.
+
+**Les secrets doivent être restaurés avec les données.** Sinon, le compte admin garde l'ancien mot de passe
+(la connexion admin échoue avec les nouveaux secrets). Tant que `secrets.enc.json` (SOPS) n'est pas versionné, conserver
+`shared/secrets` de l'ancien hôte, ou réinitialiser le mot de passe admin après la reprise.
+
 ## Après la restauration
 - Vérifier que l'alerte est résolue (Alertmanager) et le tableau « Santé du service » dans Grafana.
 - Analyser la sauvegarde `pre-restore` (état corrompu) et les journaux Loki pour comprendre l'origine de la modification.

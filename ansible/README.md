@@ -100,9 +100,46 @@ Procédure, mesures et limites : [docs/runbooks/restauration-base.md](../docs/ru
   `BackupFailed` et `BackupMissing`, rangée « PC Hôte et sauvegardes » du tableau Grafana « Santé du service ».
 - Ni les rôles ni leurs mots de passe ne sont sauvegardés : `db/init/01-create-service-databases.sh` les recrée depuis les secrets.
 
+## Recette sur une machine vierge et PRA « perte du PC Hôte »
+
+Une VM jetable (profil `recette` de `vars/proxmox_vm.yml` : `4601`, 4 vCPU, 8 Go, `172.16.147.11`) rejoue toute
+l'installation depuis un clone neuf du dépôt, puis reçoit la dernière copie locale des données. C'est aussi le
+scénario PRA « perte totale du PC Hôte » : reconstruire l'hôte, puis restaurer les données.
+
+```bash
+set -a; . ~/.config/proxmox/claude.env; set +a
+ansible-playbook -i ansible/inventory.ini ansible/backup_database.yml        # copie locale récente des données
+ansible-playbook ansible/provision_proxmox.yml -e vm_profile=recette
+ansible-playbook -i ansible/inventory-recette.ini ansible/prepare_host.yml
+ansible-playbook -i ansible/inventory-recette.ini ansible/deploy.yml
+ansible-playbook -i ansible/inventory-recette.ini ansible/restore_database.yml -e confirm_restore=true -e backup_from_local=<nom>
+ansible-playbook ansible/destroy_proxmox_vm.yml -e vm_profile=recette -e confirm_destroy=true
+```
+
+`destroy_proxmox_vm.yml` ne supprime qu'un profil marqué `disposable: true` : le PC Hôte ne peut pas l'être.
+
+Résultat du 19/10, depuis un clone neuf (ni `secrets/`, ni `.env`) :
+
+| Étape | Durée | Résultat |
+|---|---|---|
+| `provision_proxmox.yml -e vm_profile=recette` | 63 s | VM créée, SSH par clé |
+| `prepare_host.yml` | 91 s | Docker, pare-feu, SSH durci |
+| `deploy.yml` | 157 s | images construites, 3 vérifications OK (dont la transaction témoin à travers le réseau) |
+| **Hôte reconstruit, sans données** | **311 s** | |
+| `restore_database.yml -e backup_from_local=…` | 65 s (restauration seule : 13,8 s) | données restaurées, registre cohérent ; **transaction témoin 26/28** |
+| `destroy_proxmox_vm.yml` | 13 s | VM et disques supprimés, PC Hôte intact |
+
+**Limite du PRA « perte du PC Hôte » : les secrets.** Sur un hôte reconstruit, `init_secrets.py` génère de nouveaux
+secrets, mais le compte admin restauré garde l'empreinte de l'**ancien** mot de passe (`seed_admin` ne crée le compte que
+s'il n'existe pas) : la connexion admin échoue avec le nouveau mot de passe et réussit avec l'ancien. Les données et les
+comptes clients sont intacts ; les rôles PostgreSQL et les clés JWT, recréés depuis les nouveaux secrets, fonctionnent.
+Pour une reprise complète, les secrets doivent être restaurés avec les données : `secrets.enc.json` chiffré par SOPS + age
+(pilier Cyber), que `deploy.yml` déchiffre déjà s'il est versionné.
+
 | Playbook | Rôle | État |
 |---|---|---|
-| `provision_proxmox.yml` | clone du template Debian 13 cloud-init → ressources → disque → démarrage → SSH | testé (19/10) |
+| `provision_proxmox.yml` | clone du template Debian 13 cloud-init → ressources → disque → démarrage → SSH (`-e vm_profile=recette`) | testé (19/10) |
+| `destroy_proxmox_vm.yml` | supprime une VM jetable (recette), disques compris ; refuse le PC Hôte | testé (19/10) |
 | `prepare_host.yml` | Docker Engine + Compose, pare-feu nftables, durcissement SSH, mises à jour de sécurité | testé (19/10) |
 | `deploy.yml` | commit → version extraite → secrets → `docker compose up --wait` → tests sur l'hôte et à travers le réseau | testé (19/10) |
 | `restart_service.yml` | recrée un service autorisé de la version active et vérifie la reprise réelle | testé (19/10) |
