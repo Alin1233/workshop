@@ -14,9 +14,9 @@ n'est dupliquée, l'entraînement et l'inférence calculent exactement les même
 | Entrée / sortie | Détail |
 |---|---|
 | Données | Prometheus `http://prometheus:9090` (`/api/v1/query`) et Loki `http://loki:3100` (requêtes métriques LogQL), réseau `obs`. Prometheus exige une authentification basique, réseau interne compris : le détecteur utilise `admin` / `/run/secrets/prometheus_password` (secret Compose, `PROMETHEUS_PASSWORD_FILE`). Loki interne est sans identifiant. Depuis le PC Hôte (`ml/export_features.py`) : `127.0.0.1:9090` (admin / `secrets/prometheus_password`) et `127.0.0.1:3100` via `loki-proxy` (admin / `secrets/loki_password`) |
-| Sortie | `GET /metrics` (port 8000) : `anomaly_score{service}` (0..1), `anomaly_severity{service}`, `anomaly_model_info{version}`, `anomaly_detector_source_degraded` |
-| Santé | `GET /health` → 200 (`status: ok` ou `degraded` si une source est momentanément injoignable) |
-| Alerte | `AnomalyDetected` (`anomaly_score > 0.8 for 20s`, labels `severity=critical, domain=anomaly, service`) dans `infra/prometheus/rules/availability.yml` |
+| Sortie | `GET /metrics` (port 8000) : `anomaly_score{service}` (0..1, **NaN = pas de donnée**), `anomaly_threshold` (seuil du modèle), `anomaly_data_available{service}`, `anomaly_severity{service}`, `anomaly_model_info{version}`, `anomaly_detector_source_up{source}`, `anomaly_detector_source_degraded`, `anomaly_detector_last_run_timestamp` |
+| Santé | `GET /health` → 200 `ok` ; 200 `degraded` avec le détail `sources` / `services` s'il fonctionne partiellement ; 503 s'il ne peut rien scorer (`no_model` — modèle absent, pointeur invalide, `model_mismatch` — ou `degraded` / `auth_secret_unreadable`) |
+| Alertes | `AnomalyDetected` (`anomaly_score >= anomaly_threshold`, `for: 20s`, labels `severity=critical, domain=anomaly, service`) ; santé du détecteur : `AnomalyDetectorBlind` (source injoignable 1 min) et `AnomalyDetectorDown` (arrêté ou plus aucun cycle), `severity=warning`, `service=anomaly-detector` — `infra/prometheus/rules/availability.yml`, testées par `infra/prometheus/tests/anomaly_rules_test.yml` (promtool) |
 
 Le service est scrapé par le job `anomaly-detector` de `infra/prometheus/prometheus.yml` (avec `honor_labels: true`,
 pour que le label `service` porté par `anomaly_score` — `auth-service` / `payment-api` / `frontend` — soit conservé).
@@ -43,7 +43,17 @@ chaque service on apprend, sur le trafic normal, la médiane et une échelle rob
 En production : `z = (x − médiane) / échelle`, on ne garde que les écarts positifs, la sévérité est la norme
 `‖max(0, z)‖₂`, puis `score = 1 − exp(−(sévérité/β)²)`. β est calibré pour que le **seuil 0,8 tombe juste
 au-dessus du bruit normal**. Modèle minuscule, déterministe, interprétable (on connaît la variable dominante),
-sérialisé en JSON et embarqué dans l'image (`model/rz-2026-10-19-v2.json`) : la démo ne dépend d'aucun ré-entraînement.
+sérialisé en JSON et embarqué dans l'image (`model/rz-2026-10-19-v3.json`) : la démo ne dépend d'aucun ré-entraînement.
+
+**Désignation et validation du modèle.** Le modèle actif est désigné par le pointeur `model/CURRENT` (nom du
+fichier, écrit par `ml/train.py`), jamais par l'ordre des noms de fichiers ; sans pointeur, seul un répertoire à
+modèle unique est accepté. Au chargement, le modèle est validé contre les variables du code (mêmes services,
+mêmes noms, paramètres complets, version du JSON = nom du fichier) ; les variables sont associées **par nom**.
+Un modèle refusé laisse le service debout, `/health` en 503 `no_model` avec la raison (`model_mismatch: …`).
+
+**Seuil unique.** Le seuil (0,8) est celui pour lequel le modèle est calibré : il est enregistré dans le modèle,
+exposé en `anomaly_threshold` et lu par la règle `AnomalyDetected` ; le service et la règle comparent avec `≥`.
+Il n'est plus réglable par variable d'environnement (changer le seuil sans recalibrer n'aurait pas de sens).
 
 Résultats mesurés sur la stack réelle (détail : [`ml/README.md`](../../ml/README.md#4-résultats-chiffrés)) :
 0 % de faux positifs sur le trafic normal et au repos dans les deux sessions évaluées, transaction témoin
@@ -59,14 +69,33 @@ visé, avec une alerte reçue par Alertmanager **35 à 45 s** après le début d
   `{service="anomaly-detector", event_type="anomaly_detected"}`) : `probe_failed` ⇒ indisponibilité (redémarrage
   pertinent) ; `login_failures_per_min`, `invalid_tokens_per_min`, `waf_blocks_per_min` ⇒ attaque (redémarrer ne
   sert à rien : blocage / notification).
+- `AnomalyDetectorBlind` et `AnomalyDetectorDown` concernent **le détecteur lui-même** (`service=anomaly-detector`,
+  `severity=warning`) : le SI métier n'est pas en cause et ce n'est pas une attaque. Ils ne doivent déclencher
+  aucune action sur un service métier ; seule reprise sûre : redémarrer `anomaly-detector` (sans état) pour
+  `AnomalyDetectorDown`, notification et vérification de la source (Loki/Prometheus) pour `AnomalyDetectorBlind`.
 
 ## Robustesse
 
-- Prometheus ou Loki momentanément injoignable : la boucle **conserve le dernier score**, lève
-  `anomaly_detector_source_degraded=1` et journalise `event_type=anomaly_degraded` — elle ne plante jamais
-  (pas de crash-loop).
-- Résultat de requête vide (aucune donnée) : la variable devient neutre (0 ou médiane), pas une anomalie.
-- Modèle absent ou illisible : le service reste debout, `/health` répond 503 `no_model` (pas de crash-loop).
+La boucle ne plante jamais (pas de crash-loop) et n'invente jamais un comportement « normal » :
+
+- **Dégradation par service.** Une source injoignable (panne, authentification refusée) rend *manquantes* ses
+  variables, et ses autres requêtes du cycle sont sautées. Loki en panne : `auth-service` (100 % Prometheus)
+  reste scoré normalement ; `payment-api` et `frontend` deviennent incomplets. Prometheus en panne : tous les
+  services sont incomplets. `anomaly_detector_source_up{source}` passe à 0, `event_type=anomaly_degraded`.
+- **Score partiel.** Pour un service incomplet, la sévérité calculée sur les seules variables disponibles est un
+  minorant de la sévérité complète (toutes les contributions sont positives) : si ce score partiel atteint déjà
+  le seuil, l'anomalie est certaine et il est exposé (état `partial`, ex. sonde en échec pendant une panne de
+  Loki) ; sinon on ne peut rien conclure.
+- **Péremption bornée.** Sans score exploitable, le dernier score est conservé `STALE_AFTER_CYCLES - 1` cycles
+  (micro-coupure, état `stale`), puis remplacé par **NaN** avec `anomaly_data_available=0` (état `no_data`,
+  `event_type=anomaly_unknown`) : une alerte en cours retombe au lieu d'être maintenue toute la panne, sans
+  faire croire que tout est normal ; `AnomalyDetectorBlind` signale alors la détection aveugle. Avant le premier
+  cycle, le score vaut aussi NaN (pas 0).
+- **Résultat vide** (requête réussie, aucune activité) : la variable devient neutre (0 ou médiane apprise), pas
+  une anomalie — c'est la plateforme au repos, pas une panne de source.
+- **Démarrage impossible** (modèle absent ou incohérent, fichier de mot de passe absent ou illisible) : le
+  service reste debout, `/health` répond 503 avec la raison, `/metrics` reste servi et `AnomalyDetectorDown`
+  se déclenche (aucun cycle n'aboutit).
 - Franchissements de seuil journalisés en JSON (`event_type=anomaly_detected` / `anomaly_cleared`) avec le
   service concerné (`target_service`), le score, la sévérité et la **variable dominante**, pour l'investigation
   et la corrélation (le champ `service` reste celui de l'émetteur, `anomaly-detector`).
@@ -80,8 +109,9 @@ Le service démarre avec la stack (`docker compose up -d --build`). Variables d'
 | `PROMETHEUS_URL` | `http://prometheus:9090` | source des métriques |
 | `LOKI_URL` | `http://loki:3100` | source des journaux |
 | `SCRAPE_INTERVAL` | `10` | période de la boucle (s) |
-| `ANOMALY_THRESHOLD` | `0.8` | seuil de journalisation d'anomalie |
-| `MODEL_PATH` / `MODEL_DIR` | `./model` | modèle à charger (dernier `*.json` par défaut) |
+| `STALE_AFTER_CYCLES` | `3` | nombre de cycles sans donnée au bout duquel le score devient NaN |
+| `PROMETHEUS_USER` / `PROMETHEUS_PASSWORD_FILE` | `admin` / secret Compose | authentification auprès de Prometheus |
+| `MODEL_PATH` / `MODEL_DIR` | `./model` | modèle explicite, ou répertoire dont `CURRENT` désigne le modèle actif |
 
 Vérifier en direct depuis le PC Hôte (le service n'est pas publié, on interroge Prometheus) :
 
@@ -93,5 +123,7 @@ curl -s 'http://127.0.0.1:9090/api/v1/query?query=anomaly_model_info'
 ## Développement / tests
 
 Tests unitaires (sans la stack, faux clients Prometheus/Loki) : `tests/unit/test_anomaly_detector.py`
-(variables, comblement des valeurs manquantes, apprentissage/scoring, inférence, résistance aux sources vides
-ou injoignables). `python -m pytest tests/unit/test_anomaly_detector.py`.
+(variables, comblement des valeurs manquantes, apprentissage/scoring par nom, validation et désignation du
+modèle, péremption bornée, dégradation par service, seuil unique, secret illisible, scripts de `ml/`).
+`python -m pytest tests/unit/test_anomaly_detector.py`. Règles d'alerte :
+`docker run --rm -v "$PWD/infra/prometheus:/p:ro" --entrypoint promtool prom/prometheus:v3.15.0 test rules /p/tests/anomaly_rules_test.yml`.

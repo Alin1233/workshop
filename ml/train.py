@@ -11,11 +11,17 @@ Protocole :
 - une **zone de transition** de 70 s après chaque attaque (les débits sur 1 min y restent élevés) n'est
   comptée ni comme normale ni comme attaque ;
 - évaluation au niveau **échantillon** (score ≥ 0,8) et au niveau **alerte** (règle `for: 20s` simulée :
-  3 échantillons consécutifs au-dessus du seuil, pas de 10 s).
+  3 échantillons consécutifs au-dessus du seuil, pas de 10 s) ;
+- prétraitement **identique à la production** : les valeurs manquantes de l'apprentissage sont comblées avec la
+  médiane du seul normal d'apprentissage, et toute l'évaluation passe par `features.clean_values` avec les
+  médianes du modèle (`model.medians()`), exactement comme le service ;
+- statistiques **par fenêtre d'attaque** (`labels.csv` est en ajout seul : un même scénario peut avoir été joué
+  plusieurs fois), agrégées par `scénario@service`.
 
 Sorties :
 - le modèle `<version>.json` écrit dans `services/anomaly-detector/model/` (embarqué dans l'image) et copié
-  dans `ml/model/` (trace expérimentale versionnée) ;
+  dans `ml/model/` (trace expérimentale versionnée), avec le pointeur `CURRENT` (nom du modèle actif) mis à jour
+  dans les deux répertoires : c'est lui, et non l'ordre des noms de fichiers, qui désigne le modèle déployé ;
 - le rapport `ml/data/evaluation.json`.
 
 Déterministe (aucun aléa) : le même jeu de données produit toujours le même modèle.
@@ -41,7 +47,7 @@ from app import model as model_mod  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 SERVICE_MODEL_DIR = ROOT / "services" / "anomaly-detector" / "model"
 ML_MODEL_DIR = ROOT / "ml" / "model"
-THRESHOLD = 0.8
+THRESHOLD = model_mod.THRESHOLD  # source unique : app/model.py (comparaison « ≥ » partout)
 STEP = 10  # pas d'échantillonnage (s), identique à la boucle d'inférence et au scrape Prometheus
 ALERT_FOR_SAMPLES = 3  # `for: 20s` évalué toutes les 10 s ⇒ condition vraie sur 3 évaluations consécutives
 TRANSITION_S = 70  # après une attaque, la fenêtre glissante d'1 min reste « contaminée »
@@ -70,13 +76,14 @@ def read_features(paths):
 
 
 def read_labels(path):
-    # Cette méthode permet de charger les fenêtres d'attaque étiquetées (scenario, service, start, end).
+    # Cette méthode permet de charger les fenêtres d'attaque étiquetées (scenario, service, start, end) ; chaque
+    # ligne reçoit un identifiant de fenêtre (le fichier est en ajout seul : un scénario peut avoir plusieurs fenêtres).
     if not Path(path).exists():
         return []
     with open(path, newline="", encoding="utf-8") as handle:
         return [
-            {"scenario": r["scenario"], "service": r["service"], "start": float(r["start"]), "end": float(r["end"])}
-            for r in csv.DictReader(handle)
+            {"id": i, "scenario": r["scenario"], "service": r["service"], "start": float(r["start"]), "end": float(r["end"])}
+            for i, r in enumerate(csv.DictReader(handle))
         ]
 
 
@@ -93,18 +100,25 @@ def phase_of(ts, service, labels):
     return "normal", None
 
 
-def build_matrix(rows, service):
-    # Cette méthode permet de construire la matrice (n, variables) d'un service triée dans le temps, valeurs manquantes comblées.
+def service_rows(rows, service):
+    # Cette méthode permet d'extraire, triées dans le temps, les variables brutes d'un service (NaN conservés),
+    # associées par nom : c'est la forme exacte que reçoit le service d'inférence avant nettoyage.
     names = feat.feature_names(service)
-    specs = {s.name: s for s in feat.FEATURES[service]}
-    service_rows = sorted((r for r in rows if r["service"] == service), key=lambda r: r["timestamp"])
-    raw = np.array([[r.get(n, math.nan) for n in names] for r in service_rows], dtype=float)
-    medians = {n: float(np.nanmedian(raw[:, i])) if np.isfinite(raw[:, i]).any() else 0.0 for i, n in enumerate(names)}
-    filled = raw.copy()
-    for i, n in enumerate(names):
-        col = filled[:, i]
-        col[~np.isfinite(col)] = medians[n] if specs[n].nan_fill == "median" else 0.0
-    return names, filled, [r["timestamp"] for r in service_rows]
+    ordered = sorted((r for r in rows if r["service"] == service), key=lambda r: r["timestamp"])
+    return names, [{n: r.get(n, math.nan) for n in names} for r in ordered], [r["timestamp"] for r in ordered]
+
+
+def training_fill_medians(service, raw_values):
+    # Cette méthode permet de calculer, sur le SEUL normal d'apprentissage, les médianes servant à combler les
+    # variables "median" manquantes (latence sans trafic). Le modèle appris retrouve ces mêmes médianes, que le
+    # service utilise ensuite en production : apprentissage et inférence partagent donc le même prétraitement.
+    medians = {}
+    for spec in feat.FEATURES[service]:
+        if spec.nan_fill != "median":
+            continue
+        column = np.array([row[spec.name] for row in raw_values], dtype=float)
+        medians[spec.name] = float(np.nanmedian(column)) if np.isfinite(column).any() else 0.0
+    return medians
 
 
 def main():
@@ -129,13 +143,15 @@ def main():
 
     normal_vectors, feature_order, samples = {}, {}, {}
     for service in feat.SERVICES:
-        names, matrix, timestamps = build_matrix(rows, service)
+        names, raw_values, timestamps = service_rows(rows, service)
         feature_order[service] = names
         phases = [phase_of(ts, service, labels) for ts in timestamps]
-        train_mask = np.array([p[0] == "normal" and ts <= train_until for p, ts in zip(phases, timestamps)])
-        normal_vectors[service] = matrix[train_mask].tolist()
-        samples[service] = (names, matrix, timestamps, phases)
-        print(f"{service}: {len(timestamps)} échantillons, {int(train_mask.sum())} normaux d'apprentissage", flush=True)
+        train_raw = [v for v, p, ts in zip(raw_values, phases, timestamps) if p[0] == "normal" and ts <= train_until]
+        fill = training_fill_medians(service, train_raw)
+        normal_vectors[service] = [[cleaned[n] for n in names] for cleaned in
+                                   (feat.clean_values(service, v, fill) for v in train_raw)]
+        samples[service] = (names, raw_values, timestamps, phases)
+        print(f"{service}: {len(timestamps)} échantillons, {len(train_raw)} normaux d'apprentissage", flush=True)
 
     meta = {
         "threshold": THRESHOLD, "scale_floor": SCALE_FLOOR, "step_s": STEP,
@@ -149,7 +165,11 @@ def main():
     else:
         model = model_mod.fit(args.version, normal_vectors, feature_order, scale_floor=SCALE_FLOOR, meta=meta)
         saved = [str(model.save(directory / f"{model.version}.json")) for directory in (SERVICE_MODEL_DIR, ML_MODEL_DIR)]
-    report = {"version": model.version, "threshold": THRESHOLD, "features": [str(Path(f).name) for f in args.features],
+        for directory in (SERVICE_MODEL_DIR, ML_MODEL_DIR):
+            # Pointeur explicite vers le modèle actif (lu par le service) : pas de choix par tri des noms de fichiers.
+            (directory / "CURRENT").write_text(f"{model.version}.json\n", encoding="utf-8")
+    model.validate(feat.expected_features())
+    report = {"version": model.version, "threshold": model.threshold, "features": [str(Path(f).name) for f in args.features],
               **evaluate(model, samples, labels, train_until)}
     Path(args.report).write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print_report(report)
@@ -159,66 +179,54 @@ def main():
     return 0
 
 
-def _user_rate_index(names):
-    # Cette méthode permet de retrouver la variable de débit utilisateur (pour repérer les périodes creuses).
-    for candidate in ("req_rate", "req_rate_per_min"):
-        if candidate in names:
-            return names.index(candidate)
-    return None
-
-
 def evaluate(model, samples, labels, train_until):
-    # Cette méthode permet de calculer précision, rappel, faux positifs et délais (échantillon et alerte).
+    # Cette méthode permet de calculer précision, rappel, faux positifs et délais (échantillon et alerte), en scorant
+    # chaque échantillon exactement comme le service (clean_values + médianes du modèle, association par nom).
+    threshold = model.threshold
     counts = {"tp": 0, "fn": 0, "fp_heldout": 0, "tn_heldout": 0, "fp_train": 0, "tn_train": 0}
     idle = {"n": 0, "fp": 0}
-    per_scenario = {}
+    windows = {}
     false_alerts = []
     max_normal_score = {"heldout": 0.0, "train": 0.0}
-    for service, (names, matrix, timestamps, phases) in samples.items():
-        rate_idx = _user_rate_index(names)
-        scores = [model.score_vector(service, list(row))["score"] for row in matrix]
+    for service, (names, raw_values, timestamps, phases) in samples.items():
+        rate_name = next((n for n in ("req_rate", "req_rate_per_min") if n in names), None)
+        cleaned_rows = [feat.clean_values(service, values, model.medians(service)) for values in raw_values]
+        scores = [model.score_values(service, cleaned)["score"] for cleaned in cleaned_rows]
         run = 0
         for i, (ts, score, (phase, lab)) in enumerate(zip(timestamps, scores, phases)):
-            flagged = score >= THRESHOLD
+            flagged = score >= threshold
             contiguous = i > 0 and abs(timestamps[i] - timestamps[i - 1] - STEP) < 1
             run = (run + 1 if contiguous else 1) if flagged else 0
             alert = run >= ALERT_FOR_SAMPLES
             if phase == "attack":
-                key = f'{lab["scenario"]}@{service}'  # un scénario peut impacter plusieurs services
-                e = per_scenario.setdefault(key, {"service": service, "n": 0, "hits": 0, "start": lab["start"],
-                                                 "end": lab["end"], "first_hit": None, "first_alert": None, "max_score": 0.0})
-                e["n"] += 1
-                e["hits"] += flagged
-                e["max_score"] = max(e["max_score"], score)
-                if flagged and e["first_hit"] is None:
-                    e["first_hit"] = ts
-                if alert and e["first_alert"] is None:
-                    e["first_alert"] = ts
+                # Une entrée par FENÊTRE étiquetée (id de ligne), regroupées ensuite par scénario@service.
+                w = windows.setdefault(lab["id"], {"scenario": lab["scenario"], "service": service, "start": lab["start"],
+                                                    "end": lab["end"], "n": 0, "hits": 0, "first_hit": None,
+                                                    "first_alert": None, "max_score": 0.0})
+                w["n"] += 1
+                w["hits"] += flagged
+                w["max_score"] = max(w["max_score"], score)
+                if flagged and w["first_hit"] is None:
+                    w["first_hit"] = ts
+                if alert and w["first_alert"] is None:
+                    w["first_alert"] = ts
                 counts["tp" if flagged else "fn"] += 1
             elif phase == "normal":
                 split = "train" if ts <= train_until else "heldout"
                 counts[("fp_" if flagged else "tn_") + split] += 1
                 max_normal_score[split] = max(max_normal_score[split], score)
-                if rate_idx is not None and matrix[i][rate_idx] <= 1e-9:
+                if rate_name is not None and cleaned_rows[i][rate_name] <= 1e-9:
                     idle["n"] += 1
                     idle["fp"] += flagged
                 if alert and run == ALERT_FOR_SAMPLES:
                     false_alerts.append({"service": service, "timestamp": ts, "split": split})
 
-    scenarios = {}
-    for name, e in per_scenario.items():
-        scenarios[name] = {
-            "service": e["service"], "duration_s": round(e["end"] - e["start"]),
-            "samples": e["n"], "detected_samples": e["hits"],
-            "recall": round(e["hits"] / e["n"], 3) if e["n"] else 0.0,
-            "max_score": round(e["max_score"], 3),
-            "first_score_above_threshold_s": round(e["first_hit"] - e["start"], 1) if e["first_hit"] else None,
-            "alert_delay_s": round(e["first_alert"] - e["start"], 1) if e["first_alert"] else None,
-        }
+    scenarios = aggregate_windows(windows)
     tp, fn, fp = counts["tp"], counts["fn"], counts["fp_heldout"]
     heldout_n = counts["fp_heldout"] + counts["tn_heldout"]
     train_n = counts["fp_train"] + counts["tn_train"]
-    alerted = sum(1 for s in scenarios.values() if s["alert_delay_s"] is not None)
+    alerted = sum(s["windows_alerted"] for s in scenarios.values())
+    total_windows = sum(s["windows"] for s in scenarios.values())
     return {
         "counts": counts,
         "precision_heldout": round(tp / (tp + fp), 3) if (tp + fp) else None,
@@ -228,7 +236,7 @@ def evaluate(model, samples, labels, train_until):
         "false_positive_rate_idle": round(idle["fp"] / idle["n"], 4) if idle["n"] else None,
         "max_normal_score": {k: round(v, 3) for k, v in max_normal_score.items()},
         "normal_samples": {"train": train_n, "heldout": heldout_n, "idle": idle["n"]},
-        "scenarios_alerted": f"{alerted}/{len(scenarios)}",
+        "windows_alerted": f"{alerted}/{total_windows}",
         "false_alerts": false_alerts,
         "scenarios": scenarios,
         "calibration": {s: {"t80": round(model.params[s]["t80"], 3), "beta": round(model.params[s]["beta"], 3),
@@ -236,6 +244,36 @@ def evaluate(model, samples, labels, train_until):
                              "normal_severity_max": round(model.params[s]["normal_severity_max"], 3)}
                         for s in model.params},
     }
+
+
+def aggregate_windows(windows):
+    # Cette méthode permet de résumer les fenêtres par scénario@service : rappel sur l'ensemble des échantillons,
+    # nombre de fenêtres alertées, délais médian et maximal, et le détail de chaque fenêtre.
+    grouped = {}
+    for w in sorted(windows.values(), key=lambda w: w["start"]):
+        grouped.setdefault(f'{w["scenario"]}@{w["service"]}', []).append(w)
+    scenarios = {}
+    for key, group in grouped.items():
+        per_window = [{
+            "start": w["start"], "duration_s": round(w["end"] - w["start"]), "samples": w["n"], "detected_samples": w["hits"],
+            "recall": round(w["hits"] / w["n"], 3) if w["n"] else 0.0, "max_score": round(w["max_score"], 3),
+            "first_score_above_threshold_s": round(w["first_hit"] - w["start"], 1) if w["first_hit"] else None,
+            "alert_delay_s": round(w["first_alert"] - w["start"], 1) if w["first_alert"] else None,
+        } for w in group]
+        n = sum(w["n"] for w in group)
+        hits = sum(w["hits"] for w in group)
+        delays = [w["alert_delay_s"] for w in per_window if w["alert_delay_s"] is not None]
+        firsts = [w["first_score_above_threshold_s"] for w in per_window if w["first_score_above_threshold_s"] is not None]
+        scenarios[key] = {
+            "service": group[0]["service"], "windows": len(group), "windows_alerted": len(delays),
+            "samples": n, "detected_samples": hits, "recall": round(hits / n, 3) if n else 0.0,
+            "max_score": max(w["max_score"] for w in per_window),
+            "first_score_above_threshold_s": float(np.median(firsts)) if firsts else None,
+            "alert_delay_s": float(np.median(delays)) if delays else None,
+            "alert_delay_max_s": max(delays) if delays else None,
+            "per_window": per_window,
+        }
+    return scenarios
 
 
 def print_report(report):
@@ -248,12 +286,12 @@ def print_report(report):
     print(f"Taux de FP normal d'apprentissage : {report['false_positive_rate_train']}")
     print(f"Taux de FP en période creuse      : {report['false_positive_rate_idle']}")
     print(f"Score max sur le normal           : {report['max_normal_score']}")
-    print(f"Scénarios ayant déclenché l'alerte (for 20s) : {report['scenarios_alerted']}")
+    print(f"Fenêtres d'attaque ayant déclenché l'alerte (for 20s) : {report['windows_alerted']}")
     print(f"Fausses alertes simulées : {len(report['false_alerts'])} {report['false_alerts']}")
     print("Par scénario :")
     for name, s in report["scenarios"].items():
-        print(f"  - {name:34s} rappel={s['recall']:<5} score max={s['max_score']:<6} "
-              f"1er dépassement={_fmt_delay(s['first_score_above_threshold_s'])} alerte={_fmt_delay(s['alert_delay_s'])}")
+        print(f"  - {name:34s} fenêtres={s['windows_alerted']}/{s['windows']} rappel={s['recall']:<5} score max={s['max_score']:<6} "
+              f"1er dépassement={_fmt_delay(s['first_score_above_threshold_s'])} alerte (médiane)={_fmt_delay(s['alert_delay_s'])}")
 
 
 def _fmt_delay(value):

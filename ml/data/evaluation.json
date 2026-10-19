@@ -1,5 +1,5 @@
 {
-  "version": "rz-2026-10-19-v2",
+  "version": "rz-2026-10-19-v3",
   "threshold": 0.8,
   "features": [
     "features_train.csv"
@@ -26,96 +26,208 @@
     "heldout": 140,
     "idle": 44
   },
-  "scenarios_alerted": "7/8",
+  "windows_alerted": "7/8",
   "false_alerts": [],
   "scenarios": {
     "brute_force@auth-service": {
       "service": "auth-service",
-      "duration_s": 60,
+      "windows": 1,
+      "windows_alerted": 1,
       "samples": 6,
       "detected_samples": 5,
       "recall": 0.833,
       "max_score": 1.0,
       "first_score_above_threshold_s": 13.0,
-      "alert_delay_s": 33.0
-    },
-    "invalid_token_flood@payment-api": {
-      "service": "payment-api",
-      "duration_s": 60,
-      "samples": 6,
-      "detected_samples": 6,
-      "recall": 1.0,
-      "max_score": 1.0,
-      "first_score_above_threshold_s": 8.0,
-      "alert_delay_s": 28.0
-    },
-    "transfer_abuse@payment-api": {
-      "service": "payment-api",
-      "duration_s": 61,
-      "samples": 6,
-      "detected_samples": 6,
-      "recall": 1.0,
-      "max_score": 1.0,
-      "first_score_above_threshold_s": 3.0,
-      "alert_delay_s": 3.0
-    },
-    "stop_payment@payment-api": {
-      "service": "payment-api",
-      "duration_s": 32,
-      "samples": 3,
-      "detected_samples": 3,
-      "recall": 1.0,
-      "max_score": 0.996,
-      "first_score_above_threshold_s": 7.0,
-      "alert_delay_s": 27.0
+      "alert_delay_s": 33.0,
+      "alert_delay_max_s": 33.0,
+      "per_window": [
+        {
+          "start": 1792413887.0,
+          "duration_s": 60,
+          "samples": 6,
+          "detected_samples": 5,
+          "recall": 0.833,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 13.0,
+          "alert_delay_s": 33.0
+        }
+      ]
     },
     "brute_force@frontend": {
       "service": "frontend",
-      "duration_s": 60,
+      "windows": 1,
+      "windows_alerted": 0,
       "samples": 6,
       "detected_samples": 0,
       "recall": 0.0,
       "max_score": 0.603,
       "first_score_above_threshold_s": null,
-      "alert_delay_s": null
+      "alert_delay_s": null,
+      "alert_delay_max_s": null,
+      "per_window": [
+        {
+          "start": 1792413887.0,
+          "duration_s": 60,
+          "samples": 6,
+          "detected_samples": 0,
+          "recall": 0.0,
+          "max_score": 0.603,
+          "first_score_above_threshold_s": null,
+          "alert_delay_s": null
+        }
+      ]
     },
-    "invalid_token_flood@frontend": {
-      "service": "frontend",
-      "duration_s": 60,
+    "invalid_token_flood@payment-api": {
+      "service": "payment-api",
+      "windows": 1,
+      "windows_alerted": 1,
       "samples": 6,
       "detected_samples": 6,
       "recall": 1.0,
       "max_score": 1.0,
       "first_score_above_threshold_s": 8.0,
-      "alert_delay_s": 28.0
+      "alert_delay_s": 28.0,
+      "alert_delay_max_s": 28.0,
+      "per_window": [
+        {
+          "start": 1792413992.0,
+          "duration_s": 60,
+          "samples": 6,
+          "detected_samples": 6,
+          "recall": 1.0,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 8.0,
+          "alert_delay_s": 28.0
+        }
+      ]
+    },
+    "invalid_token_flood@frontend": {
+      "service": "frontend",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 6,
+      "detected_samples": 6,
+      "recall": 1.0,
+      "max_score": 1.0,
+      "first_score_above_threshold_s": 8.0,
+      "alert_delay_s": 28.0,
+      "alert_delay_max_s": 28.0,
+      "per_window": [
+        {
+          "start": 1792413992.0,
+          "duration_s": 60,
+          "samples": 6,
+          "detected_samples": 6,
+          "recall": 1.0,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 8.0,
+          "alert_delay_s": 28.0
+        }
+      ]
+    },
+    "transfer_abuse@payment-api": {
+      "service": "payment-api",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 6,
+      "detected_samples": 6,
+      "recall": 1.0,
+      "max_score": 1.0,
+      "first_score_above_threshold_s": 3.0,
+      "alert_delay_s": 3.0,
+      "alert_delay_max_s": 3.0,
+      "per_window": [
+        {
+          "start": 1792414097.0,
+          "duration_s": 61,
+          "samples": 6,
+          "detected_samples": 6,
+          "recall": 1.0,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 3.0,
+          "alert_delay_s": 3.0
+        }
+      ]
     },
     "transfer_abuse@frontend": {
       "service": "frontend",
-      "duration_s": 61,
+      "windows": 1,
+      "windows_alerted": 1,
       "samples": 6,
       "detected_samples": 4,
       "recall": 0.667,
       "max_score": 1.0,
       "first_score_above_threshold_s": 3.0,
-      "alert_delay_s": 3.0
+      "alert_delay_s": 3.0,
+      "alert_delay_max_s": 3.0,
+      "per_window": [
+        {
+          "start": 1792414097.0,
+          "duration_s": 61,
+          "samples": 6,
+          "detected_samples": 4,
+          "recall": 0.667,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 3.0,
+          "alert_delay_s": 3.0
+        }
+      ]
     },
     "waf_probe@frontend": {
       "service": "frontend",
-      "duration_s": 60,
+      "windows": 1,
+      "windows_alerted": 1,
       "samples": 6,
       "detected_samples": 6,
       "recall": 1.0,
       "max_score": 1.0,
       "first_score_above_threshold_s": 7.0,
-      "alert_delay_s": 27.0
+      "alert_delay_s": 27.0,
+      "alert_delay_max_s": 27.0,
+      "per_window": [
+        {
+          "start": 1792414203.0,
+          "duration_s": 60,
+          "samples": 6,
+          "detected_samples": 6,
+          "recall": 1.0,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 7.0,
+          "alert_delay_s": 27.0
+        }
+      ]
+    },
+    "stop_payment@payment-api": {
+      "service": "payment-api",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 3,
+      "detected_samples": 3,
+      "recall": 1.0,
+      "max_score": 0.996,
+      "first_score_above_threshold_s": 7.0,
+      "alert_delay_s": 27.0,
+      "alert_delay_max_s": 27.0,
+      "per_window": [
+        {
+          "start": 1792414263.0,
+          "duration_s": 32,
+          "samples": 3,
+          "detected_samples": 3,
+          "recall": 1.0,
+          "max_score": 0.996,
+          "first_score_above_threshold_s": 7.0,
+          "alert_delay_s": 27.0
+        }
+      ]
     }
   },
   "calibration": {
     "auth-service": {
-      "t80": 4.144,
-      "beta": 3.267,
-      "normal_severity_p99": 3.121,
-      "normal_severity_max": 3.657
+      "t80": 4.147,
+      "beta": 3.269,
+      "normal_severity_p99": 3.124,
+      "normal_severity_max": 3.659
     },
     "payment-api": {
       "t80": 5.487,

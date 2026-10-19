@@ -42,7 +42,7 @@
   },
   "params": {
     "auth-service": {
-      "beta": 3.266847659752313,
+      "beta": 3.2685594170769017,
       "features": [
         "req_rate",
         "error_ratio_5xx",
@@ -60,21 +60,21 @@
         "req_rate": 0.78
       },
       "normal_samples": 97,
-      "normal_severity_max": 3.657468803841975,
-      "normal_severity_p50": 0.9476316455456396,
-      "normal_severity_p99": 3.1214010747638494,
+      "normal_severity_max": 3.659300944817432,
+      "normal_severity_p50": 0.9275546675093718,
+      "normal_severity_p99": 3.1237952614462845,
       "scale": {
         "client_errors_4xx_rate": 0.2,
         "error_ratio_5xx": 0.02,
-        "latency_p95": 0.1121216249999993,
+        "latency_p95": 0.11148011538461465,
         "login_failures_per_min": 1.0,
         "probe_failed": 0.1,
         "req_rate": 0.32617199999999996
       },
-      "t80": 4.144441335574284
+      "t80": 4.146612932952363
     },
     "frontend": {
-      "beta": 2.758868055626301,
+      "beta": 2.7588680556263006,
       "features": [
         "req_rate_per_min",
         "waf_blocks_per_min",
@@ -97,7 +97,7 @@
       "t80": 3.5
     },
     "payment-api": {
-      "beta": 4.324863193168935,
+      "beta": 4.324877225436442,
       "features": [
         "req_rate",
         "error_ratio_5xx",
@@ -110,14 +110,14 @@
         "client_errors_4xx_rate": 0.0,
         "error_ratio_5xx": 0.0,
         "invalid_tokens_per_min": 0.0,
-        "latency_p95": 0.04151315789473684,
+        "latency_p95": 0.041428453947368424,
         "probe_failed": 0.0,
         "req_rate": 2.88
       },
       "normal_samples": 97,
-      "normal_severity_max": 4.966030846606497,
-      "normal_severity_p50": 0.41000265487539267,
-      "normal_severity_p99": 3.015967467476298,
+      "normal_severity_max": 4.966044699307027,
+      "normal_severity_p50": 0.41001148339963944,
+      "normal_severity_p99": 3.015997591807237,
       "scale": {
         "client_errors_4xx_rate": 0.2,
         "error_ratio_5xx": 0.02,
@@ -126,8 +126,8 @@
         "probe_failed": 0.1,
         "req_rate": 1.5122520000000006
       },
-      "t80": 5.4866781849974915
+      "t80": 5.486695986840598
     }
   },
-  "version": "rz-2026-10-19-v2"
+  "version": "rz-2026-10-19-v3"
 }

@@ -62,13 +62,38 @@ groups:
         annotations:
           summary: "Plus de 20 échecs de connexion par minute (force brute probable)"
 
-  # Détecteur ML : anomaly_score (0..1) exposé par services/anomaly-detector. Seuil 0,8 et fenêtre 20 s
-  # retenus et vérifiés par l'évaluation (trafic normal/creux < 0,8, attaques détectées) ; cf. ml/README.md.
+  # Détecteur ML (services/anomaly-detector), cf. ml/README.md. Le seuil n'est écrit qu'à un endroit : dans le modèle,
+  # exposé par le service en `anomaly_threshold` (0,8) ; la comparaison est « ≥ », comme dans le code. Un score NaN
+  # (pas de donnée) ne déclenche rien : ce sont alors AnomalyDetectorBlind / AnomalyDetectorDown qui préviennent
+  # que la détection est aveugle — sans jamais viser un service métier.
   - name: anomaly
     rules:
       - alert: AnomalyDetected
-        expr: anomaly_score > 0.8
+        expr: anomaly_score >= on(job, instance) group_left() anomaly_threshold
         for: 20s
         labels: { severity: critical, domain: anomaly }
         annotations:
-          summary: "Comportement anormal détecté par le modèle sur {{ $labels.service }}"
+          summary: 'Comportement anormal détecté par le modèle sur {{ $labels.service }} (score {{ printf "%.2f" $value }})'
+
+      - alert: AnomalyDetectorBlind
+        expr: anomaly_detector_source_up == 0
+        for: 1m
+        labels: { severity: warning, domain: anomaly, service: anomaly-detector }
+        annotations:
+          summary: "Détection ML partielle : la source {{ $labels.source }} est injoignable depuis 1 min"
+          description: >-
+            Le détecteur ne reçoit plus les données de {{ $labels.source }} : les services qui en dépendent n'ont plus
+            de score (anomaly_score = NaN, anomaly_data_available = 0). Ce n'est ni une panne du SI métier ni une
+            attaque. Action attendue : notification et vérification de {{ $labels.source }} (conteneur,
+            authentification) ; ne redémarrer, n'isoler ni ne bloquer aucun service métier.
+
+      - alert: AnomalyDetectorDown
+        expr: up{job="anomaly-detector"} == 0 or (time() - anomaly_detector_last_run_timestamp > 60)
+        for: 1m
+        labels: { severity: warning, domain: availability, service: anomaly-detector }
+        annotations:
+          summary: "Le détecteur d'anomalies ne produit plus de score (arrêté, boucle bloquée, modèle ou secret illisible)"
+          description: >-
+            Plus aucune détection ML : la cause est donnée par GET /health du détecteur (no_model, model_mismatch,
+            auth_secret_unreadable…). Le SI métier n'est pas en cause. Seule reprise sûre : redémarrer
+            anomaly-detector (sans état) ; aucune action sur les services métier.
