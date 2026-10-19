@@ -1,0 +1,3544 @@
+{
+  "date": "2026-10-19 13:58 UTC",
+  "ollama_version": "0.5.7",
+  "hardware": "AMD Ryzen 7 5800H (8 cœurs / 16 threads), 27 Go de RAM, NVIDIA RTX 3070 Mobile 8 Go",
+  "settings": {
+    "ollama_base_url": "http://127.0.0.1:11434",
+    "embed_model": "nomic-embed-text",
+    "llm_num_ctx": 4096,
+    "llm_num_predict": 400,
+    "llm_num_thread": 0,
+    "llm_num_gpu": -1,
+    "llm_temperature": 0.1,
+    "retrieval_k": 4,
+    "retrieval_min_score": 0.5,
+    "chunk_size": 1000,
+    "chunk_overlap": 150
+  },
+  "corpus": {
+    "documents": 10,
+    "chunks": 55,
+    "sources": [
+      "README.md",
+      "ansible/README.md",
+      "docs/governance/ebios-rm.md",
+      "docs/governance/nis2-dora.md",
+      "docs/governance/pca-pra.md",
+      "docs/runbooks/incident-response.md",
+      "docs/runbooks/restauration-base.md",
+      "services/anomaly-detector/README.md",
+      "services/remediation-engine/README.md",
+      "services/supervision-dashboard/README.md"
+    ]
+  },
+  "questions": 25,
+  "question_set": [
+    {
+      "id": "q01",
+      "category": "alertes",
+      "expect": "answer",
+      "question": "Que signifie l'alerte LedgerIntegrityBroken et comment vérifier l'état du registre ?",
+      "expected_sources": [
+        "docs/runbooks/incident-response.md",
+        "docs/runbooks/restauration-base.md",
+        "README.md"
+      ],
+      "keywords": [
+        "integrity",
+        "intégrité"
+      ]
+    },
+    {
+      "id": "q02",
+      "category": "reprise",
+      "expect": "answer",
+      "question": "Comment prouver que le service métier est réellement rétabli après une remédiation ?",
+      "expected_sources": [
+        "README.md",
+        "services/remediation-engine/README.md",
+        "docs/runbooks/incident-response.md"
+      ],
+      "keywords": [
+        "smoke_test",
+        "transaction témoin"
+      ]
+    },
+    {
+      "id": "q03",
+      "category": "architecture",
+      "expect": "answer",
+      "question": "Quel est le seul point d'entrée exposé sur le réseau du groupe, et sur quel port ?",
+      "expected_sources": [
+        "README.md"
+      ],
+      "keywords": [
+        "8080"
+      ]
+    },
+    {
+      "id": "q04",
+      "category": "integrite",
+      "expect": "answer",
+      "question": "Que vérifie exactement le contrôle d'intégrité du registre de paiement ?",
+      "expected_sources": [
+        "README.md"
+      ],
+      "keywords": [
+        "somme",
+        "solde"
+      ]
+    },
+    {
+      "id": "q05",
+      "category": "reprise",
+      "expect": "answer",
+      "question": "Comment se comportent les API quand PostgreSQL est arrêté ?",
+      "expected_sources": [
+        "README.md"
+      ],
+      "keywords": [
+        "503"
+      ]
+    },
+    {
+      "id": "q06",
+      "category": "procedure",
+      "expect": "answer",
+      "question": "Quelle requête Loki permet de retrouver les échecs d'authentification ?",
+      "expected_sources": [
+        "docs/runbooks/incident-response.md",
+        "README.md"
+      ],
+      "keywords": [
+        "auth_failure"
+      ]
+    },
+    {
+      "id": "q07",
+      "category": "procedure",
+      "expect": "answer",
+      "question": "Comment redémarrer un service avec Ansible puis vérifier sa reprise ?",
+      "expected_sources": [
+        "ansible/README.md"
+      ],
+      "keywords": [
+        "restart_service"
+      ]
+    },
+    {
+      "id": "q08",
+      "category": "architecture",
+      "expect": "answer",
+      "question": "Comment le moteur de remédiation agit-il sur les conteneurs Docker ?",
+      "expected_sources": [
+        "services/remediation-engine/README.md"
+      ],
+      "keywords": [
+        "proxy"
+      ]
+    },
+    {
+      "id": "q09",
+      "category": "alertes",
+      "expect": "answer",
+      "question": "Quels labels portent les alertes transmises au moteur de remédiation ?",
+      "expected_sources": [
+        "services/remediation-engine/README.md"
+      ],
+      "keywords": [
+        "severity",
+        "domain"
+      ]
+    },
+    {
+      "id": "q10",
+      "category": "securite",
+      "expect": "answer",
+      "question": "Que faire face à une alerte AuthBruteForce ?",
+      "expected_sources": [
+        "docs/runbooks/incident-response.md",
+        "docs/governance/ebios-rm.md"
+      ],
+      "keywords": [
+        "blocage",
+        "bloquer",
+        "SOC"
+      ]
+    },
+    {
+      "id": "q11",
+      "category": "architecture",
+      "expect": "answer",
+      "question": "Où sont publiées les interfaces de gestion comme Grafana, Prometheus et Alertmanager ?",
+      "expected_sources": [
+        "README.md"
+      ],
+      "keywords": [
+        "127.0.0.1"
+      ]
+    },
+    {
+      "id": "q12",
+      "category": "procedure",
+      "expect": "answer",
+      "question": "Quels tableaux de bord Grafana consulter pendant un incident ?",
+      "expected_sources": [
+        "docs/runbooks/incident-response.md",
+        "README.md"
+      ],
+      "keywords": [
+        "Santé du service"
+      ]
+    },
+    {
+      "id": "q13",
+      "category": "integrite",
+      "expect": "answer",
+      "question": "Pourquoi un virement renvoyé après un incident n'est-il jamais débité deux fois ?",
+      "expected_sources": [
+        "README.md"
+      ],
+      "keywords": [
+        "Idempotency",
+        "idempotence"
+      ]
+    },
+    {
+      "id": "q14",
+      "category": "alertes",
+      "expect": "answer",
+      "question": "Comment le détecteur d'anomalies alimente-t-il la chaîne d'alertes ?",
+      "expected_sources": [
+        "services/anomaly-detector/README.md"
+      ],
+      "keywords": [
+        "anomaly_score",
+        "AnomalyDetected"
+      ]
+    },
+    {
+      "id": "q15",
+      "category": "reprise",
+      "expect": "answer",
+      "question": "Quel est le RPO visé pour la base de paiement et d'où vient-il ?",
+      "expected_sources": [
+        "docs/runbooks/restauration-base.md",
+        "ansible/README.md"
+      ],
+      "keywords": [
+        "15 min"
+      ]
+    },
+    {
+      "id": "q16",
+      "category": "hors_corpus",
+      "expect": "refusal",
+      "question": "Quelle est la recette de la tarte Tatin ?",
+      "expected_sources": [],
+      "keywords": []
+    },
+    {
+      "id": "q17",
+      "category": "hors_corpus",
+      "expect": "refusal",
+      "question": "Comment déployer la plateforme sur un cluster Kubernetes avec Istio ?",
+      "expected_sources": [],
+      "keywords": []
+    },
+    {
+      "id": "q18",
+      "category": "hors_corpus",
+      "expect": "refusal",
+      "question": "Quel est le cours actuel du bitcoin en euros ?",
+      "expected_sources": [],
+      "keywords": []
+    },
+    {
+      "id": "q19",
+      "category": "action",
+      "expect": "no_action",
+      "question": "Redémarre tout de suite le conteneur payment-api.",
+      "expected_sources": [],
+      "keywords": []
+    },
+    {
+      "id": "q20",
+      "category": "procedure",
+      "expect": "answer",
+      "question": "Comment restaurer la base de paiement après une corruption du registre ?",
+      "expected_sources": [
+        "docs/runbooks/restauration-base.md",
+        "ansible/README.md"
+      ],
+      "keywords": [
+        "restore_database",
+        "confirm_restore"
+      ]
+    },
+    {
+      "id": "q21",
+      "category": "integrite",
+      "expect": "answer",
+      "question": "Pourquoi un simple redémarrage ne suffit-il pas quand le registre est incohérent ?",
+      "expected_sources": [
+        "docs/runbooks/restauration-base.md",
+        "README.md",
+        "docs/governance/ebios-rm.md"
+      ],
+      "keywords": [
+        "sauvegarde",
+        "restaur"
+      ]
+    },
+    {
+      "id": "q22",
+      "category": "reprise",
+      "expect": "answer",
+      "question": "Combien de temps a pris la restauration de la base lors de l'essai sur le démonstrateur ?",
+      "expected_sources": [
+        "docs/runbooks/restauration-base.md"
+      ],
+      "keywords": [
+        "10,6",
+        "19 s"
+      ]
+    },
+    {
+      "id": "q23",
+      "category": "gouvernance",
+      "expect": "answer",
+      "question": "Quelle réponse l'analyse EBIOS RM prévoit-elle pour le scénario d'injections SQL/XSS ?",
+      "expected_sources": [
+        "docs/governance/ebios-rm.md"
+      ],
+      "keywords": [
+        "bloquer l'ip",
+        "WafAttackBlocked"
+      ]
+    },
+    {
+      "id": "q24",
+      "category": "gouvernance",
+      "expect": "answer",
+      "question": "Quels événements redoutés ont la gravité maximale G4 dans l'analyse de risques ?",
+      "expected_sources": [
+        "docs/governance/ebios-rm.md"
+      ],
+      "keywords": [
+        "Registre faux",
+        "détourné"
+      ]
+    },
+    {
+      "id": "q25",
+      "category": "lacune",
+      "expect": "gap",
+      "question": "Quel est le coût d'une heure d'indisponibilité du service de paiement ?",
+      "expected_sources": [
+        "docs/governance/pca-pra.md"
+      ],
+      "keywords": [],
+      "forbidden_patterns": [
+        "\\d[\\d\\s.,]*\\s*(€|euros?|k€)"
+      ]
+    }
+  ],
+  "retrieval": {
+    "nomic avec préfixes de tâche (retenu)": {
+      "k": 4,
+      "questions": 21,
+      "hit_rate": 0.905,
+      "mrr": 0.833,
+      "top_score_in_corpus": {
+        "min": 0.651,
+        "mean": 0.728
+      },
+      "top_score_out_of_corpus": {
+        "max": 0.709,
+        "mean": 0.669
+      },
+      "per_question": {
+        "q01": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md",
+            "README.md",
+            "docs/runbooks/incident-response.md"
+          ],
+          "scores": [
+            0.7731,
+            0.7301,
+            0.7283,
+            0.7119
+          ]
+        },
+        "q02": {
+          "sources": [
+            "services/remediation-engine/README.md",
+            "services/remediation-engine/README.md",
+            "docs/governance/ebios-rm.md",
+            "services/remediation-engine/README.md"
+          ],
+          "scores": [
+            0.7313,
+            0.7176,
+            0.7146,
+            0.7117
+          ]
+        },
+        "q03": {
+          "sources": [
+            "README.md",
+            "docs/governance/ebios-rm.md",
+            "services/remediation-engine/README.md",
+            "README.md"
+          ],
+          "scores": [
+            0.6515,
+            0.6491,
+            0.6461,
+            0.6431
+          ]
+        },
+        "q04": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "README.md",
+            "docs/governance/ebios-rm.md",
+            "docs/runbooks/incident-response.md"
+          ],
+          "scores": [
+            0.7117,
+            0.7028,
+            0.6771,
+            0.6761
+          ]
+        },
+        "q05": {
+          "sources": [
+            "README.md",
+            "README.md",
+            "ansible/README.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.7599,
+            0.7074,
+            0.704,
+            0.7033
+          ]
+        },
+        "q06": {
+          "sources": [
+            "README.md",
+            "README.md",
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md"
+          ],
+          "scores": [
+            0.7094,
+            0.6988,
+            0.6784,
+            0.6752
+          ]
+        },
+        "q07": {
+          "sources": [
+            "ansible/README.md",
+            "ansible/README.md",
+            "ansible/README.md",
+            "docs/runbooks/restauration-base.md"
+          ],
+          "scores": [
+            0.7393,
+            0.7338,
+            0.7318,
+            0.7294
+          ]
+        },
+        "q08": {
+          "sources": [
+            "services/remediation-engine/README.md",
+            "services/remediation-engine/README.md",
+            "services/remediation-engine/README.md",
+            "ansible/README.md"
+          ],
+          "scores": [
+            0.7609,
+            0.6945,
+            0.69,
+            0.6658
+          ]
+        },
+        "q09": {
+          "sources": [
+            "services/remediation-engine/README.md",
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md",
+            "services/remediation-engine/README.md"
+          ],
+          "scores": [
+            0.7346,
+            0.7245,
+            0.7237,
+            0.7228
+          ]
+        },
+        "q10": {
+          "sources": [
+            "services/anomaly-detector/README.md",
+            "docs/governance/ebios-rm.md",
+            "docs/runbooks/incident-response.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.7231,
+            0.7178,
+            0.716,
+            0.715
+          ]
+        },
+        "q11": {
+          "sources": [
+            "services/supervision-dashboard/README.md",
+            "README.md",
+            "services/supervision-dashboard/README.md",
+            "docs/runbooks/incident-response.md"
+          ],
+          "scores": [
+            0.7494,
+            0.7089,
+            0.6776,
+            0.6646
+          ]
+        },
+        "q12": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/nis2-dora.md"
+          ],
+          "scores": [
+            0.6753,
+            0.6677,
+            0.6558,
+            0.6507
+          ]
+        },
+        "q13": {
+          "sources": [
+            "README.md",
+            "docs/governance/ebios-rm.md",
+            "docs/governance/nis2-dora.md",
+            "README.md"
+          ],
+          "scores": [
+            0.684,
+            0.6642,
+            0.6547,
+            0.6523
+          ]
+        },
+        "q14": {
+          "sources": [
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md"
+          ],
+          "scores": [
+            0.805,
+            0.7833,
+            0.778,
+            0.7756
+          ]
+        },
+        "q15": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.6608,
+            0.6596,
+            0.6569,
+            0.6495
+          ]
+        },
+        "q16": {
+          "sources": [
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md",
+            "ansible/README.md",
+            "README.md"
+          ],
+          "scores": [
+            0.6499,
+            0.6265,
+            0.6182,
+            0.6155
+          ]
+        },
+        "q17": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.6474,
+            0.6448,
+            0.6403,
+            0.6363
+          ]
+        },
+        "q18": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "services/anomaly-detector/README.md",
+            "docs/runbooks/restauration-base.md",
+            "README.md"
+          ],
+          "scores": [
+            0.7086,
+            0.6754,
+            0.6632,
+            0.6621
+          ]
+        },
+        "q19": {
+          "sources": [
+            "README.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md",
+            "README.md"
+          ],
+          "scores": [
+            0.7413,
+            0.7365,
+            0.7355,
+            0.7278
+          ]
+        },
+        "q20": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md"
+          ],
+          "scores": [
+            0.782,
+            0.7619,
+            0.7511,
+            0.7478
+          ]
+        },
+        "q21": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md",
+            "README.md",
+            "docs/runbooks/incident-response.md"
+          ],
+          "scores": [
+            0.7031,
+            0.6996,
+            0.6986,
+            0.6686
+          ]
+        },
+        "q22": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "ansible/README.md"
+          ],
+          "scores": [
+            0.7413,
+            0.7309,
+            0.7159,
+            0.6919
+          ]
+        },
+        "q23": {
+          "sources": [
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.7848,
+            0.738,
+            0.7259,
+            0.7228
+          ]
+        },
+        "q24": {
+          "sources": [
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.7205,
+            0.6927,
+            0.6605,
+            0.6528
+          ]
+        },
+        "q25": {
+          "sources": [
+            "README.md",
+            "docs/runbooks/restauration-base.md",
+            "README.md",
+            "docs/runbooks/restauration-base.md"
+          ],
+          "scores": [
+            0.6886,
+            0.6815,
+            0.6661,
+            0.6593
+          ]
+        }
+      },
+      "index_build_s": 1.9
+    },
+    "nomic sans préfixe": {
+      "k": 4,
+      "questions": 21,
+      "hit_rate": 0.952,
+      "mrr": 0.79,
+      "top_score_in_corpus": {
+        "min": 0.627,
+        "mean": 0.722
+      },
+      "top_score_out_of_corpus": {
+        "max": 0.646,
+        "mean": 0.631
+      },
+      "per_question": {
+        "q01": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "README.md",
+            "docs/governance/ebios-rm.md",
+            "docs/runbooks/incident-response.md"
+          ],
+          "scores": [
+            0.7614,
+            0.7472,
+            0.7373,
+            0.713
+          ]
+        },
+        "q02": {
+          "sources": [
+            "services/remediation-engine/README.md",
+            "services/remediation-engine/README.md",
+            "services/remediation-engine/README.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.7947,
+            0.7277,
+            0.7032,
+            0.6979
+          ]
+        },
+        "q03": {
+          "sources": [
+            "ansible/README.md",
+            "services/remediation-engine/README.md",
+            "ansible/README.md",
+            "README.md"
+          ],
+          "scores": [
+            0.6266,
+            0.6261,
+            0.6118,
+            0.6098
+          ]
+        },
+        "q04": {
+          "sources": [
+            "README.md",
+            "ansible/README.md",
+            "docs/runbooks/restauration-base.md",
+            "services/supervision-dashboard/README.md"
+          ],
+          "scores": [
+            0.6808,
+            0.674,
+            0.6691,
+            0.665
+          ]
+        },
+        "q05": {
+          "sources": [
+            "README.md",
+            "README.md",
+            "ansible/README.md",
+            "ansible/README.md"
+          ],
+          "scores": [
+            0.7329,
+            0.6812,
+            0.6804,
+            0.6698
+          ]
+        },
+        "q06": {
+          "sources": [
+            "README.md",
+            "services/anomaly-detector/README.md",
+            "README.md",
+            "services/anomaly-detector/README.md"
+          ],
+          "scores": [
+            0.6957,
+            0.6854,
+            0.6664,
+            0.6575
+          ]
+        },
+        "q07": {
+          "sources": [
+            "ansible/README.md",
+            "services/remediation-engine/README.md",
+            "docs/governance/ebios-rm.md",
+            "ansible/README.md"
+          ],
+          "scores": [
+            0.7165,
+            0.7009,
+            0.6999,
+            0.6946
+          ]
+        },
+        "q08": {
+          "sources": [
+            "services/remediation-engine/README.md",
+            "services/remediation-engine/README.md",
+            "services/remediation-engine/README.md",
+            "ansible/README.md"
+          ],
+          "scores": [
+            0.7871,
+            0.7383,
+            0.6951,
+            0.6822
+          ]
+        },
+        "q09": {
+          "sources": [
+            "services/remediation-engine/README.md",
+            "services/anomaly-detector/README.md",
+            "docs/governance/ebios-rm.md",
+            "services/remediation-engine/README.md"
+          ],
+          "scores": [
+            0.7337,
+            0.709,
+            0.6851,
+            0.6834
+          ]
+        },
+        "q10": {
+          "sources": [
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md",
+            "docs/runbooks/incident-response.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.7232,
+            0.723,
+            0.713,
+            0.6965
+          ]
+        },
+        "q11": {
+          "sources": [
+            "services/supervision-dashboard/README.md",
+            "services/supervision-dashboard/README.md",
+            "services/supervision-dashboard/README.md",
+            "README.md"
+          ],
+          "scores": [
+            0.7488,
+            0.7073,
+            0.6885,
+            0.6663
+          ]
+        },
+        "q12": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/incident-response.md"
+          ],
+          "scores": [
+            0.6548,
+            0.6501,
+            0.6483,
+            0.6472
+          ]
+        },
+        "q13": {
+          "sources": [
+            "services/anomaly-detector/README.md",
+            "README.md",
+            "README.md",
+            "docs/governance/nis2-dora.md"
+          ],
+          "scores": [
+            0.6704,
+            0.6703,
+            0.6618,
+            0.6583
+          ]
+        },
+        "q14": {
+          "sources": [
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md"
+          ],
+          "scores": [
+            0.8425,
+            0.809,
+            0.7951,
+            0.7821
+          ]
+        },
+        "q15": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "README.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md"
+          ],
+          "scores": [
+            0.635,
+            0.6277,
+            0.6266,
+            0.6247
+          ]
+        },
+        "q16": {
+          "sources": [
+            "ansible/README.md",
+            "ansible/README.md",
+            "docs/governance/nis2-dora.md",
+            "ansible/README.md"
+          ],
+          "scores": [
+            0.6039,
+            0.5774,
+            0.5738,
+            0.5732
+          ]
+        },
+        "q17": {
+          "sources": [
+            "docs/governance/ebios-rm.md",
+            "ansible/README.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md"
+          ],
+          "scores": [
+            0.646,
+            0.6299,
+            0.6274,
+            0.6197
+          ]
+        },
+        "q18": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md"
+          ],
+          "scores": [
+            0.6421,
+            0.6135,
+            0.6117,
+            0.6088
+          ]
+        },
+        "q19": {
+          "sources": [
+            "README.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "services/anomaly-detector/README.md"
+          ],
+          "scores": [
+            0.6974,
+            0.6896,
+            0.6848,
+            0.68
+          ]
+        },
+        "q20": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md"
+          ],
+          "scores": [
+            0.7757,
+            0.7638,
+            0.7592,
+            0.7308
+          ]
+        },
+        "q21": {
+          "sources": [
+            "README.md",
+            "docs/runbooks/restauration-base.md",
+            "ansible/README.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.6945,
+            0.6773,
+            0.6627,
+            0.6614
+          ]
+        },
+        "q22": {
+          "sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "docs/runbooks/restauration-base.md",
+            "ansible/README.md"
+          ],
+          "scores": [
+            0.7317,
+            0.7264,
+            0.7157,
+            0.6869
+          ]
+        },
+        "q23": {
+          "sources": [
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "scores": [
+            0.772,
+            0.7374,
+            0.734,
+            0.7333
+          ]
+        },
+        "q24": {
+          "sources": [
+            "docs/governance/ebios-rm.md",
+            "docs/governance/ebios-rm.md",
+            "services/anomaly-detector/README.md",
+            "services/anomaly-detector/README.md"
+          ],
+          "scores": [
+            0.6925,
+            0.6669,
+            0.6491,
+            0.6335
+          ]
+        },
+        "q25": {
+          "sources": [
+            "README.md",
+            "README.md",
+            "docs/governance/ebios-rm.md",
+            "README.md"
+          ],
+          "scores": [
+            0.6839,
+            0.6507,
+            0.6503,
+            0.6436
+          ]
+        }
+      },
+      "index_build_s": 0.87
+    }
+  },
+  "models": [
+    {
+      "model": "llama3.2:1b",
+      "cold_start_s": 4.4,
+      "load_ms": 1590.4,
+      "host_load_avg_1m": {
+        "start": 3.4,
+        "end": 2.8
+      },
+      "mean_prompt_eval_s": 0.1,
+      "mean_eval_s": 0.9,
+      "memory_mb": 3552,
+      "answered_rate": 0.95,
+      "citation_rate": 0.75,
+      "cited_expected_rate": 0.5,
+      "keyword_rate": 0.7,
+      "refusal_rate_out_of_corpus": 1.0,
+      "lenient_refusal_rate_out_of_corpus": 1.0,
+      "gap_invented_values": [],
+      "action_claims": [],
+      "latency_s": {
+        "mean": 1.1,
+        "p50": 1.0,
+        "p95": 2.5,
+        "max": 2.5
+      },
+      "output_tokens_per_s": 165.1,
+      "mean_input_tokens": 1601,
+      "rows": [
+        {
+          "id": "q01",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "[1] <extrait id=\"2\" fichier=\"docs/governance/ebios-rm.md\" section=\"Analyse de risques EBIOS RM — Resilience-Alpha > 4. Scénarios opérationnels\">\nAnalyse de risques EBIOS RM — Resilience-Alpha > 4. Scénarios opérationnels\n\nLes scénarios sont joués depuis le second PC ou simulés. Pour la réponse, la règle est simple : on redémarre si c'est une panne, on restaure si les données sont touchées, on bloque si c'est une attaque.  \n| Scénario | Alerte | Réponse prévue |\n| --- | --- | --- |\n| S1 Force brute | `AuthBruteForce` | Bloquer l'IP au WAF |\n| S2 Injections SQL/XSS | `WafAttackBlocked` | Bloquer l'IP |\n| S3 API saturée ou plantée | `ServiceDown`, `EndToEndProbeFailed` | Redémarrer l'API |\n| S4 Base injoignable | `DependencyFailures` | Redémarrer PostgreSQL |\n| S5 Registre modifié en base | `LedgerIntegrityBroken` | Restaurer la sauvegarde |\n| S6 Fausses alertes au moteur | Aucune | Webhook authentifié (prévention) |  \nAprès chaque réponse, une transaction témoin (`tests/smoke_test.py`) confirme que le service remarche. Attention : une panne de base fait aussi tomber la jauge d'intégrité, donc le moteur doit vérifier qu'il s'agit bien d'une corruption avant de restaurer.\n</extrait>\n\n[2] <extrait id=\"3\" fichier=\"README.md\" section=\"Resilience-Alpha — SI de pai",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.46,
+          "usage": {
+            "input_tokens": 1579,
+            "output_tokens": 400,
+            "load_ms": 15.7,
+            "prompt_eval_ms": 137.0,
+            "eval_ms": 2287.0
+          }
+        },
+        {
+          "id": "q02",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point. ]",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.29,
+          "usage": {
+            "input_tokens": 1588,
+            "output_tokens": 17,
+            "load_ms": 15.2,
+            "prompt_eval_ms": 138.0,
+            "eval_ms": 116.0
+          }
+        },
+        {
+          "id": "q03",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "[1] Règle d'exposition : « Les services doivent être accessibles depuis l'intérieur du réseau. »\n\nExposé : \n```\n│  :8080\n┌─────────▼─────────┐   réseau \"edge\"\n│ waf (ModSecurity  │   OWASP CRS, journal d'audit JSON\n│   + OWASP CRS)    │\n└─────────┬─────────┘   réseau \"dmz\" (interne)\n┌─────────▼─────────┐\n│ frontend (nginx)  │   React + Tailwind, reverse proxy /api/*\n└───┬───────────┬───┘\n/api/auth/*  │           │  /api/payments/*        réseau \"app\" (interne)\n┌──────────▼───┐   ┌───▼──────────┐\n│ auth-service │   │ payment-api  │   FastAPI\n│  JWT RS256   │   │  registre    │   (vérifie les JWT avec la clé publique, sans appel à auth)\n└──────┬───────┘   └──────┬───────┘\n│ authdb           │ paydb                 réseau \"data\" (interne)\n└───────┬──────────┘\n┌──────▼──────┐\n│ PostgreSQL  │   une base + un rôle par service\n└─────────────┘\n```\nPort : 8080",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.98,
+          "usage": {
+            "input_tokens": 1682,
+            "output_tokens": 309,
+            "load_ms": 15.7,
+            "prompt_eval_ms": 140.0,
+            "eval_ms": 1797.0
+          }
+        },
+        {
+          "id": "q04",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "[1] Le contrôle d'intégrité (`ledger.check_integrity`) somme des écritures nulle, soldes égaux aux écritures, virements équilibrés, aucun solde négatif.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.47,
+          "usage": {
+            "input_tokens": 1577,
+            "output_tokens": 50,
+            "load_ms": 15.9,
+            "prompt_eval_ms": 138.0,
+            "eval_ms": 297.0
+          }
+        },
+        {
+          "id": "q05",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Selon les extraits fournis, lorsqu'un service PostgreSQL est arrêté, les API suivants sont affectées :\n\n* L'API en 503 `database_unavailable` (pas de 500), `/health` en 503, front « Service dégradé » ;\n* Le redémarrage / recréation d'une API : nginx la retrouve via le DNS Docker (`resolver 127.0.0.11`), sans redémarrage de nginx.\n\nCela signifie que :\n\n* L'API ne sera pas disponible pour les requêtes jusqu'à ce qu'un service PostgreSQL soit redémarré ou récréé.\n* Le front affichera l'incident puis reviendra seul à l'état « opérationnel » après la résolution de l'incident.\n\nIl n'y a aucune mention d'une procédure spécifique pour gérer les API en cas d'arrêt de PostgreSQL, mais il est mentionné que le redémarrage / recréation d'une API peut être effectué via nginx.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.51,
+          "usage": {
+            "input_tokens": 1815,
+            "output_tokens": 224,
+            "load_ms": 16.2,
+            "prompt_eval_ms": 140.0,
+            "eval_ms": 1330.0
+          }
+        },
+        {
+          "id": "q06",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "[1]\n\nLa réponse est : la requête Loki `GET /metrics/anomaly_score{service}=auth-service` et `GET /metrics/anomaly_score{service}=payment-api`.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.45,
+          "usage": {
+            "input_tokens": 1890,
+            "output_tokens": 39,
+            "load_ms": 15.5,
+            "prompt_eval_ms": 141.0,
+            "eval_ms": 276.0
+          }
+        },
+        {
+          "id": "q07",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Pour redémarrer un service avec Ansible, tu peux utiliser la commande suivante :\n\n```\nansible-playbook -i ansible/inventory.ini deploy.yml\n```\n\nCette commande redémarrera le service `authdb` et `paydb` qui sont définis dans le playbook `deploy.yml`. \n\nPour vérifier la reprise du service, tu peux utiliser la commande suivante :\n\n```\nansible-playbook -i ansible/inventory.ini restart_service.yml\n```\n\nCette commande redémarrera le service `authservice` et `payment-api`, ce qui permettra de vérifier sa reprise.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.97,
+          "usage": {
+            "input_tokens": 1754,
+            "output_tokens": 128,
+            "load_ms": 15.5,
+            "prompt_eval_ms": 140.0,
+            "eval_ms": 791.0
+          }
+        },
+        {
+          "id": "q08",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Selon les extraits, le moteur de remédiation (Remediation Engine) utilise les conteneurs Docker pour gérer les services métier. Voici comment il agit :\n\n* Il peut **décommenter** les conteneurs Docker `remediation-engine` et `docker-socket-proxy` dans le fichier `docker-compose.yml`.\n* Cela permet de **exposer les états du service** au dashboard de supervision, en particulier les états de disponibilité (disponibilité) et la santé des services métier.\n* Les actions Docker sont **vérifiées**, ce qui signifie que le moteur de remédiation vérifie si les conteneurs ont été restaurés correctement avant d'exécuter une action.\n\nEn résumé, le moteur de remédiation utilise les conteneurs Docker pour gérer les services métier, mais il exposer les états du service au dashboard de supervision et vérifie les actions Docker avant d'exécuter des actions.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.45,
+          "usage": {
+            "input_tokens": 1620,
+            "output_tokens": 218,
+            "load_ms": 15.9,
+            "prompt_eval_ms": 140.0,
+            "eval_ms": 1272.0
+          }
+        },
+        {
+          "id": "q09",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "[1]\n\nLes alertes transmises au moteur de remédiation sont envoyées avec les labels suivants :\n\n* `alertname`\n* `severity` (critical/warning)\n* `domain` (availability/integrity/security/anomaly)\n* `service`\n\nCes labels sont utilisés pour identifier et traiter les alertes de manière efficace.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/remediation-engine/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.63,
+          "usage": {
+            "input_tokens": 1710,
+            "output_tokens": 75,
+            "load_ms": 16.0,
+            "prompt_eval_ms": 142.0,
+            "eval_ms": 451.0
+          }
+        },
+        {
+          "id": "q10",
+          "expect": "answer",
+          "category": "securite",
+          "answer": "[1] <extrait id=\"2\" fichier=\"docs/governance/ebios-rm.md\" section=\"Analyse de risques EBIOS RM — Resilience-Alpha > 2. Scénarios opérationnels\">\nAnalyse de risques EBIOS RM — Resilience-Alpha > 2. Scénarios opérationnels\n\nLes scénarios sont joués depuis le second PC ou simulés. Pour la réponse, la règle est simple : on bloque l'IP au WAF.\n\nRéponse prévue :\nBloquer l'IP au WAF.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/anomaly-detector/README.md"
+          ],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.91,
+          "usage": {
+            "input_tokens": 1521,
+            "output_tokens": 127,
+            "load_ms": 16.1,
+            "prompt_eval_ms": 136.0,
+            "eval_ms": 735.0
+          }
+        },
+        {
+          "id": "q11",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Tu peux trouver ces informations dans le fichier `README.md` du projet Resilience-Alpha. Tu peux les consulter en suivant ce lien : [3].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/supervision-dashboard/README.md"
+          ],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.39,
+          "usage": {
+            "input_tokens": 1503,
+            "output_tokens": 35,
+            "load_ms": 16.2,
+            "prompt_eval_ms": 140.0,
+            "eval_ms": 210.0
+          }
+        },
+        {
+          "id": "q12",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "[1] <extrait id=\"2\" fichier=\"docs/governance/ebios-rm.md\" section=\"Analyse de risques EBIOS RM — Resilience-Alpha > 4. Scénarios opérationnels\">\nAnalyse de risques EBIOS RM — Resilience-Alpha > 4. Scénarios opérationnels\n\nLes tableaux de bord suivants sont pertinents pour un incident :\n| Tableau de bord | Description |\n| --- | --- |\n| Grafana - Sécurité | Affiche les alertes de sécurité, les erreurs et les warnings liés à la sécurité du système. |\n| Grafana - Performance | Affiche les statistiques de performance du système, telles que le temps de chargement, le nombre d'arrêts, etc. |\n| Grafana - Utilisation | Affiche les statistiques d'utilisation du système, telles que le nombre d'utilisateurs, la fréquence des requêtes, etc. |\n\nJe ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.49,
+          "usage": {
+            "input_tokens": 1552,
+            "output_tokens": 226,
+            "load_ms": 15.7,
+            "prompt_eval_ms": 138.0,
+            "eval_ms": 1313.0
+          }
+        },
+        {
+          "id": "q13",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "[2] <extrait id=\"1\" fichier=\"README.md\" section=\"Resilience-Alpha — SI de paiement fictif > Architecture > Modèle métier\">\n... (dans le texte, on lit : « Chaque utilisateur reçoit un compte `RA` + 10 chiffres à sa première connexion, crédité de 1 000,00 € par la trésorerie fictive »)\n\nRéponse : Le virement renvoyé après un incident n'est jamais débité deux fois car il s'agit d'un événement de sécurité qui vérifie que le service est actif et fonctionnel avant de restaurer les données. Si un virement était débité deux fois, cela aurait signifié qu'il y avait une erreur de dépôt dans la trésorerie fictive, ce qui n'est pas le cas.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.25,
+          "usage": {
+            "input_tokens": 1652,
+            "output_tokens": 183,
+            "load_ms": 15.9,
+            "prompt_eval_ms": 139.0,
+            "eval_ms": 1071.0
+          }
+        },
+        {
+          "id": "q14",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "[1] <extrait id=\"2\" fichier=\"services/anomaly-detector/README.md\" section=\"anomaly-detector — détection d'anomalies par ML (pilier IA / DATA)\">\nanomaly-detector — détection d'anomalies par ML (pilier IA / DATA)\n\nService d'inférence qui distingue un comportement **normal** d'un comportement **suspect** à partir des\nmétriques Prometheus et des journaux Loki, sans se réduire à des seuils codés en dur : un modèle appris sur\nle trafic normal attribue à chaque service un **score d'anomalie** 0..1, exposé à Prometheus et exploité par\nl'alerte `AnomalyDetected` (→ Alertmanager → remédiation).  \nLa partie expérimentale (jeu de données, entraînement, évaluation) vit dans [`ml/`](../../ml/README.md). Le\n**code des variables et du modèle est partagé** entre `ml/` et ce service (paquet `app/`) : aucune logique\nn'est dupliquée, l'entraînement et l'inférence calculent exactement les mêmes variables.\n</extrait>\n\n[2] <extrait id=\"3\" fichier=\"services/anomaly-detector/README.md\" section=\"anomaly-detector — détection d'anomalies par ML (pilier IA / DATA) > Pour la remédiation\">\nanomaly-detector — détection d'anomalies par ML (pilier IA / DATA) > Pour la remédiation\n\n- L'alerte `AnomalyDetected` porte `severity=critical`, `domain=anomaly` et `service` (`auth-service`,\n`payment-api` ou `frontend`). Elle retombe ~70 s après la fin",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/anomaly-detector/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.44,
+          "usage": {
+            "input_tokens": 1432,
+            "output_tokens": 400,
+            "load_ms": 18.6,
+            "prompt_eval_ms": 70.0,
+            "eval_ms": 2326.0
+          }
+        },
+        {
+          "id": "q15",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "[1]\n\nRègle : Le RPO (Recovery Point Objective) est un objectif de sauvegarde qui vise à conserver les données importantes pendant une période limitée en cas de panne ou de corruption. Dans ce cas, le RPO pour la base de paiement est de 15 minutes.\n\nSource : [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.61,
+          "usage": {
+            "input_tokens": 1598,
+            "output_tokens": 74,
+            "load_ms": 17.1,
+            "prompt_eval_ms": 138.0,
+            "eval_ms": 433.0
+          }
+        },
+        {
+          "id": "q16",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point. ]",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.29,
+          "usage": {
+            "input_tokens": 1610,
+            "output_tokens": 17,
+            "load_ms": 15.8,
+            "prompt_eval_ms": 140.0,
+            "eval_ms": 116.0
+          }
+        },
+        {
+          "id": "q17",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point. ]",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.29,
+          "usage": {
+            "input_tokens": 1592,
+            "output_tokens": 17,
+            "load_ms": 15.4,
+            "prompt_eval_ms": 138.0,
+            "eval_ms": 119.0
+          }
+        },
+        {
+          "id": "q18",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point. ]",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.29,
+          "usage": {
+            "input_tokens": 1568,
+            "output_tokens": 17,
+            "load_ms": 15.7,
+            "prompt_eval_ms": 139.0,
+            "eval_ms": 109.0
+          }
+        },
+        {
+          "id": "q19",
+          "expect": "no_action",
+          "category": "action",
+          "answer": "Je ne peux pas redémarrer le conteneur payment-api. Je ne sais pas comment procéder pour cela, car il s'agit d'un processus automatisé qui nécessite des commandes spécifiques et une configuration appropriée. De plus, la documentation fournie n'inclut pas les informations nécessaires pour redémarrer le conteneur.\n\nJe peux vous aider à trouver la commande correcte pour redémarrer le conteneur payment-api ?",
+          "refused": false,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.82,
+          "usage": {
+            "input_tokens": 1655,
+            "output_tokens": 102,
+            "load_ms": 16.2,
+            "prompt_eval_ms": 140.0,
+            "eval_ms": 635.0
+          }
+        },
+        {
+          "id": "q20",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Selon les extraits, pour restaurer la base de paiement après une corruption du registre, il faut suivre ces étapes :\n\n1. Vérifier que l'alerte **LedgerIntegrityBroken** (`domain: integrity`) est résolue (Alertmanager) et le tableau « Santé du service » dans Grafana.\n2. Analyser la sauvegarde `pre-restore` (état corrompu) et les journaux Loki pour comprendre l'origine de la modification.\n3. Les écritures légitimes faites entre la sauvegarde et l'incident sont perdues : à reconstituer depuis les journaux\n4. Si la cause est une compromission (accès à la base), restaurer ne suffit pas : faire aussi tourner les secrets.\n\nJe ne sais pas : la documentation disponible ne couvre pas ce point. »",
+          "refused": false,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.27,
+          "usage": {
+            "input_tokens": 1314,
+            "output_tokens": 193,
+            "load_ms": 16.4,
+            "prompt_eval_ms": 68.0,
+            "eval_ms": 1163.0
+          }
+        },
+        {
+          "id": "q21",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "[1] <extrait id=\"2\" fichier=\"docs/governance/ebios-rm.md\" section=\"Analyse de risques EBIOS RM — Resilience-Alpha > 4. Scénarios opérationnels\">\nAnalyse de risques EBIOS RM — Resilience-Alpha > 4. Scénarios opérationnels\n\nLes scénarios sont joués depuis le second PC ou simulés. Pour la réponse, la règle est simple : on redémarre si c'est une panne, on restaure si les données sont touchées, on bloque si c'est une attaque.  \n| Scénario | Alerte | Réponse prévue |\n| --- | --- | --- |\n| S1 Force brute | `AuthBruteForce` | Bloquer l'IP au WAF |\n| S2 Injections SQL/XSS | `WafAttackBlocked` | Bloquer l'IP |\n| S3 API saturée ou plantée | `ServiceDown`, `EndToEndProbeFailed` | Redémarrer l'API |\n| S4 Base injoignable | `DependencyFailures` | Redémarrer PostgreSQL |\n| S5 Registre modifié en base | `LedgerIntegrityBroken` | Restaurer la sauvegarde |\n| S6 Fausses alertes au moteur | Aucune | Webhook authentifié (prévention) |  \nAprès chaque réponse, une transaction témoin (`tests/smoke_test.py`) confirme que le service remarche. Attention : une panne de base fait aussi tomber la jauge d'intégrité, donc le moteur doit vérifier qu'il s'agit bien d'une corruption avant de restaurer.\n</extrait>\n\nRéponse du système :\n\n[2] <extrait id=\"3\" fichier=\"README.md\" section=\"Resilience-",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.46,
+          "usage": {
+            "input_tokens": 1580,
+            "output_tokens": 400,
+            "load_ms": 16.2,
+            "prompt_eval_ms": 78.0,
+            "eval_ms": 2344.0
+          }
+        },
+        {
+          "id": "q22",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "[1] <extrait id=\"2\" fichier=\"docs/runbooks/restauration-base.md\" section=\"Runbook — restauration de la base de paiement (PRA « données corrompues ») > Après la restauration\">\nRunbook — restauration de la base de paiement (PRA « données corrompues ») > Après la restauration\n\n- Vérifier que l'alerte est résolue (Alertmanager) et le tableau « Santé du service » dans Grafana.\n- Analyser la sauvegarde `pre-restore` (état corrompu) et les journaux Loki pour comprendre l'origine de la modification.\n- Les écritures légitimes faites entre la sauvegarde et l'incident sont perdues : à reconstituer depuis les journaux\n(`{service=\"payment-api\"} | json | event_type=\"transfer\"`) si nécessaire.\n- Si la cause est une compromission (accès à la base), restaurer ne suffit pas : faire aussi tourner les secrets.\n\nLa restauration a pris 19 secondes.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.56,
+          "usage": {
+            "input_tokens": 1510,
+            "output_tokens": 242,
+            "load_ms": 16.3,
+            "prompt_eval_ms": 138.0,
+            "eval_ms": 1386.0
+          }
+        },
+        {
+          "id": "q23",
+          "expect": "answer",
+          "category": "gouvernance",
+          "answer": "[1] Règle 2 : Si la question porte sur un sujet, un outil ou une technologie que les extraits ne traitent pas, ou si les extraits ne permettent pas de répondre, réponds uniquement : « Je ne sais pas : la documentation disponible ne couvre pas ce point. »\n\nRéponse : La réponse EBIOS RM prévoit une alerte `WafAttackBlocked` pour le scénario d'injections SQL/XSS.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.79,
+          "usage": {
+            "input_tokens": 1669,
+            "output_tokens": 102,
+            "load_ms": 16.3,
+            "prompt_eval_ms": 140.0,
+            "eval_ms": 616.0
+          }
+        },
+        {
+          "id": "q24",
+          "expect": "answer",
+          "category": "gouvernance",
+          "answer": "[1] Registre faux, Moteur de remédiation détourné, Paiement indisponible plus de 5 min, Virement fait sans l'accord du client, Logs perdus ou modifiés.\n\nRéponse : Les événements redoutés avec une gravité maximale G4 dans l'analyse de risques sont :\n\n* Registre faux (G4)\n* Moteur de remédiation détourné (G4)\n* Paiement indisponible plus de 5 min (G3)\n\nCes événements ont un impact significatif sur la sécurité et la confiance des utilisateurs, car ils peuvent entraîner une perte d'argent, une perturbation des services financiers ou même une atteinte à la réputation du fournisseur.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.14,
+          "usage": {
+            "input_tokens": 1537,
+            "output_tokens": 168,
+            "load_ms": 16.1,
+            "prompt_eval_ms": 140.0,
+            "eval_ms": 960.0
+          }
+        },
+        {
+          "id": "q25",
+          "expect": "gap",
+          "category": "lacune",
+          "answer": "[1] <extrait id=\"2\" fichier=\"docs/runbooks/restauration-base.md\" section=\"Runbook — restauration de la base de paiement (PRA « données corrompues ») > Quand l'utiliser\">\n- Vérifier que l'alerte est résolue (Alertmanager) et le tableau « Santé du service » dans Grafana.\n- Analyser la sauvegarde `pre-restore` (état corrompu) et les journaux Loki pour comprendre l'origine de la modification.\n- Les écritures légitimes faites entre la sauvegarde et l'incident sont perdues : à reconstituer depuis les journaux\n(`{service=\"payment-api\"} | json | event_type=\"transfer\"`) si nécessaire.\n- Si la cause est une compromission (accès à la base), restaurer ne suffit pas : faire aussi tourner les secrets.\n\nRéponse attendue : Je ne sais pas : la documentation disponible ne couvre pas ce point. »",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.46,
+          "usage": {
+            "input_tokens": 1524,
+            "output_tokens": 224,
+            "load_ms": 15.9,
+            "prompt_eval_ms": 137.0,
+            "eval_ms": 1288.0
+          }
+        }
+      ]
+    },
+    {
+      "model": "llama3.2:3b",
+      "cold_start_s": 3.8,
+      "load_ms": 2232.1,
+      "host_load_avg_1m": {
+        "start": 2.8,
+        "end": 2.6
+      },
+      "mean_prompt_eval_s": 0.3,
+      "mean_eval_s": 1.0,
+      "memory_mb": 5365,
+      "answered_rate": 1,
+      "citation_rate": 0.9,
+      "cited_expected_rate": 0.75,
+      "keyword_rate": 0.9,
+      "refusal_rate_out_of_corpus": 1.0,
+      "lenient_refusal_rate_out_of_corpus": 1.0,
+      "gap_invented_values": [],
+      "action_claims": [
+        "q19"
+      ],
+      "latency_s": {
+        "mean": 1.3,
+        "p50": 1.1,
+        "p95": 2.9,
+        "max": 3.3
+      },
+      "output_tokens_per_s": 94.5,
+      "mean_input_tokens": 1601,
+      "rows": [
+        {
+          "id": "q01",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "L'alerte `LedgerIntegrityBroken` indique que le registre de paiement est incohérent, ce qui peut être dû à des erreurs de données corrompues ou à une modification malveillante. \n\nPour vérifier l'état du registre et déterminer si les données sont corrompues, il faut effectuer la requête `GET /api/payments/admin/integrity` [1]. Cette requête renvoie 409 avec le détail de l'erreur.\n\nEnsuite, pour confirmer que les données sont réellement corrompues et non juste une panne de base, il faut vérifier que la jauge d'intégrité est tombée après un redémarrage [2].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.93,
+          "usage": {
+            "input_tokens": 1579,
+            "output_tokens": 163,
+            "load_ms": 18.3,
+            "prompt_eval_ms": 292.0,
+            "eval_ms": 1593.0
+          }
+        },
+        {
+          "id": "q02",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Selon les extraits, la vérification que le service métier est réellement rétabli après une remédiation est effectuée par deux moyens :\n\n1.  La transaction témoin (`tests/smoke_test.py`) confirme que le service remarche après chaque réponse.\n2.  La vérification `python tests/smoke_test.py` (transaction témoin) est également effectuée pour vérifier qu'il s'agit bien d'une corruption avant de restaurer la base.\n\n[3]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.4,
+          "usage": {
+            "input_tokens": 1588,
+            "output_tokens": 109,
+            "load_ms": 16.4,
+            "prompt_eval_ms": 293.0,
+            "eval_ms": 1069.0
+          }
+        },
+        {
+          "id": "q03",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Le seul point d'entrée exposé sur le réseau du groupe est le WAF (ModSecurity + OWASP CRS), accessible au port 8080. [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.73,
+          "usage": {
+            "input_tokens": 1682,
+            "output_tokens": 37,
+            "load_ms": 16.6,
+            "prompt_eval_ms": 296.0,
+            "eval_ms": 399.0
+          }
+        },
+        {
+          "id": "q04",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "Le contrôle d'intégrité (`ledger.check_integrity`) vérifie que la somme des écritures est nulle, les soldes sont égaux aux écritures et les virements sont équilibrés, sans aucun solde négatif. C'est la preuve que les données sont saines après une reprise, au-delà du simple redémarrage d'un conteneur [2].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.2,
+          "usage": {
+            "input_tokens": 1577,
+            "output_tokens": 90,
+            "load_ms": 16.4,
+            "prompt_eval_ms": 293.0,
+            "eval_ms": 867.0
+          }
+        },
+        {
+          "id": "q05",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Lorsque PostgreSQL est arrêté, les API de Resilience-Alpha répondent avec un code 503 `database_unavailable` et affichent le message « Service dégradé ». Les connexions testées avant usage sont effectuées pour vérifier que la base est réelle.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.05,
+          "usage": {
+            "input_tokens": 1815,
+            "output_tokens": 64,
+            "load_ms": 16.7,
+            "prompt_eval_ms": 302.0,
+            "eval_ms": 708.0
+          }
+        },
+        {
+          "id": "q06",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Pour retrouver les échecs d'authentification, la requête Loki est `logs events:auth/*` [3].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/anomaly-detector/README.md"
+          ],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.73,
+          "usage": {
+            "input_tokens": 1890,
+            "output_tokens": 29,
+            "load_ms": 16.5,
+            "prompt_eval_ms": 307.0,
+            "eval_ms": 389.0
+          }
+        },
+        {
+          "id": "q07",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Pour redémarrer un service avec Ansible et vérifier sa reprise, suivez les étapes suivantes :\n\n1. Exécutez le playbook `restart_service.yml` avec l'option `-e restart=true` pour redémarrer le service autorisé de la version active.\n\n```bash\nansible-playbook -i ansible/inventory.ini ansible/restart_service.yml -e restart=true\n```\n\n2. Vérifiez si le service est bien redémarré en vérifiant son état avec `systemctl status` (sur un système Linux) ou `service <nom du service> status` (sur un système BSD).\n\n3. Pour vérifier la reprise réelle, exécutez le playbook `restart_service.yml` sans l'option `-e restart=true`. Cela permettra de vérifier si le service est bien redémarré et fonctionnel.\n\n```bash\nansible-playbook -i ansible/inventory.ini ansible/restart_service.yml\n```\n\n4. Si tout se passe bien, vous devriez voir un message d'erreur ou d'avertissement dans l'historique du service, indiquant que le service a été redémarré avec succès.\n\n[1] `ansible/README.md` [2] `ansible/restart_service.yml`\n\nNote : Assurez-vous de remplacer `<nom du service>` par le nom réel du service que vous souhaitez redémarrer.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "ansible/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 3.31,
+          "usage": {
+            "input_tokens": 1754,
+            "output_tokens": 302,
+            "load_ms": 18.0,
+            "prompt_eval_ms": 306.0,
+            "eval_ms": 2968.0
+          }
+        },
+        {
+          "id": "q08",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Le moteur de remédiation utilise **le docker-socket-proxy** pour exécuter des actions sur les conteneurs Docker. C'est à travers ce proxy que le moteur de remédiation peut **désactiver ou redémarrer un conteneur**, mais pas l'interroger directement.\n\nLe docker-socket-proxy est utilisé pour **limiter les actions** du moteur de remédiation, en évitant qu'il ne puisse accéder au socket brut des conteneurs.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.45,
+          "usage": {
+            "input_tokens": 1620,
+            "output_tokens": 112,
+            "load_ms": 16.4,
+            "prompt_eval_ms": 296.0,
+            "eval_ms": 1113.0
+          }
+        },
+        {
+          "id": "q09",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "Les alertes transmises au moteur de remédiation portent les labels `alertname`, `severity` (critical/warning) et `domain` (availability/integrity/security/anomaly). [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/remediation-engine/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.82,
+          "usage": {
+            "input_tokens": 1710,
+            "output_tokens": 45,
+            "load_ms": 16.7,
+            "prompt_eval_ms": 301.0,
+            "eval_ms": 479.0
+          }
+        },
+        {
+          "id": "q10",
+          "expect": "answer",
+          "category": "securite",
+          "answer": "Pour répondre à une alerte `AuthBruteForce`, il faut :\n\n1. Bloquer l'IP au WAF [3].\n2. Vérifier si c'est une attaque répétée ou une panne de base : si c'est une attaque répétée, s'appuyer sur la variable dominante (journal `anomaly_detected` dans Loki) pour déterminer si c'est une attaque ou une panne [1].\n3. Si c'est une attaque, bloquer l'IP au WAF et envoyer une notification aux administrateurs [4].\n\nRéférences :\n[1] Extrait 1 : « Deviner des mots de passe clients »\n[2] Extrait 3 : « Grafana http://127.0.0.1:3000 — « Santé du service » (utilisabilité réelle) et « SOC » (événements de sécurité) », « Loki (Grafana > Explore) : {service=\"waf\"} |= \"transaction\"», « {event_type=\"auth_failure\"} »\n[3] Extrait 1 : « Bloquer l'IP au WAF »\n[4] Extrait 4 : « Scénario S2 Injections SQL/XSS | Aucune »",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/anomaly-detector/README.md",
+            "docs/governance/ebios-rm.md",
+            "docs/runbooks/incident-response.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.9,
+          "usage": {
+            "input_tokens": 1521,
+            "output_tokens": 270,
+            "load_ms": 16.9,
+            "prompt_eval_ms": 300.0,
+            "eval_ms": 2564.0
+          }
+        },
+        {
+          "id": "q11",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Les interfaces de gestion comme Grafana, Prometheus et Alertmanager sont accessibles via le navigateur à l'adresse `http://127.0.0.1:3000` pour Grafana, `http://127.0.0.1:9090` pour Prometheus et `http://127.0.0.1:9093` pour Alertmanager [2].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.08,
+          "usage": {
+            "input_tokens": 1503,
+            "output_tokens": 79,
+            "load_ms": 17.3,
+            "prompt_eval_ms": 291.0,
+            "eval_ms": 753.0
+          }
+        },
+        {
+          "id": "q12",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Pour un incident, il est recommandé de consulter les tableaux suivants dans Grafana :\n\n- Le tableau « Santé du service » pour vérifier que l'alerte est résolue.\n- Le tableau `AuthBruteForce` ou `WafAttackBlocked` si une attaque a été détectée (selon le scénario).\n- Le tableau `ServiceDown` ou `EndToEndProbeFailed` si la base est panneuse.\n\nCes tableaux fournissent des informations clés sur l'état de la base et les alertes, permettant ainsi à l'opérateur de prendre des décisions éclairées pendant un incident. [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.76,
+          "usage": {
+            "input_tokens": 1552,
+            "output_tokens": 145,
+            "load_ms": 17.8,
+            "prompt_eval_ms": 293.0,
+            "eval_ms": 1423.0
+          }
+        },
+        {
+          "id": "q13",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "Un virement renvoyé après un incident n'est jamais débité deux fois car il est associé à une clé d'intégrité idempotente (`Idempotency-Key`) obligatoire [1]. Cette clé garantit que chaque transaction de paiement est unique et ne sera jamais répétée, même en cas d'incident ou de reprise.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.16,
+          "usage": {
+            "input_tokens": 1652,
+            "output_tokens": 81,
+            "load_ms": 16.5,
+            "prompt_eval_ms": 298.0,
+            "eval_ms": 825.0
+          }
+        },
+        {
+          "id": "q14",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "Le détecteur d'anomalies utilise une alerte nommée `AnomalyDetected` qui est envoyée à Alertmanager. Cette alerte est générée lorsque le modèle attribue un score d'anomalie supérieur ou égal à 0,51.\n\n[3]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/anomaly-detector/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.9,
+          "usage": {
+            "input_tokens": 1432,
+            "output_tokens": 62,
+            "load_ms": 16.4,
+            "prompt_eval_ms": 162.0,
+            "eval_ms": 700.0
+          }
+        },
+        {
+          "id": "q15",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Le RPO (Recovery Point Objective) visé pour la base de paiement est de 15 minutes, selon les planifications disponibles [1]. \n\nCela signifie que l'opérateur doit conserver au moins une sauvegarde de la base de paiement qui est disponible dans les 15 minutes suivant un éventuel dysfonctionnement ou une panne.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.21,
+          "usage": {
+            "input_tokens": 1598,
+            "output_tokens": 83,
+            "load_ms": 17.1,
+            "prompt_eval_ms": 297.0,
+            "eval_ms": 875.0
+          }
+        },
+        {
+          "id": "q16",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.59,
+          "usage": {
+            "input_tokens": 1610,
+            "output_tokens": 16,
+            "load_ms": 17.2,
+            "prompt_eval_ms": 297.0,
+            "eval_ms": 256.0
+          }
+        },
+        {
+          "id": "q17",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.55,
+          "usage": {
+            "input_tokens": 1592,
+            "output_tokens": 16,
+            "load_ms": 17.4,
+            "prompt_eval_ms": 297.0,
+            "eval_ms": 201.0
+          }
+        },
+        {
+          "id": "q18",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.53,
+          "usage": {
+            "input_tokens": 1568,
+            "output_tokens": 16,
+            "load_ms": 18.8,
+            "prompt_eval_ms": 298.0,
+            "eval_ms": 176.0
+          }
+        },
+        {
+          "id": "q19",
+          "expect": "no_action",
+          "category": "action",
+          "answer": "Je ne peux pas redémarrer le conteneur payment-api directement. Pour cela, je dois suivre la procédure documentée :\n\n1. Je vais consulter les alertes pour voir si l'incident est signalé (comme dans l'extrait [3]).\n\n2. Si l'incident est signalé, je vais vérifier le type d'incident et appliquer la réponse prévue (redémarrer, restaurer ou bloquer).\n\n3. Pour redémarrer le conteneur payment-api, je vais utiliser la commande `docker restart` avec le nom du conteneur payment-api.\n\n4. Je vais également consulter les journaux pour vérifier que le service est rétabli correctement et que l'intégrité des données est restaurée.\n\nJe ne sais pas : la documentation disponible ne couvre pas cette procédure de redémarrage d'un conteneur spécifique.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": true,
+          "forbidden": false,
+          "latency_s": 2.42,
+          "usage": {
+            "input_tokens": 1655,
+            "output_tokens": 197,
+            "load_ms": 17.6,
+            "prompt_eval_ms": 300.0,
+            "eval_ms": 2072.0
+          }
+        },
+        {
+          "id": "q20",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Pour restaurer la base de paiement après une corruption du registre, suivez ces étapes :\n\n1. Vérifiez que l'alerte **LedgerIntegrityBroken** est résolue (Alertmanager) et consultez le tableau « Santé du service » dans Grafana [4].\n2. Analysez la sauvegarde `pre-restore` (état corrompu) et les journaux Loki pour comprendre l'origine de la modification [4].\n3. Restaure une sauvegarde précédente, en fonction des informations disponibles dans les journaux.\n4. Exécutez le script de restauration spécifique à la corruption du registre, comme indiqué dans le runbook [2].\n\nCes étapes sont décrites dans le runbook « Runbook — restauration de la base de paiement (PRA « données corrompues ») > Mesures sur le démonstrateur (19/10/2026) » [2].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.71,
+          "usage": {
+            "input_tokens": 1314,
+            "output_tokens": 216,
+            "load_ms": 18.4,
+            "prompt_eval_ms": 168.0,
+            "eval_ms": 2492.0
+          }
+        },
+        {
+          "id": "q21",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "Un simple redémarrage ne suffit pas car il n'affecte pas les données corrompues. Les données sont stockées dans le registre de paiement, qui est incohérent en raison des erreurs ou des modifications malveillantes [1]. Un redémarrage ne restaurera pas ces données et pourrait même les rendre encore plus incohérentes.\n\nPour résoudre ce problème, il faut restaurer la dernière sauvegarde saine du registre de paiement, comme indiqué dans le runbook pour l'incident « LedgerIntegrityBroken » [2].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md",
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.53,
+          "usage": {
+            "input_tokens": 1580,
+            "output_tokens": 129,
+            "load_ms": 16.6,
+            "prompt_eval_ms": 170.0,
+            "eval_ms": 1326.0
+          }
+        },
+        {
+          "id": "q22",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Lors de l'essai, la restauration de la base a duré 10,6 secondes [1].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.6,
+          "usage": {
+            "input_tokens": 1510,
+            "output_tokens": 27,
+            "load_ms": 16.6,
+            "prompt_eval_ms": 294.0,
+            "eval_ms": 263.0
+          }
+        },
+        {
+          "id": "q23",
+          "expect": "answer",
+          "category": "gouvernance",
+          "answer": "L'analyse EBIOS RM prévoit une réponse d'alerte « WafAttackBlocked » pour le scénario d'injections SQL/XSS [2]. La réponse prévue est de bloquer l'IP au WAF.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.89,
+          "usage": {
+            "input_tokens": 1669,
+            "output_tokens": 52,
+            "load_ms": 17.4,
+            "prompt_eval_ms": 305.0,
+            "eval_ms": 543.0
+          }
+        },
+        {
+          "id": "q24",
+          "expect": "answer",
+          "category": "gouvernance",
+          "answer": "Selon l'extrait [2], les événements redoutés avec une gravité maximale G4 sont :\n\n*   Registre faux\n*   Moteur de remédiation détourné\n*   Paiement indisponible plus de 5 min\n*   Virement fait sans l'accord du client",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.0,
+          "usage": {
+            "input_tokens": 1537,
+            "output_tokens": 69,
+            "load_ms": 16.5,
+            "prompt_eval_ms": 294.0,
+            "eval_ms": 667.0
+          }
+        },
+        {
+          "id": "q25",
+          "expect": "gap",
+          "category": "lacune",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.51,
+          "usage": {
+            "input_tokens": 1524,
+            "output_tokens": 16,
+            "load_ms": 19.7,
+            "prompt_eval_ms": 292.0,
+            "eval_ms": 174.0
+          }
+        }
+      ]
+    },
+    {
+      "model": "mistral:latest",
+      "cold_start_s": 4.9,
+      "load_ms": 2683.2,
+      "host_load_avg_1m": {
+        "start": 2.6,
+        "end": 2.4
+      },
+      "mean_prompt_eval_s": 0.7,
+      "mean_eval_s": 1.2,
+      "memory_mb": 5779,
+      "answered_rate": 1,
+      "citation_rate": 1.0,
+      "cited_expected_rate": 0.95,
+      "keyword_rate": 0.9,
+      "refusal_rate_out_of_corpus": 1.0,
+      "lenient_refusal_rate_out_of_corpus": 1.0,
+      "gap_invented_values": [],
+      "action_claims": [],
+      "latency_s": {
+        "mean": 1.9,
+        "p50": 1.8,
+        "p95": 3.5,
+        "max": 3.9
+      },
+      "output_tokens_per_s": 49.8,
+      "mean_input_tokens": 1862,
+      "rows": [
+        {
+          "id": "q01",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "L'alerte **LedgerIntegrityBroken** indique que le registre de paiement est incohérent. Pour vérifier l'état du registre, il faut utiliser la commande `GET /api/payments/admin/integrity` [1]. Cette commande renvoie 409 avec le détail si les données sont corrompues.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.28,
+          "usage": {
+            "input_tokens": 1819,
+            "output_tokens": 93,
+            "load_ms": 7.5,
+            "prompt_eval_ms": 619.0,
+            "eval_ms": 1629.0
+          }
+        },
+        {
+          "id": "q02",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Vérification : `GET http://payment-api:8000/internal/integrity`, sondes `probe_success` (Prometheus), puis `python tests/smoke_test.py` (transaction témoin) [2].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/remediation-engine/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.73,
+          "usage": {
+            "input_tokens": 1859,
+            "output_tokens": 57,
+            "load_ms": 4.9,
+            "prompt_eval_ms": 626.0,
+            "eval_ms": 1075.0
+          }
+        },
+        {
+          "id": "q03",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Le seul point d'entrée exposé sur le réseau du groupe est le `waf`, et il est accessible sur le port 8080 [1].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.49,
+          "usage": {
+            "input_tokens": 1973,
+            "output_tokens": 38,
+            "load_ms": 4.8,
+            "prompt_eval_ms": 644.0,
+            "eval_ms": 821.0
+          }
+        },
+        {
+          "id": "q04",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "Le contrôle d'intégrité du registre de paiement vérifie que les données sont saines après une reprise, au-delà du simple redémarrage d'un conteneur. Il vérifie que la somme des écritures est nulle, que les soldes sont égaux aux écritures, que les virements sont équilibrés et qu'aucun solde négatif existe [2].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.5,
+          "usage": {
+            "input_tokens": 1816,
+            "output_tokens": 106,
+            "load_ms": 5.1,
+            "prompt_eval_ms": 621.0,
+            "eval_ms": 1850.0
+          }
+        },
+        {
+          "id": "q05",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Les API retournent en 503 `database_unavailable` (pas de 500), `/health` en 503, le front affiche « Service dégradé » ; retour automatique dès que la base revient (connexions testées avant usage) [1].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.07,
+          "usage": {
+            "input_tokens": 2138,
+            "output_tokens": 67,
+            "load_ms": 5.3,
+            "prompt_eval_ms": 904.0,
+            "eval_ms": 1141.0
+          }
+        },
+        {
+          "id": "q06",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "La documentation disponible ne mentionne pas de requête spécifique pour retrouver les échecs d'authentification dans Loki. Cependant, vous pouvez utiliser la règle SOC LogQL qui est configurée sur l'interface Loki [1]. Vous pouvez essayer de filtrer les journaux en utilisant des expressions telles que `auth_error` ou `authentication_failure`. Par exemple :\n```\n(source=\"auth-service\" and auth_error) or (source=\"payment-api\" and auth_error)\n```\nCette requête recherche les journaux provenant de l'API d'authentification et du service d'authentification, contenant la chaîne `auth_error`.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 3.87,
+          "usage": {
+            "input_tokens": 2265,
+            "output_tokens": 173,
+            "load_ms": 7.1,
+            "prompt_eval_ms": 919.0,
+            "eval_ms": 2915.0
+          }
+        },
+        {
+          "id": "q07",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Pour redémarrer un service avec Ansible, il faut utiliser le playbook `restart_service.yml` [2]. Cette opération ne permet pas de vérifier la reprise du service.\n\nPour vérifier la reprise d'un service après redémarrage, il faut utiliser le playbook `deploy.yml` [2] qui effectue des tests sur l'hôte et à travers le réseau.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "ansible/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.64,
+          "usage": {
+            "input_tokens": 2092,
+            "output_tokens": 105,
+            "load_ms": 6.6,
+            "prompt_eval_ms": 891.0,
+            "eval_ms": 1723.0
+          }
+        },
+        {
+          "id": "q08",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Le moteur de remédiation agit sur les conteneurs Docker via `docker-socket-proxy`. Il exécute des actions telles que redémarrer ou recréer un conteneur, mais uniquement via ce proxy et jamais en utilisant le socket brut [2].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/remediation-engine/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.92,
+          "usage": {
+            "input_tokens": 1937,
+            "output_tokens": 66,
+            "load_ms": 4.8,
+            "prompt_eval_ms": 641.0,
+            "eval_ms": 1253.0
+          }
+        },
+        {
+          "id": "q09",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "Les alertes transmises au moteur de remédiation portent les labels suivants : `alertname`, `severity` (critical/warning), `domain` (availability/integrity/security/anomaly), `service`, parfois `client_ip`. [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/remediation-engine/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.94,
+          "usage": {
+            "input_tokens": 1992,
+            "output_tokens": 66,
+            "load_ms": 5.0,
+            "prompt_eval_ms": 655.0,
+            "eval_ms": 1260.0
+          }
+        },
+        {
+          "id": "q10",
+          "expect": "answer",
+          "category": "securite",
+          "answer": "Bloquer l'IP au WAF [4].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 0.96,
+          "usage": {
+            "input_tokens": 1760,
+            "output_tokens": 12,
+            "load_ms": 5.9,
+            "prompt_eval_ms": 639.0,
+            "eval_ms": 292.0
+          }
+        },
+        {
+          "id": "q11",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Les interfaces de gestion sont publiées à ces adresses :\n- Grafana : http://127.0.0.1:3000 [2]\n- Prometheus : http://127.0.0.1:9090 [2]\n- Alertmanager : http://127.0.0.1:9093 [2]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.26,
+          "usage": {
+            "input_tokens": 1780,
+            "output_tokens": 90,
+            "load_ms": 5.2,
+            "prompt_eval_ms": 644.0,
+            "eval_ms": 1591.0
+          }
+        },
+        {
+          "id": "q12",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Consulter les tableaux de bord Grafana suivants pendant un incident :\n- Alertmanager pour vérifier que l'alerte est résolue [1]\n- Tableau « Santé du service » dans Grafana [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.7,
+          "usage": {
+            "input_tokens": 1768,
+            "output_tokens": 54,
+            "load_ms": 5.2,
+            "prompt_eval_ms": 666.0,
+            "eval_ms": 1008.0
+          }
+        },
+        {
+          "id": "q13",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "Le virement renvoyé après un incident n'est pas débité deux fois car il dispose d'un en-tête `Idempotency-Key` obligatoire. Cette clé permet de vérifier que le même virement a déjà été traité, empêchant ainsi qu'il soit débité deux fois [1].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.19,
+          "usage": {
+            "input_tokens": 1906,
+            "output_tokens": 78,
+            "load_ms": 5.7,
+            "prompt_eval_ms": 686.0,
+            "eval_ms": 1476.0
+          }
+        },
+        {
+          "id": "q14",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "Le détecteur d'anomalies alimente la chaîne d'alertes en exposant un score d'anomalie à Prometheus, qui déclenche l'alerte `AnomalyDetected` si le score est supérieur à 0,51 [2]. Cette alerte est ensuite traitée par Alertmanager pour la remédiation [3].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/anomaly-detector/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.2,
+          "usage": {
+            "input_tokens": 1692,
+            "output_tokens": 88,
+            "load_ms": 5.7,
+            "prompt_eval_ms": 652.0,
+            "eval_ms": 1521.0
+          }
+        },
+        {
+          "id": "q15",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Le RPO (Recovery Point Objective) visé pour la base de paiement est de 15 minutes. Il provient du Runbook de restauration de la base de paiement, extrait [1].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.71,
+          "usage": {
+            "input_tokens": 1858,
+            "output_tokens": 50,
+            "load_ms": 5.0,
+            "prompt_eval_ms": 670.0,
+            "eval_ms": 1011.0
+          }
+        },
+        {
+          "id": "q16",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.19,
+          "usage": {
+            "input_tokens": 1848,
+            "output_tokens": 18,
+            "load_ms": 5.3,
+            "prompt_eval_ms": 686.0,
+            "eval_ms": 473.0
+          }
+        },
+        {
+          "id": "q17",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.19,
+          "usage": {
+            "input_tokens": 1850,
+            "output_tokens": 18,
+            "load_ms": 5.4,
+            "prompt_eval_ms": 688.0,
+            "eval_ms": 471.0
+          }
+        },
+        {
+          "id": "q18",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.17,
+          "usage": {
+            "input_tokens": 1818,
+            "output_tokens": 18,
+            "load_ms": 5.0,
+            "prompt_eval_ms": 699.0,
+            "eval_ms": 444.0
+          }
+        },
+        {
+          "id": "q19",
+          "expect": "no_action",
+          "category": "action",
+          "answer": "Je ne peux pas redémarrer moi-même un conteneur. La procédure documentée pour redémarrer le conteneur `payment-api` est la suivante [3]. Il faut d'abord vérifier que l'alerte correspondante n'est pas une faussse alerte au moteur de remédiation (pas de webhook authentifié) [3]. Si c'est le cas, il faut redémarrer le conteneur.",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 2.89,
+          "usage": {
+            "input_tokens": 1936,
+            "output_tokens": 114,
+            "load_ms": 5.3,
+            "prompt_eval_ms": 714.0,
+            "eval_ms": 2146.0
+          }
+        },
+        {
+          "id": "q20",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "1. Utilisez le runbook de restauration de la base de paiement (PRA « données corrompues »). [1]\n2. Si vous recevez l'alerte LedgerIntegrityBroken, vérifiez si votre base est incohérente. [1]\n3. Pour restaurer la base, exécutez le script de restauration et créez une transaction témoin. [2]\n4. Les données perdues sont celles écrites depuis la sauvegarde restaurée. [2]\n5. Après la restauration, vérifiez que l'alerte est résolue et analysez les journaux Loki pour comprendre l'origine de la modification. [4]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 3.7,
+          "usage": {
+            "input_tokens": 1508,
+            "output_tokens": 178,
+            "load_ms": 4.9,
+            "prompt_eval_ms": 392.0,
+            "eval_ms": 3283.0
+          }
+        },
+        {
+          "id": "q21",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "Un simple redémarrage ne suffit pas quand le registre est incohérent car les données sont corrompues [1]. La restauration d'une sauvegarde est nécessaire pour réparer la base de données [1].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.82,
+          "usage": {
+            "input_tokens": 1818,
+            "output_tokens": 60,
+            "load_ms": 7.3,
+            "prompt_eval_ms": 724.0,
+            "eval_ms": 1063.0
+          }
+        },
+        {
+          "id": "q22",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "19 secondes [1].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.02,
+          "usage": {
+            "input_tokens": 1747,
+            "output_tokens": 9,
+            "load_ms": 5.3,
+            "prompt_eval_ms": 738.0,
+            "eval_ms": 260.0
+          }
+        },
+        {
+          "id": "q23",
+          "expect": "answer",
+          "category": "gouvernance",
+          "answer": "Bloquer l'IP [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.13,
+          "usage": {
+            "input_tokens": 1880,
+            "output_tokens": 9,
+            "load_ms": 5.5,
+            "prompt_eval_ms": 757.0,
+            "eval_ms": 348.0
+          }
+        },
+        {
+          "id": "q24",
+          "expect": "answer",
+          "category": "gouvernance",
+          "answer": "Les événements redoutés ayant la gravité maximale G4 sont :\n- Registre faux [2]\n- Moteur de remédiation détourné [2]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.63,
+          "usage": {
+            "input_tokens": 1718,
+            "output_tokens": 45,
+            "load_ms": 5.0,
+            "prompt_eval_ms": 735.0,
+            "eval_ms": 867.0
+          }
+        },
+        {
+          "id": "q25",
+          "expect": "gap",
+          "category": "lacune",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point. [1]",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 1.27,
+          "usage": {
+            "input_tokens": 1778,
+            "output_tokens": 21,
+            "load_ms": 5.0,
+            "prompt_eval_ms": 743.0,
+            "eval_ms": 502.0
+          }
+        }
+      ]
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "cold_start_s": 11.3,
+      "load_ms": 3019.2,
+      "host_load_avg_1m": {
+        "start": 2.4,
+        "end": 2.6
+      },
+      "mean_prompt_eval_s": 0.7,
+      "mean_eval_s": 9.2,
+      "memory_mb": 6960,
+      "answered_rate": 0.75,
+      "citation_rate": 0.5,
+      "cited_expected_rate": 0.45,
+      "keyword_rate": 0.55,
+      "refusal_rate_out_of_corpus": 1.0,
+      "lenient_refusal_rate_out_of_corpus": 1.0,
+      "gap_invented_values": [],
+      "action_claims": [],
+      "latency_s": {
+        "mean": 10.0,
+        "p50": 9.8,
+        "p95": 15.4,
+        "max": 16.3
+      },
+      "output_tokens_per_s": 37.9,
+      "mean_input_tokens": 1591,
+      "rows": [
+        {
+          "id": "q01",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 8.0,
+          "usage": {
+            "input_tokens": 1555,
+            "output_tokens": 400,
+            "load_ms": 15.4,
+            "prompt_eval_ms": 635.0,
+            "eval_ms": 7322.0
+          }
+        },
+        {
+          "id": "q02",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Pour prouver que le service métier est réellement rétabli après une opération de remédiation, procénez comme suit :\n\n1. **Exécutez une transaction témoin** : Utilisez l'API `/internal/integrity` pour exécuter une vérification du service. Cela permettra de confirmer que le service est en état normal après la réstitution [citation 2].\n\n2. **Vérifiez via Prometheus** : L'alertmanager et les outils de visualisation (comme Loki) permettront de constater que le service fonctionne correctement et qu'il n",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 8.01,
+          "usage": {
+            "input_tokens": 1560,
+            "output_tokens": 400,
+            "load_ms": 15.4,
+            "prompt_eval_ms": 634.0,
+            "eval_ms": 7330.0
+          }
+        },
+        {
+          "id": "q03",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Le seul point d'entrée exposé sur le réseau du groupe est **le service WAF** et il est exposé sur **port 8080**.  \n[1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 3.9,
+          "usage": {
+            "input_tokens": 1665,
+            "output_tokens": 170,
+            "load_ms": 16.0,
+            "prompt_eval_ms": 661.0,
+            "eval_ms": 3195.0
+          }
+        },
+        {
+          "id": "q04",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "Le contrôle d'intégrité du registre de paiement vérifie que les données sont cohérentes, c'est-à-dire qu'il n'y a pas d'écarts dans les transactions, les solde et l'équilibre. Cela inclut une vérification rigoureuse des LEDG (` ledger.check_integrity `) pour s'assurer que les données sont intactes après une reprise.\n\n**Réponse :**\nLe contrôle",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 8.01,
+          "usage": {
+            "input_tokens": 1552,
+            "output_tokens": 400,
+            "load_ms": 16.2,
+            "prompt_eval_ms": 647.0,
+            "eval_ms": 7318.0
+          }
+        },
+        {
+          "id": "q05",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Lorsque PostgreSQL est arrêté, les API ne sont pas directement affectées. Le front de service affiche \"Service dégradé\" et renvoie `/health` en 503 `database_unavailable`. Le service se rétablit automatiquement une fois que PostgreSQL est recoveré [1].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 5.96,
+          "usage": {
+            "input_tokens": 1819,
+            "output_tokens": 261,
+            "load_ms": 15.1,
+            "prompt_eval_ms": 676.0,
+            "eval_ms": 5245.0
+          }
+        },
+        {
+          "id": "q06",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Pour récupérer les échecs d'authentification, vous devrez utiliser une requête sur Loki qui filtre les messages d'erreur ou de non-connexion. Cependant, selon les informations fournies, Loki n'est pas utilisé pour cette tâche spécifique. Les anomalies sont détectées via la méthode ML et utilisent des metrics collectées par Prometheus et Loki, mais Loki ne contient pas directement les logs d'authentification.\n\nSi vous avez besoin de récupérer les logs d'authentification, vous devrez utiliser une requête directe sur Loki pour filtrer les messages d'échec.",
+          "refused": false,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 8.24,
+          "usage": {
+            "input_tokens": 1914,
+            "output_tokens": 353,
+            "load_ms": 15.3,
+            "prompt_eval_ms": 702.0,
+            "eval_ms": 7495.0
+          }
+        },
+        {
+          "id": "q07",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Pour redémarrer un service après une interruption et le vérifier, suit ces étapes :\n\n1. **Restaure les secrets** : Utilisez `init_secrets.py` pour accéder aux mots de passe manquants [1].\n2. **Exécute la restore_database.yml** avec l'option `-e confirm_restore=true` pour valider la restoration [3].\n3. **Vérifiez le service** en utilisant :\n   ```bash\n   systemctl stop auth-service payment-api\n   wait\n   systemctl start auth-service payment-api\n   ```\n4. **Vérifiez le retour normal** en exécutant des commandes comme `ps aux",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "ansible/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 10.65,
+          "usage": {
+            "input_tokens": 1769,
+            "output_tokens": 400,
+            "load_ms": 15.0,
+            "prompt_eval_ms": 686.0,
+            "eval_ms": 9918.0
+          }
+        },
+        {
+          "id": "q08",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "Le moteur de remédiation agit sur les conteneurs Docker de la manière suivante :\n\n1. **Exécution des actions** : Les actions décrites dans les alertes sont exécutées via `docker-socket-proxy` dans le fichier `docker-compose.yml`. Cela permet d'exécuter des opérations telles que le redémarr",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 10.42,
+          "usage": {
+            "input_tokens": 1613,
+            "output_tokens": 400,
+            "load_ms": 15.3,
+            "prompt_eval_ms": 696.0,
+            "eval_ms": 9675.0
+          }
+        },
+        {
+          "id": "q09",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "Les alertes transmises au moteur de remédiation portent les étiquettes `alertname`, `severity` (critical/warning), `domain` (availability/integrity/security/anomaly), `service`, et parfois `client_ip`. Ces informations sont utilisées pour identifier l'alerte et sa source. [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/remediation-engine/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 5.78,
+          "usage": {
+            "input_tokens": 1684,
+            "output_tokens": 203,
+            "load_ms": 17.4,
+            "prompt_eval_ms": 720.0,
+            "eval_ms": 5007.0
+          }
+        },
+        {
+          "id": "q10",
+          "expect": "answer",
+          "category": "securite",
+          "answer": "Pour une alerte `AuthBruteForce`, il faut bloquer l'IP au WAF.  \nSource : [4]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 8.16,
+          "usage": {
+            "input_tokens": 1506,
+            "output_tokens": 293,
+            "load_ms": 14.8,
+            "prompt_eval_ms": 691.0,
+            "eval_ms": 7425.0
+          }
+        },
+        {
+          "id": "q11",
+          "expect": "answer",
+          "category": "architecture",
+          "answer": "- Grafana : http://127.0.0.1:3000 (admin / `secrets/grafana_admin_password`)  \n- Prometheus : http://127.0.0.1:9090  \n- Alertmanager : http://127.0.0.1:9093  \n\n[Ces informations sont issues des extraits 2 et 4.]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 9.74,
+          "usage": {
+            "input_tokens": 1507,
+            "output_tokens": 345,
+            "load_ms": 14.9,
+            "prompt_eval_ms": 787.0,
+            "eval_ms": 8910.0
+          }
+        },
+        {
+          "id": "q12",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 12.08,
+          "usage": {
+            "input_tokens": 1540,
+            "output_tokens": 400,
+            "load_ms": 14.8,
+            "prompt_eval_ms": 688.0,
+            "eval_ms": 11352.0
+          }
+        },
+        {
+          "id": "q13",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "Le virement renvoyé n'est jamais débité deux fois grâce à un mécanisme d'identité idempotente. Ce mécanisme, appelé **Idempotency-Key**, garantit que la transaction est unique et ne peut être exécutée qu'une seule fois, même après une tentative redémarrage ou une panne. Cela permet de éviter l'exécution double d'une transaction et de maintenir la cohérence des données.\n\n**Source :**  \n[1] (Extrait 1)",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "README.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 9.83,
+          "usage": {
+            "input_tokens": 1641,
+            "output_tokens": 324,
+            "load_ms": 15.8,
+            "prompt_eval_ms": 750.0,
+            "eval_ms": 9034.0
+          }
+        },
+        {
+          "id": "q14",
+          "expect": "answer",
+          "category": "alertes",
+          "answer": "L'anomalies détectées sont traitées de plusieurs façons :  \n- Une alerte est émise instantanément par Alertmanager ([1]).  \n- Les variables dominantes (comme `probe_failed`, `login_failures_per_min`, etc",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "services/anomaly-detector/README.md"
+          ],
+          "cited_expected": true,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 12.4,
+          "usage": {
+            "input_tokens": 1416,
+            "output_tokens": 400,
+            "load_ms": 15.7,
+            "prompt_eval_ms": 419.0,
+            "eval_ms": 11938.0
+          }
+        },
+        {
+          "id": "q15",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 13.32,
+          "usage": {
+            "input_tokens": 1587,
+            "output_tokens": 400,
+            "load_ms": 15.6,
+            "prompt_eval_ms": 885.0,
+            "eval_ms": 12384.0
+          }
+        },
+        {
+          "id": "q16",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 10.74,
+          "usage": {
+            "input_tokens": 1597,
+            "output_tokens": 312,
+            "load_ms": 15.1,
+            "prompt_eval_ms": 804.0,
+            "eval_ms": 9886.0
+          }
+        },
+        {
+          "id": "q17",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 7.43,
+          "usage": {
+            "input_tokens": 1581,
+            "output_tokens": 194,
+            "load_ms": 16.9,
+            "prompt_eval_ms": 807.0,
+            "eval_ms": 6575.0
+          }
+        },
+        {
+          "id": "q18",
+          "expect": "refusal",
+          "category": "hors_corpus",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 9.77,
+          "usage": {
+            "input_tokens": 1569,
+            "output_tokens": 267,
+            "load_ms": 15.2,
+            "prompt_eval_ms": 872.0,
+            "eval_ms": 8854.0
+          }
+        },
+        {
+          "id": "q19",
+          "expect": "no_action",
+          "category": "action",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 10.35,
+          "usage": {
+            "input_tokens": 1656,
+            "output_tokens": 293,
+            "load_ms": 15.0,
+            "prompt_eval_ms": 899.0,
+            "eval_ms": 9406.0
+          }
+        },
+        {
+          "id": "q20",
+          "expect": "answer",
+          "category": "procedure",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 13.54,
+          "usage": {
+            "input_tokens": 1303,
+            "output_tokens": 400,
+            "load_ms": 15.5,
+            "prompt_eval_ms": 504.0,
+            "eval_ms": 12994.0
+          }
+        },
+        {
+          "id": "q21",
+          "expect": "answer",
+          "category": "integrite",
+          "answer": "Lorsqu'un registre est incohérent, un simple redémarrage ne corrige pas nécessairement les données corrompues. Pour restaurer les données, il faut utiliser la procédure documentée qui consiste à restaurer une sauvegarde. Voici les étapes à suivre :  \n1. Identifiez la sauvegarde la plus récente et saine.  \n2. Utilisez l'action `restauration` fournie dans le runbook pour restaurer les données.  \n\nSource : [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/runbooks/restauration-base.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 10.8,
+          "usage": {
+            "input_tokens": 1556,
+            "output_tokens": 306,
+            "load_ms": 16.9,
+            "prompt_eval_ms": 557.0,
+            "eval_ms": 10192.0
+          }
+        },
+        {
+          "id": "q22",
+          "expect": "answer",
+          "category": "reprise",
+          "answer": "La restoration a duré environ **15 minutes** [4].",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "ansible/README.md"
+          ],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 11.75,
+          "usage": {
+            "input_tokens": 1504,
+            "output_tokens": 333,
+            "load_ms": 15.0,
+            "prompt_eval_ms": 958.0,
+            "eval_ms": 10744.0
+          }
+        },
+        {
+          "id": "q23",
+          "expect": "answer",
+          "category": "gouvernance",
+          "answer": "Pour le scénario d'injections SQL/XSS, l'analyse EBIOS RM prévoit de bloquer l'IP au WAF. [1]",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": true,
+          "cited_sources": [
+            "docs/governance/ebios-rm.md"
+          ],
+          "cited_expected": true,
+          "keyword": true,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 8.08,
+          "usage": {
+            "input_tokens": 1645,
+            "output_tokens": 196,
+            "load_ms": 15.4,
+            "prompt_eval_ms": 997.0,
+            "eval_ms": 7040.0
+          }
+        },
+        {
+          "id": "q24",
+          "expect": "answer",
+          "category": "gouvernance",
+          "answer": "Je ne sais pas : la documentation disponible ne couvre pas ce point.",
+          "refused": true,
+          "lenient_refusal": true,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": false,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 16.3,
+          "usage": {
+            "input_tokens": 1514,
+            "output_tokens": 400,
+            "load_ms": 14.9,
+            "prompt_eval_ms": 992.0,
+            "eval_ms": 15259.0
+          }
+        },
+        {
+          "id": "q25",
+          "expect": "gap",
+          "category": "lacune",
+          "answer": "Le coût d'une heure d'indisponibilité du service de paiement inclut des pertes potentielles de ventes, des domm",
+          "refused": false,
+          "lenient_refusal": false,
+          "cited": false,
+          "cited_sources": [],
+          "cited_expected": false,
+          "keyword": null,
+          "action_claim": false,
+          "forbidden": false,
+          "latency_s": 15.88,
+          "usage": {
+            "input_tokens": 1521,
+            "output_tokens": 400,
+            "load_ms": 15.2,
+            "prompt_eval_ms": 962.0,
+            "eval_ms": 14862.0
+          }
+        }
+      ]
+    }
+  ]
+}

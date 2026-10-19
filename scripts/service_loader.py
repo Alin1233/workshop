@@ -1,6 +1,6 @@
 """Chargement des applications FastAPI hors conteneur (tests unitaires, export OpenAPI).
 
-Les deux services nomment leur paquet `app` : chacun est chargé sous un alias distinct pour cohabiter
+Les services nomment leur paquet `app` : chacun est chargé sous un alias distinct pour cohabiter
 dans le même processus Python, avec le paquet commun `resilience_common` ajouté au chemin d'import.
 """
 
@@ -11,7 +11,7 @@ from pathlib import Path
 from types import ModuleType
 
 SERVICES_DIR = Path(__file__).resolve().parent.parent / "services"
-ALIASES = {"auth-service": "auth_app", "payment-api": "payment_app"}
+ALIASES = {"auth-service": "auth_app", "payment-api": "payment_app", "ops-assistant": "ops_app"}
 if str(SERVICES_DIR / "common") not in sys.path:
     sys.path.insert(0, str(SERVICES_DIR / "common"))
 
