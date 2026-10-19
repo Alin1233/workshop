@@ -53,7 +53,7 @@ services:
     build:
       context: ./services
       dockerfile: auth-service/Dockerfile
-    image: resilience-alpha/auth-service:latest
+    image: ${COMPOSE_PROJECT_NAME:-resilience-alpha}/auth-service:latest
     environment:
       SERVICE_NAME: auth-service
       ROOT_PATH: /api/auth
@@ -72,7 +72,7 @@ services:
     build:
       context: ./services
       dockerfile: payment-api/Dockerfile
-    image: resilience-alpha/payment-api:latest
+    image: ${COMPOSE_PROJECT_NAME:-resilience-alpha}/payment-api:latest
     environment:
       SERVICE_NAME: payment-api
       ROOT_PATH: /api/payments
@@ -87,7 +87,7 @@ services:
   frontend:
     <<: *hardening
     build: ./services/frontend
-    image: resilience-alpha/frontend:latest
+    image: ${COMPOSE_PROJECT_NAME:-resilience-alpha}/frontend:latest
     read_only: true
     tmpfs: ["/tmp"]
     networks: [dmz, app]
@@ -132,7 +132,7 @@ services:
       - ./infra/prometheus:/etc/prometheus:ro
       - prometheus-data:/prometheus
     ports:
-      - "${MGMT_BIND:-127.0.0.1}:9090:9090"
+      - "${MGMT_BIND:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
     networks: [app, obs, mgmt]
 
   blackbox:
@@ -155,7 +155,7 @@ services:
       - ./infra/alertmanager:/etc/alertmanager:ro
       - alertmanager-data:/alertmanager
     ports:
-      - "${MGMT_BIND:-127.0.0.1}:9093:9093"
+      - "${MGMT_BIND:-127.0.0.1}:${ALERTMANAGER_PORT:-9093}:9093"
     networks: [obs, mgmt]
 
   loki:
@@ -169,7 +169,7 @@ services:
       - ./infra/loki/rules:/etc/loki/rules:ro
       - loki-data:/loki
     ports:
-      - "${MGMT_BIND:-127.0.0.1}:3100:3100"
+      - "${MGMT_BIND:-127.0.0.1}:${LOKI_PORT:-3100}:3100"
     networks: [obs, mgmt]
 
   # Collecteur de journaux : lit en lecture seule les fichiers json-file des conteneurs (aucun accès au socket Docker).
@@ -216,7 +216,7 @@ services:
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "${MGMT_BIND:-127.0.0.1}:3000:3000"
+      - "${MGMT_BIND:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
     depends_on: [prometheus, loki]
     networks: [obs, mgmt]
 
@@ -264,7 +264,7 @@ networks:
   dmz:
     internal: true      # WAF <-> frontal nginx ; sous-réseau fixe pour que nginx fasse confiance au WAF (X-Real-IP)
     ipam:
-      config: [{ subnet: 172.31.250.0/24 }]   # doit rester aligné sur set_real_ip_from (services/frontend/nginx.conf)
+      config: [{ subnet: "172.31.${DMZ_OCTET:-250}.0/24" }]   # DMZ_OCTET entre 248 et 255 : doit rester dans set_real_ip_from (services/frontend/nginx.conf)
   app:
     internal: true      # nginx <-> microservices <-> Prometheus
   data:
