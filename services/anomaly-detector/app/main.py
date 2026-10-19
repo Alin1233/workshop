@@ -13,6 +13,7 @@ planter la boucle. Les franchissements de seuil sont journalisés en JSON (`even
 `anomaly_cleared`) pour l'investigation et la corrélation (comme les autres services).
 """
 
+import os
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -23,7 +24,7 @@ from fastapi.responses import JSONResponse
 from prometheus_client import Gauge
 
 from resilience_common.observability import instrument, setup_logging
-from resilience_common.settings import env
+from resilience_common.settings import env, secret
 
 from . import features
 from .model import RobustZScoreModel
@@ -37,6 +38,14 @@ ANOMALY_SEVERITY = Gauge("anomaly_severity", "Sévérité brute (distance robust
 MODEL_INFO = Gauge("anomaly_model_info", "Modèle chargé (toujours 1, label version)", ["version"])
 SOURCE_DEGRADED = Gauge("anomaly_detector_source_degraded", "1 si une source de données est injoignable")
 LAST_RUN = Gauge("anomaly_detector_last_run_timestamp", "Horodatage de la dernière évaluation réussie")
+
+
+def _optional_secret(name: str) -> str | None:
+    # Cette méthode permet de lire un mot de passe facultatif (<NAME>_FILE ou <NAME>) : Prometheus en exige un,
+    # Loki interne non.
+    if os.getenv(f"{name}_FILE") or os.getenv(name):
+        return secret(name)
+    return None
 
 
 def _resolve_model_path() -> Path:
@@ -140,8 +149,10 @@ async def lifespan(app: FastAPI):
         logger.error("model_unavailable", extra={"event_type": "anomaly_degraded", "error": str(exc)})
         yield
         return
-    prom = PrometheusClient(env("PROMETHEUS_URL", "http://prometheus:9090"))
-    loki = LokiClient(env("LOKI_URL", "http://loki:3100"))
+    prom = PrometheusClient(env("PROMETHEUS_URL", "http://prometheus:9090"),
+                            username=env("PROMETHEUS_USER", "admin"), password=_optional_secret("PROMETHEUS_PASSWORD"))
+    loki = LokiClient(env("LOKI_URL", "http://loki:3100"),
+                      username=env("LOKI_USER", "admin"), password=_optional_secret("LOKI_PASSWORD"))
     threshold = float(env("ANOMALY_THRESHOLD", "0.8"))
     detector = Detector(model, prom, loki, threshold)
     interval = float(env("SCRAPE_INTERVAL", "10"))

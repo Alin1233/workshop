@@ -294,7 +294,9 @@ services:
       EMBED_MODEL: ${OPS_ASSISTANT_EMBED_MODEL:-nomic-embed-text}
       # 4 threads sur les 6 vCPU de la VM : la stack garde du CPU pendant une réponse (0 = tous les cœurs)
       LLM_NUM_THREAD: ${OPS_ASSISTANT_LLM_NUM_THREAD:-4}
-      ALERTMANAGER_URL: ${OPS_ASSISTANT_ALERTMANAGER_URL-http://alertmanager:9093}   # vide = désactivé
+      # Désactivé par défaut : Alertmanager exige le compte admin, qui permet aussi de poser des silences ;
+      # l'assistant n'en reçoit pas. À rebrancher sur une API d'état en lecture seule (remédiation, supervision).
+      ALERTMANAGER_URL: ${OPS_ASSISTANT_ALERTMANAGER_URL:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     # Corpus : docs/ (runbooks, gouvernance) + README d'architecture et de contrats, montés un par un en lecture seule.
     volumes:
@@ -323,10 +325,14 @@ services:
     environment:
       SERVICE_NAME: anomaly-detector
       PROMETHEUS_URL: ${ANOMALY_PROMETHEUS_URL:-http://prometheus:9090}
+      # Prometheus exige une authentification basique ; Loki interne (réseau obs) n'en a pas.
+      PROMETHEUS_USER: admin
+      PROMETHEUS_PASSWORD_FILE: /run/secrets/prometheus_password
       LOKI_URL: ${ANOMALY_LOKI_URL:-http://loki:3100}
       SCRAPE_INTERVAL: ${ANOMALY_SCRAPE_INTERVAL:-10}
       ANOMALY_THRESHOLD: ${ANOMALY_THRESHOLD:-0.8}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    secrets: [prometheus_password]
     depends_on: [prometheus, loki]
     networks: [obs]
 

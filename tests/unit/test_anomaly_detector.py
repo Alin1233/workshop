@@ -18,6 +18,7 @@ if str(DETECTOR) not in sys.path:
 
 from app import features  # noqa: E402
 from app import model as model_mod  # noqa: E402
+from app import promclient  # noqa: E402
 from app.promclient import SourceUnavailable, _scalar_from_vector  # noqa: E402
 
 FLOORS = {
@@ -234,3 +235,25 @@ def test_empty_prometheus_result_is_nan():
     # Cette méthode permet de vérifier qu'un résultat Prometheus vide devient NaN (puis comblé en aval), sans erreur.
     assert math.isnan(_scalar_from_vector([]))
     assert _scalar_from_vector([{"value": [123, "0.5"]}]) == 0.5
+
+
+def test_prometheus_client_sends_basic_auth(monkeypatch):
+    # Cette méthode permet de vérifier que le client s'authentifie auprès de Prometheus (admin / mot de passe du secret)
+    # et n'envoie aucun identifiant à une source non protégée (Loki interne).
+    import base64
+    import io
+    import json
+
+    seen = []
+
+    def fake_urlopen(request, timeout):
+        seen.append(request)
+        body = {"status": "success", "data": {"result": [{"value": [0, "1"]}]}}
+        return io.BytesIO(json.dumps(body).encode())
+
+    monkeypatch.setattr(promclient.urllib.request, "urlopen", fake_urlopen)
+    assert promclient.PrometheusClient("http://prometheus:9090", username="admin", password="s3cret").query("up") == 1.0
+    assert promclient.LokiClient("http://loki:3100").query("count_over_time({service=\"waf\"}[1m])") == 1.0
+    expected = "Basic " + base64.b64encode(b"admin:s3cret").decode()
+    assert seen[0].get_header("Authorization") == expected
+    assert seen[1].get_header("Authorization") is None
