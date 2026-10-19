@@ -18,7 +18,7 @@
 - ✅ VM PC Hôte provisionnée sur le Proxmox du labo par Ansible (`ansible/provision_proxmox.yml`) : `172.16.147.10`, Debian 13, 6 vCPU / 16 Go / 80 Go
 - ✅ VM préparée par `ansible/prepare_host.yml` : Docker 29 + Compose, pare-feu nftables compatible Docker, SSH durci, mises à jour de sécurité
 - ✅ Stack déployée sur la VM par `ansible/deploy.yml` (une version par commit, retour arrière, tests sur l'hôte et à travers le réseau) ; reprise d'un service par `restart_service.yml`
-- ☐ Écrire la sauvegarde/restauration PostgreSQL (playbooks Ansible)
+- ✅ Sauvegarde PostgreSQL toutes les 15 min avec état d'intégrité du registre, restauration de la dernière sauvegarde saine (`backup_database.yml`, `restore_database.yml`, runbook `docs/runbooks/restauration-base.md`) : corruption détectée en 19 s, restauration en 10,6 s
 - ☐ Métriques conteneurs et base (cAdvisor / postgres-exporter) si le ML en a besoin — attention à la RAM et aux privilèges
 - ☐ Configurer le point d'accès Windows RESILIENCE-G<n> (192.168.137.1) et le pare-feu ; tester depuis un autre poste
 - ☐ README de déploiement final vérifié sur une machine vierge
@@ -39,7 +39,7 @@
 
 ## Transformation / Gouvernance
 - ☐ EBIOS RM (`docs/governance/ebios-rm.md`), relié aux alertes et aux remédiations réelles
-- ☐ PCA/PRA avec RTO/RPO **mesurés** sur le démonstrateur (`docs/governance/pca-pra.md`)
+- ☐ PCA/PRA avec RTO/RPO **mesurés** sur le démonstrateur (`docs/governance/pca-pra.md`) ; premières mesures (restauration de la base) dans `docs/runbooks/restauration-base.md`
 - ☐ Analyse NIS2/DORA : exigences pertinentes vs démontrables (`docs/governance/nis2-dora.md`)
 - ☐ Runbooks (`docs/runbooks/`) — servent aussi de corpus au RAG
 

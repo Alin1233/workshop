@@ -1,0 +1,43 @@
+# Restauration PostgreSQL (PRA « données corrompues ») : remplace authdb et paydb par une sauvegarde.
+# Par défaut, la dernière sauvegarde dont le registre était cohérent ; l'état courant est d'abord sauvegardé (pre-restore),
+# pour l'investigation et pour pouvoir annuler. Les API sont arrêtées pendant l'opération (service indisponible).
+# Usage : ansible-playbook -i ansible/inventory.ini ansible/restore_database.yml -e confirm_restore=true [-e backup=<nom>]
+# Lister les sauvegardes : ssh resilience@172.16.147.10 sudo ls /var/backups/resilience-alpha
+- name: Restaurer les bases PostgreSQL
+  hosts: pc_hote
+  become: true
+  gather_facts: false
+  vars:
+    backup: latest-healthy
+  tasks:
+    - name: Exiger une confirmation explicite (les bases sont recréées)
+      ansible.builtin.assert:
+        that: confirm_restore | default(false) | bool
+        fail_msg: "Restauration destructive : relancer avec -e confirm_restore=true"
+
+    - name: Installer les scripts (version du dépôt)
+      ansible.builtin.include_tasks: tasks/pg_backup_install.yml
+
+    - name: Restaurer
+      ansible.builtin.command: /usr/local/sbin/resilience-pg-restore {{ backup | quote }}
+      register: restore_run
+      changed_when: true
+
+    - name: Lire la version active
+      ansible.builtin.stat:
+        path: "{{ pc_hote_app_root }}/current"
+      register: current
+
+    - name: Transaction témoin
+      ansible.builtin.command: python3 tests/smoke_test.py
+      args:
+        chdir: "{{ current.stat.lnk_source }}"
+      register: smoke
+      retries: 5
+      delay: 5
+      until: smoke.rc == 0
+      changed_when: false
+
+    - name: Résumé (mesures pour le PCA/PRA)
+      ansible.builtin.debug:
+        msg: "{{ restore_run.stdout_lines }}"

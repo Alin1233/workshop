@@ -139,6 +139,9 @@
             state: link
             force: true
 
+        - name: Installer la sauvegarde planifiée de la base
+          ansible.builtin.include_tasks: tasks/pg_backup_install.yml
+
         # ─────────────────────────────────── Vérifications ──────────────────────────────
         - name: Vérifier le service métier sur le PC Hôte (transaction témoin, contrôle admin compris)
           ansible.builtin.command: python3 tests/smoke_test.py

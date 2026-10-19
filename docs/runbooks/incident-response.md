@@ -9,6 +9,6 @@
 | Alerte | Signification | Réponse automatique | Vérification |
 |---|---|---|---|
 | EndToEndProbeFailed | le parcours client échoue | à définir (remédiation) | `python tests/smoke_test.py` |
-| LedgerIntegrityBroken | registre incohérent | à définir (restauration ≠ redémarrage) | `/api/payments/admin/integrity` |
+| LedgerIntegrityBroken | registre incohérent | restauration de la dernière sauvegarde saine, déclenchée par un opérateur ([restauration-base.md](restauration-base.md)) | `/api/payments/admin/integrity` |
 | AuthBruteForce | force brute depuis une IP | à définir (blocage IP au WAF) | tableau SOC |
 | WafAttackBlocked | attaques bloquées en série | à définir | journal d'audit du WAF |

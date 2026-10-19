@@ -16,3 +16,10 @@ docker_gpg_fingerprint: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
 # shared/secrets conservé d'une version à l'autre (répertoire 0700, root)
 pc_hote_app_root: /opt/resilience-alpha
 pc_hote_releases_kept: 3
+
+# Sauvegardes PostgreSQL (pg_dump par base + état d'intégrité du registre), voir backup_database.yml
+pc_hote_backup_dir: /var/backups/resilience-alpha
+pc_hote_backup_calendar: "*:0/15"   # RPO visé : 15 min
+pc_hote_backup_keep: 96             # 24 h de sauvegardes planifiées ; la dernière saine est toujours gardée
+# Copie hors de l'hôte, sur le poste de l'opérateur (jamais dans le dépôt : les bases contiennent des empreintes de mots de passe)
+pc_hote_backup_local_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.local/share/resilience-alpha/backups"
