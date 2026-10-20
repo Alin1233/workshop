@@ -103,9 +103,12 @@ echo "[*] ML should flag the anomaly; alertmanager -> remediation-engine should 
 banner "3/4  AWAIT AUTONOMOUS RECOVERY (max ${RECOVER_WAIT}s, NO manual action)"
 recovered=0
 for ((t=0; t<RECOVER_WAIT; t+=5)); do
-  c=$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$BASE/health" || echo 000)
-  echo "    t+${t}s  /health -> HTTP $c"
-  if [ "$c" = "200" ]; then recovered=1; break; fi
+  # "/health" renvoie le SPA : il vaut 200 même quand auth est HS. On exige les
+  # deux vraies sondes API avant de considérer le service revenu.
+  ca=$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$BASE/api/auth/health" || echo 000)
+  cp=$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$BASE/api/payments/health" || echo 000)
+  echo "    t+${t}s  auth=$ca payments=$cp"
+  if [ "$ca" = "200" ] && [ "$cp" = "200" ]; then recovered=1; break; fi
   sleep 5
 done
 
@@ -116,10 +119,10 @@ if [ "$recovered" != 1 ]; then
   exit 2
 fi
 if witness after; then
-  echo "[+] RECOVERED: /health 200 AND smoke_test passes - a new fictive transaction succeeds."
+  echo "[+] RECOVERED: auth + payments health 200 AND smoke_test passes - a new fictive transaction succeeds."
   echo "[+] This is the Axe-1 proof. Evidence in $OUTDIR"
 else
-  echo "[-] /health is 200 but smoke_test failed - service not truly usable (restart != recovery)."
+  echo "[-] API health probes are 200 but smoke_test failed - service not truly usable (restart != recovery)."
   exit 3
 fi
 

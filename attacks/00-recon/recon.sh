@@ -16,12 +16,16 @@ echo "[*] ping check..."
 ping -c 3 -W 2 "$TARGET" | tee "$OUTDIR/ping.txt" || true
 
 echo "[*] nmap service scan (ports 1-100 + API port)..."
+# -Pn : sur le réseau routé du labo, la découverte d'hôte de nmap renvoie parfois
+# "0 hosts up" alors que l'hôte répond (constaté le 20/10/2026). On scanne sans discovery.
 # -p overrides --top-ports, so list the range + API port explicitly.
-nmap -sV -T4 -p "1-100,$PORT" "$TARGET" -oN "$OUTDIR/nmap.txt"
+nmap -Pn -sV -T4 -p "1-100,$PORT" "$TARGET" -oN "$OUTDIR/nmap.txt"
 
 echo "[*] http headers / health (through the WAF)..."
 curl -sk -m 10 -D "$OUTDIR/headers.txt" -o "$OUTDIR/index.html" "http://$TARGET:$PORT/" || true
-curl -sk -m 10 "http://$TARGET:$PORT/health" -o "$OUTDIR/health.json" || true
+# "/health" renvoie le SPA (200 même quand auth est HS) : on interroge les vraies sondes API.
+curl -sk -m 10 "http://$TARGET:$PORT/api/auth/health" -o "$OUTDIR/health-auth.json" || true
+curl -sk -m 10 "http://$TARGET:$PORT/api/payments/health" -o "$OUTDIR/health-payments.json" || true
 cat "$OUTDIR/headers.txt" 2>/dev/null || true
 
 if command -v ffuf >/dev/null 2>&1; then

