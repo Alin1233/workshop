@@ -1,0 +1,55 @@
+name: Tests du front
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  front:
+    name: front (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: services/frontend
+            optional: false
+          # Dashboard de supervision : package-lock.json et scripts `test` et `build` obligatoires.
+          - service: services/supervision-dashboard
+            optional: false
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Présence du projet
+        id: project
+        working-directory: .
+        env:
+          PRESENT: ${{ hashFiles(format('{0}/package.json', matrix.service)) != '' }}
+        run: |
+          if [ "$PRESENT" = "true" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ matrix.optional }}" = "true" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=${{ matrix.service }}::pas encore de package.json : npm ci, tests et build ignorés"
+          else
+            echo "::error title=${{ matrix.service }}::package.json introuvable"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v7
+        if: steps.project.outputs.present == 'true'
+        with:
+          node-version: 24  # même version que les images Docker (node:24-alpine)
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+
+      - run: npm ci
+        if: steps.project.outputs.present == 'true'
+      - run: npm test
+        if: steps.project.outputs.present == 'true'
+      - run: npm run build
+        if: steps.project.outputs.present == 'true'

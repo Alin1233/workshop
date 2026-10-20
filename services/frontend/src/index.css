@@ -1,5 +1,9 @@
 @import "@fontsource-variable/inter";
 @import "tailwindcss";
+/* Les tests (Vitest) ne doivent pas ajouter de classes au CSS livré. */
+@source not "./**/*.test.tsx";
+@source not "./**/*.test.ts";
+@source not "./test";
 
 /* Palette « coffre-fort calme » : encre + sarcelle sur fond papier, ambre/brique réservés aux incidents. */
 @theme {
