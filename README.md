@@ -13,7 +13,7 @@ vérifie la reprise par une transaction témoin.
 
 ```
                 PA du groupe (192.168.137.0/24)
-                           │  :8080
+                           │  :8080 (HTTP), :8443 (HTTPS, caméra)
                  ┌─────────▼─────────┐   réseau "edge"
                  │ waf (ModSecurity  │   OWASP CRS, journal d'audit JSON
                  │   + OWASP CRS)    │
@@ -35,9 +35,9 @@ vérifie la reprise par une transaction témoin.
 
 | Service | Rôle | Exposé |
 |---|---|---|
-| `waf` | ModSecurity + OWASP CRS (paranoïa 1), unique point d'entrée | **oui**, port 8080 |
+| `waf` | ModSecurity + OWASP CRS (paranoïa 1), unique point d'entrée ; HTTPS par une autorité locale (`secrets/waf_ca.crt`) | **oui**, ports 8080 (HTTP) et 8443 (HTTPS) |
 | `frontend` | SPA React/Vite/Tailwind servie par nginx non privilégié, reverse proxy vers les API | non (derrière le WAF) |
-| `auth-service` | Inscription, connexion (argon2id), **double authentification TOTP** (optionnelle pour les clients, imposée à l'admin ; codes de secours), émission de JWT RS256 (15 min), compte admin initial | non |
+| `auth-service` | Inscription, connexion (argon2id), **double authentification TOTP** (optionnelle pour les clients, imposée à l'admin ; codes de secours), **reconnaissance faciale** au choix du code (YuNet + SFace sur CPU, défi de pose, données biométriques chiffrées en base), émission de JWT RS256 (15 min), compte admin initial | non |
 | `payment-api` | Comptes, virements en partie double, idempotence, contrôle d'intégrité | non |
 | `postgres` | `authdb` (rôle `auth_svc`) et `paydb` (rôle `pay_svc`), isolées | non |
 
@@ -95,7 +95,7 @@ restauration de la base : [docs/runbooks/restauration-base.md](docs/runbooks/res
 Prérequis : Docker Desktop (WSL2) et Python 3.10+ (pour les scripts). OpenSSL ou `pip install cryptography` pour générer la clé JWT.
 
 ```bash
-python scripts/init_secrets.py      # crée ./secrets (mots de passe, hash bcrypt, paire RSA), jamais versionné
+python scripts/init_secrets.py      # crée ./secrets (mots de passe, hash bcrypt, paire RSA, certificat HTTPS), jamais versionné
 cp .env.example .env                # facultatif
 docker compose up -d --build
 python tests/smoke_test.py          # 28 vérifications de bout en bout
@@ -106,7 +106,11 @@ Secrets versionnés chiffrés (SOPS + age) : `python scripts/sops_secrets.py key
 Déploiement automatisé sur le PC Hôte (VM Proxmox `172.16.147.10`), depuis WSL : `ansible-playbook -i ansible/inventory.ini ansible/deploy.yml`
 (création et préparation de la VM, retour arrière, accès aux interfaces de gestion : voir `ansible/README.md`).
 
-- Application : http://127.0.0.1:8080 (depuis un autre poste : `http://192.168.137.1:8080`)
+- Application : http://127.0.0.1:8080 (depuis un autre poste : `http://192.168.137.1:8080`) ; en HTTPS sur le port
+  **8443**, indispensable à la caméra depuis un autre poste que le PC Hôte (le navigateur ne l'ouvre qu'en HTTPS ou sur
+  `localhost`). Certificat émis par l'autorité locale `secrets/waf_ca.crt` pour `localhost`, les IPv4 de la machine et
+  `RA_TLS_HOSTS` (noms séparés par des virgules, réémis par `init_secrets.py` quand la liste change) : importer
+  `waf_ca.crt` dans le navigateur, ou accepter l'alerte au premier accès
 - Documentation OpenAPI : http://127.0.0.1:8080/api/auth/docs et http://127.0.0.1:8080/api/payments/docs ;
   version exportée pour le rendu dans `docs/api/` (`python scripts/export_openapi.py`, `--check` pour vérifier qu'elle est à jour),
   avec celle du moteur de remédiation (`docs/api/remediation-engine.openapi.json` : webhook et API d'état), qui n'a ni
@@ -120,6 +124,19 @@ Déploiement automatisé sur le PC Hôte (VM Proxmox `172.16.147.10`), depuis WS
   secours. Un code TOTP ne sert qu'une fois ; un code refusé est journalisé en `auth_failure` (règles SOC, détecteur ML,
   blocage d'IP) ; le jeton d'accès porte `amr: ["pwd", "otp"]`. Les automates (transaction témoin, trafic ML,
   scénarios d'attaque) utilisent des comptes sans double authentification
+- **Reconnaissance faciale**, une fois la double authentification active : **Paramètres → Sécurité → Reconnaissance
+  faciale**, dans une modale : consentement explicite et code de confirmation vérifiés d'abord
+  (`POST /api/auth/mfa/face/challenge`), puis trois captures (de face, puis tête tournée de chaque côté dans un ordre
+  tiré au hasard), 3 essais par défi ; l'écran indique ensuite seulement la date de configuration, avec
+  **Réinitialiser** (même modale) et **Supprimer**. Un détecteur de visage exécuté dans le navigateur (MediaPipe BlazeFace, servi par
+  le front) guide chaque pose en direct et déclenche la capture ; sans lui, compte à rebours de 3 s. À la connexion, l'onglet **Visage** remplace le code (`POST /api/auth/login/mfa/face/challenge`
+  puis `POST /api/auth/login/mfa/face` en multipart), avec deux captures seulement : de face, puis la tête tournée
+  d'un côté tiré au hasard ; jeton `amr: ["pwd", "face"]`, mêmes 5 essais que le code,
+  refus journalisés en `auth_failure`. Stockage : seule l'empreinte SFace est gardée, chiffrée en AES-256-GCM
+  (`secrets/face_encryption_key`) dans `authdb`, sans photo de référence ; captures **refusées** gardées 7 jours (`FACE_CAPTURE_RETENTION_DAYS`),
+  chiffrées, consultables par l'admin dans **Paramètres → Supervision** (chaque consultation est journalisée) ; les
+  captures acceptées ne sont jamais conservées. Seuils réglables (`FACE_MATCH_THRESHOLD`, `FACE_YAW_*`,
+  `FACE_PARALLAX_MIN`, voir `services/auth-service/app/face.py`) ; limites du défi de pose : revue de durcissement, § 9
 
 Le moteur de remédiation rejoue lui-même une **transaction témoin** à travers le WAF après chaque action
 (`services/remediation-engine/app/witness.py`, même parcours que `tests/smoke_test.py`). À la main :

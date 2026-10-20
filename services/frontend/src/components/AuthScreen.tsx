@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { api, ApiError, type Session } from "../lib/api";
+import { api, ApiError, type FaceChallenge, type MfaChallenge, type MfaMethod, type Session } from "../lib/api";
 import type { ServiceHealth } from "../lib/useServiceHealth";
 import Brand from "./Brand";
+import FaceCapture from "./FaceCapture";
 import { StatusDot } from "./ServiceStatus";
 import {
   EMAIL_MAX,
@@ -33,7 +34,7 @@ export default function AuthScreen({ onLogin, health }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Errors>({});
-  const [challenge, setChallenge] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<MfaChallenge | null>(null);
 
   // Cette méthode permet de mettre à jour un champ et d'effacer son message d'erreur.
   const edit = (field: keyof Errors, setter: (value: string) => void) => (value: string) => {
@@ -58,7 +59,7 @@ export default function AuthScreen({ onLogin, health }: Props) {
       const result = await api.login(login.data.email, login.data.password);
       if ("mfaToken" in result) {
         setPassword("");
-        setChallenge(result.mfaToken);
+        setChallenge(result);
       } else {
         onLogin(result);
       }
@@ -92,7 +93,8 @@ export default function AuthScreen({ onLogin, health }: Props) {
 
       {challenge ? (
         <MfaStep
-          mfaToken={challenge}
+          mfaToken={challenge.mfaToken}
+          methods={challenge.methods}
           onLogin={onLogin}
           onCancel={(message) => {
             setChallenge(null);
@@ -183,11 +185,110 @@ export default function AuthScreen({ onLogin, health }: Props) {
   );
 }
 
-type MfaStepProps = { mfaToken: string; onLogin: (session: Session) => void; onCancel: (message: string | null) => void };
+type MfaStepProps = {
+  mfaToken: string;
+  methods: MfaMethod[];
+  onLogin: (session: Session) => void;
+  onCancel: (message: string | null) => void;
+};
 
-// Cette méthode permet de saisir le second facteur (code de l'appli ou code de secours) après un mot de passe valide ;
-// une étape expirée (5 minutes ou 5 essais) ramène au formulaire de connexion avec le motif.
-function MfaStep({ mfaToken, onLogin, onCancel }: MfaStepProps) {
+// Cette méthode permet de choisir le second facteur après un mot de passe valide : le visage, s'il est enregistré
+// (proposé en premier), ou un code ; une étape expirée (5 minutes ou 5 essais) ramène à la connexion avec le motif.
+function MfaStep({ mfaToken, methods, onLogin, onCancel }: MfaStepProps) {
+  const [method, setMethod] = useState<MfaMethod>(methods.includes("face") ? "face" : "totp");
+
+  return (
+    <div className="p-7">
+      <h2 className="text-lg font-semibold">Double authentification</h2>
+      {methods.includes("face") && (
+        <div className="mt-4 grid grid-cols-2 rounded-lg bg-chip p-1 text-sm" role="tablist">
+          {(["face", "totp"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={method === value}
+              onClick={() => setMethod(value)}
+              className={`rounded-md py-1.5 transition ${method === value ? "bg-white font-semibold text-ink shadow-sm" : "text-muted hover:text-ink"}`}
+            >
+              {value === "face" ? "Visage" : "Code"}
+            </button>
+          ))}
+        </div>
+      )}
+      {method === "face" ? (
+        <FaceStep mfaToken={mfaToken} onLogin={onLogin} onCancel={onCancel} />
+      ) : (
+        <CodeStep mfaToken={mfaToken} onLogin={onLogin} onCancel={onCancel} />
+      )}
+    </div>
+  );
+}
+
+type StepProps = Omit<MfaStepProps, "methods">;
+
+// Cette méthode permet de terminer la connexion par reconnaissance faciale : défi de pose demandé à l'auth-service,
+// captures prises par la caméra puis vérifiées ; un refus propose de recommencer avec un nouveau défi.
+function FaceStep({ mfaToken, onLogin, onCancel }: StepProps) {
+  const [challenge, setChallenge] = useState<FaceChallenge | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Cette méthode permet d'exécuter un appel de l'étape en ramenant à la connexion si l'étape a expiré.
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "mfa_challenge_expired") return onCancel(err.message);
+      setChallenge(null);
+      setError(err instanceof ApiError ? err.message : "Erreur inattendue.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Cette méthode permet d'envoyer les captures du défi en cours et d'ouvrir la session si le visage est reconnu.
+  const verify = (frames: Blob[]) => {
+    if (!challenge) return;
+    return run(async () => onLogin(await api.verifyFace(mfaToken, challenge.challenge_id, frames)));
+  };
+
+  if (challenge) {
+    return (
+      <div className="mt-6">
+        <FaceCapture key={challenge.challenge_id} poses={challenge.poses} onCaptured={verify} onCancel={() => setChallenge(null)} busy={busy} />
+      </div>
+    );
+  }
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="text-sm text-muted">
+        Votre caméra prend deux photos : de face, puis la tête tournée d'un côté, en suivant les consignes.
+      </p>
+      {error && (
+        <p className="rounded-lg border border-brick-line bg-brick-soft px-3 py-2 text-sm text-brick" role="alert">
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => run(async () => setChallenge(await api.faceLoginChallenge(mfaToken)))}
+        className="w-full rounded-lg bg-ink py-2.5 text-sm font-semibold text-white transition hover:bg-ink-2 disabled:opacity-60"
+      >
+        {busy ? "Patientez…" : error ? "Réessayer" : "Utiliser la caméra"}
+      </button>
+      <button type="button" onClick={() => onCancel(null)} className="w-full text-sm text-muted hover:text-ink">
+        ← Retour à la connexion
+      </button>
+    </div>
+  );
+}
+
+// Cette méthode permet de saisir le second facteur sous forme de code (appli d'authentification ou code de secours).
+function CodeStep({ mfaToken, onLogin, onCancel }: StepProps) {
   const [code, setCode] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -215,8 +316,7 @@ function MfaStep({ mfaToken, onLogin, onCancel }: MfaStepProps) {
   };
 
   return (
-    <div className="p-7">
-      <h2 className="text-lg font-semibold">Double authentification</h2>
+    <>
       <p className="mt-1 mb-6 text-sm text-muted">
         Saisissez le code à 6 chiffres affiché par votre application d'authentification, ou l'un de vos codes de secours.
       </p>
@@ -254,6 +354,6 @@ function MfaStep({ mfaToken, onLogin, onCancel }: MfaStepProps) {
           ← Retour à la connexion
         </button>
       </form>
-    </div>
+    </>
   );
 }

@@ -1,8 +1,16 @@
 import { vi } from "vitest";
 import type { Account, Session, Transfer } from "../lib/api";
 
-// Un appel intercepté : chemin (avec la chaîne de requête), méthode, en-têtes normalisés et corps JSON décodé.
-export type Call = { path: string; method: string; headers: Headers; body: unknown; signal: AbortSignal | null };
+// Un appel intercepté : chemin (avec la chaîne de requête), méthode, en-têtes normalisés, corps JSON décodé
+// ou formulaire multipart (captures de la caméra).
+export type Call = {
+  path: string;
+  method: string;
+  headers: Headers;
+  body: unknown;
+  form: FormData | null;
+  signal: AbortSignal | null;
+};
 type Route = (call: Call) => Response | Promise<Response>;
 
 // Cette méthode permet de fabriquer une réponse JSON, comme celles des API derrière le reverse proxy.
@@ -32,7 +40,8 @@ export function mockFetch(routes: Record<string, Route>) {
     const path = typeof input === "string" ? input : input instanceof URL ? input.pathname + input.search : input.url;
     const method = (init.method ?? "GET").toUpperCase();
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
-    const call: Call = { path, method, headers: new Headers(init.headers), body, signal: init.signal ?? null };
+    const form = init.body instanceof FormData ? init.body : null;
+    const call: Call = { path, method, headers: new Headers(init.headers), body, form, signal: init.signal ?? null };
     calls.push(call);
     const key = `${method} ${path.split("?")[0]}`;
     const route = routes[key];

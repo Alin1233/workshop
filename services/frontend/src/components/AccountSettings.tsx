@@ -1,10 +1,11 @@
 import type { Session } from "../lib/api";
 import MfaSettings from "./MfaSettings";
+import RejectedCaptures from "./RejectedCaptures";
 
 type Props = { session: Session; onBack: () => void; onSessionExpired: () => void };
 
 // Cette méthode permet d'afficher la vue de paramétrage du compte (identité, puis section Sécurité avec la double
-// authentification), accessible depuis l'en-tête de l'espace client.
+// authentification et, pour l'admin, les captures refusées par la reconnaissance faciale), accessible depuis l'en-tête.
 export default function AccountSettings({ session, onBack, onSessionExpired }: Props) {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -24,6 +25,15 @@ export default function AccountSettings({ session, onBack, onSessionExpired }: P
         </h2>
         <MfaSettings token={session.token} onSessionExpired={onSessionExpired} />
       </section>
+
+      {session.user.role === "admin" && (
+        <section aria-labelledby="settings-soc" className="space-y-3">
+          <h2 id="settings-soc" className="text-[11px] font-medium tracking-wider text-muted uppercase">
+            Supervision
+          </h2>
+          <RejectedCaptures token={session.token} onSessionExpired={onSessionExpired} />
+        </section>
+      )}
     </div>
   );
 }

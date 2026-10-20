@@ -181,7 +181,8 @@ def test_totp_steps_window_and_recovery_code_format():
 def test_setup_returns_qr_code_and_does_not_protect_until_activated(auth_client):
     register(auth_client)
     headers = bearer(login(auth_client).json()["access_token"])
-    assert auth_client.get("/mfa", headers=headers).json() == {"enabled": False, "required": False, "recovery_codes_remaining": 0}
+    assert auth_client.get("/mfa", headers=headers).json() == {"enabled": False, "required": False, "recovery_codes_remaining": 0,
+                                                                  "face_enrolled": False}
 
     setup = auth_client.post("/mfa/setup", headers=headers).json()
     assert setup["otpauth_uri"].startswith("otpauth://totp/Resilience-Alpha:client%40test.local?secret=")
@@ -203,7 +204,8 @@ def test_activate_requires_setup_first(auth_client):
 def test_login_with_mfa_needs_a_valid_code(auth_client, rsa_keys):
     secret, codes, headers = enable_mfa(auth_client)
     assert len(codes) == 10
-    assert auth_client.get("/mfa", headers=headers).json() == {"enabled": True, "required": False, "recovery_codes_remaining": 10}
+    assert auth_client.get("/mfa", headers=headers).json() == {"enabled": True, "required": False, "recovery_codes_remaining": 10,
+                                                                  "face_enrolled": False}
     assert auth_client.post("/mfa/setup", headers=headers).status_code == 409
 
     challenge = login(auth_client).json()
@@ -270,7 +272,8 @@ def test_disable_requires_password_and_code(auth_client):
     assert bad_code.status_code == 400
 
     assert auth_client.post("/mfa/disable", headers=headers, json={"password": PASSWORD, "code": codes[1]}).status_code == 204
-    assert auth_client.get("/mfa", headers=headers).json() == {"enabled": False, "required": False, "recovery_codes_remaining": 0}
+    assert auth_client.get("/mfa", headers=headers).json() == {"enabled": False, "required": False, "recovery_codes_remaining": 0,
+                                                                  "face_enrolled": False}
     assert "access_token" in login(auth_client).json()
     again = auth_client.post("/mfa/disable", headers=headers, json={"password": PASSWORD, "code": codes[2]})
     assert again.status_code == 409 and again.json()["code"] == "mfa_not_enabled"

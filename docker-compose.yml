@@ -80,8 +80,11 @@ services:
       ADMIN_PASSWORD_FILE: /run/secrets/admin_password
       # Secret TOTP du compte admin, à qui la double authentification est imposée (scripts/init_secrets.py)
       ADMIN_TOTP_SECRET_FILE: /run/secrets/admin_totp_secret
+      # Reconnaissance faciale : clé AES-256 des empreintes, photos de référence et captures refusées (chiffrées en base)
+      FACE_ENCRYPTION_KEY_FILE: /run/secrets/face_encryption_key
+      FACE_CAPTURE_RETENTION_DAYS: ${FACE_CAPTURE_RETENTION_DAYS:-7}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    secrets: [auth_db_password, jwt_private.pem, admin_password, admin_totp_secret]
+    secrets: [auth_db_password, jwt_private.pem, admin_password, admin_totp_secret, face_encryption_key]
 
   payment-api:
     <<: *python-service
@@ -119,9 +122,18 @@ services:
     depends_on: [frontend]
     ports:
       - "${FRONT_BIND:-0.0.0.0}:${FRONT_PORT:-8080}:8080"
+      # HTTPS : la caméra du navigateur (reconnaissance faciale) n'est accessible qu'en contexte sécurisé hors de
+      # localhost. Certificat émis par l'autorité locale secrets/waf_ca.crt (scripts/init_secrets.py) ; le 8080 reste
+      # en HTTP pour les sondes, les tests et les navigateurs qui n'ont pas besoin de la caméra.
+      - "${FRONT_BIND:-0.0.0.0}:${FRONT_TLS_PORT:-8443}:8443"
     environment:
       BACKEND: http://frontend:8080
       PORT: "8080"
+      SSL_PORT: "8443"
+      SSL_CERT_FILE: /run/secrets/waf_tls.crt
+      SSL_CERT_KEY_FILE: /run/secrets/waf_tls.key
+      # Autorité locale, sans répondeur OCSP : l'agrafage ne ferait que produire un avertissement au démarrage
+      SSL_OCSP_STAPLING: "off"
       SERVER_HEADER: ""
       # L'image ajoute par défaut des en-têtes CORS ouverts (Access-Control-Allow-Origin: * sur ses pages 403,
       # Access-Control-Allow-Headers: * partout). Le front et les API sont servis sur la même origine : aucun CORS
@@ -154,6 +166,7 @@ services:
       - ./infra/waf/location_common.conf.template:/etc/nginx/templates/includes/location_common.conf.template:ro
       - ./infra/waf/99-remediation-blocklist-guard.sh:/docker-entrypoint.d/99-remediation-blocklist-guard.sh:ro
       - waf-blocklist:/waf-blocklist:ro
+    secrets: [waf_tls.crt, waf_tls.key]
     networks: [edge, dmz]
 
   # ─────────────────────────── Observabilité (pilier INFRA) ──────────────────────────
@@ -600,6 +613,10 @@ secrets:
   pay_db_password: { file: "${SECRETS_DIR:-./secrets}/pay_db_password" }
   admin_password: { file: "${SECRETS_DIR:-./secrets}/admin_password" }
   admin_totp_secret: { file: "${SECRETS_DIR:-./secrets}/admin_totp_secret" }
+  face_encryption_key: { file: "${SECRETS_DIR:-./secrets}/face_encryption_key" }
+  # Certificat HTTPS du WAF, émis par l'autorité locale waf_ca.crt (la clé de l'autorité n'est montée nulle part)
+  waf_tls.crt: { file: "${SECRETS_DIR:-./secrets}/waf_tls.crt" }
+  waf_tls.key: { file: "${SECRETS_DIR:-./secrets}/waf_tls.key" }
   grafana_admin_password: { file: "${SECRETS_DIR:-./secrets}/grafana_admin_password" }
   jwt_private.pem: { file: "${SECRETS_DIR:-./secrets}/jwt_private.pem" }
   jwt_public.pem: { file: "${SECRETS_DIR:-./secrets}/jwt_public.pem" }

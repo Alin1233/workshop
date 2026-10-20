@@ -8,6 +8,18 @@ COPY auth-service/requirements.txt .
 RUN pip install -r requirements.txt \
     && useradd --system --uid 10001 --no-create-home appuser
 
+# Modèles de la reconnaissance faciale (OpenCV Zoo, licences MIT et Apache 2.0) : détection YuNet (230 Ko) et
+# empreinte SFace (37 Mo). Téléchargés au build et refusés si leur SHA-256 diffère ; lisibles par appuser, en lecture seule.
+ENV FACE_MODELS_DIR=/opt/face-models OPENCV_IO_MAX_IMAGE_PIXELS=4000000
+ADD --chmod=644 --checksum=sha256:8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4 \
+    https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx \
+    /opt/face-models/face_detection_yunet_2023mar.onnx
+ADD --chmod=644 --checksum=sha256:0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79 \
+    https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx \
+    /opt/face-models/face_recognition_sface_2021dec.onnx
+# --chmod s'applique aussi au répertoire créé par ADD : sans le droit x, appuser ne pourrait pas y entrer.
+RUN chmod 755 /opt/face-models
+
 COPY common/resilience_common ./resilience_common
 COPY auth-service/app ./app
 

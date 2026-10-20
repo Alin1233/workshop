@@ -2,9 +2,23 @@
 
 export type User = { id: string; email: string; full_name: string; role: "client" | "admin" };
 export type Session = { token: string; expiresAt: number; user: User };
+// Second facteur accepté : code (appli ou secours), ou visage s'il est enregistré.
+export type MfaMethod = "totp" | "face";
 // Connexion suspendue en attente du second facteur (jeton opaque de 5 minutes, jamais stocké).
-export type MfaChallenge = { mfaToken: string };
-export type MfaStatus = { enabled: boolean; required: boolean; recovery_codes_remaining: number };
+export type MfaChallenge = { mfaToken: string; methods: MfaMethod[] };
+export type MfaStatus = { enabled: boolean; required: boolean; recovery_codes_remaining: number; face_enrolled: boolean };
+// Défi de pose de la reconnaissance faciale : une capture par pose, dans l'ordre (de face, puis les deux profils).
+export type FacePose = "center" | "left" | "right";
+export type FaceChallenge = { challenge_id: string; poses: FacePose[]; expires_in: number };
+export type FaceStatus = { enrolled: boolean; enrolled_at: string | null; consented_at: string | null };
+export type RejectedCapture = {
+  id: string;
+  email: string;
+  captured_at: string;
+  reason: string;
+  score: number | null;
+  client_ip: string | null;
+};
 export type MfaSetup = { secret: string; otpauth_uri: string; qr_code: string };
 export type Account = { account_number: string; owner_name: string; currency: string; balance_cents: number; created_at: string };
 export type Transfer = {
@@ -46,10 +60,11 @@ export function saveSession(session: Session | null): void {
   else sessionStorage.removeItem(SESSION_KEY);
 }
 
-// Cette méthode permet d'appeler l'API en JSON et de convertir toute erreur (HTTP ou réseau) en ApiError lisible.
+// Cette méthode permet d'appeler l'API (JSON, ou multipart pour les captures de la caméra) et de convertir toute erreur
+// (HTTP ou réseau) en ApiError lisible ; le navigateur fixe lui-même l'en-tête d'un envoi multipart (frontière).
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  if (!(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
   let response: Response;
   try {
@@ -86,11 +101,11 @@ export const api = {
   // Cette méthode permet d'ouvrir une session à partir d'un email et d'un mot de passe ; si la double authentification
   // est active, renvoie à la place le jeton d'étape à présenter avec le code (verifyMfa).
   async login(email: string, password: string): Promise<Session | MfaChallenge> {
-    const res = await request<TokenResponse | { mfa_required: true; mfa_token: string }>("/api/auth/login", {
+    const res = await request<TokenResponse | { mfa_required: true; mfa_token: string; methods?: MfaMethod[] }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-    return "mfa_token" in res ? { mfaToken: res.mfa_token } : toSession(res);
+    return "mfa_token" in res ? { mfaToken: res.mfa_token, methods: res.methods ?? ["totp"] } : toSession(res);
   },
 
   // Cette méthode permet de terminer une connexion avec double authentification (code TOTP ou code de secours).
@@ -98,6 +113,49 @@ export const api = {
     return toSession(
       await request<TokenResponse>("/api/auth/login/mfa", { method: "POST", body: JSON.stringify({ mfa_token: mfaToken, code }) }),
     );
+  },
+
+  // Cette méthode permet de demander le défi de pose d'une connexion qui se termine par reconnaissance faciale.
+  faceLoginChallenge(mfaToken: string): Promise<FaceChallenge> {
+    return request("/api/auth/login/mfa/face/challenge", { method: "POST", body: JSON.stringify({ mfa_token: mfaToken }) });
+  },
+
+  // Cette méthode permet de terminer une connexion avec les captures du défi de pose (une par pose, dans l'ordre).
+  async verifyFace(mfaToken: string, challengeId: string, frames: Blob[]): Promise<Session> {
+    const form = framesForm(frames, { mfa_token: mfaToken, challenge_id: challengeId });
+    return toSession(await request<TokenResponse>("/api/auth/login/mfa/face", { method: "POST", body: form }));
+  },
+
+  // Cette méthode permet de savoir si un visage est enregistré, et depuis quand.
+  faceStatus(token: string): Promise<FaceStatus> {
+    return request("/api/auth/mfa/face", {}, token);
+  },
+
+  // Cette méthode permet d'ouvrir l'enregistrement (ou le remplacement) d'un visage : le consentement et le code sont
+  // vérifiés d'emblée, le défi de pose renvoyé accepte ensuite quelques essais.
+  faceEnrollChallenge(token: string, code: string): Promise<FaceChallenge> {
+    return request("/api/auth/mfa/face/challenge", { method: "POST", body: JSON.stringify({ code, consent: true }) }, token);
+  },
+
+  // Cette méthode permet d'enregistrer le visage avec les captures du défi ouvert par faceEnrollChallenge.
+  faceEnroll(token: string, challengeId: string, frames: Blob[]): Promise<FaceStatus> {
+    const form = framesForm(frames, { challenge_id: challengeId });
+    return request("/api/auth/mfa/face", { method: "POST", body: form }, token);
+  },
+
+  // Cette méthode permet de supprimer le visage enregistré (son empreinte).
+  async faceRemove(token: string): Promise<void> {
+    await request("/api/auth/mfa/face", { method: "DELETE" }, token);
+  },
+
+  // Cette méthode permet à l'admin de lister les captures refusées à la connexion (conservées 7 jours).
+  rejectedCaptures(token: string): Promise<RejectedCapture[]> {
+    return request("/api/auth/admin/face-captures", {}, token);
+  },
+
+  // Cette méthode permet à l'admin d'afficher une capture refusée (consultation tracée par l'auth-service).
+  rejectedCapture(token: string, id: string): Promise<RejectedCapture & { image: string }> {
+    return request(`/api/auth/admin/face-captures/${encodeURIComponent(id)}`, {}, token);
   },
 
   // Cette méthode permet de connaître l'état de la double authentification du compte connecté.
@@ -159,6 +217,14 @@ export const api = {
     }
   },
 };
+
+// Cette méthode permet de préparer un envoi multipart : champs texte, puis les captures JPEG sous le nom « frames ».
+function framesForm(frames: Blob[], fields: Record<string, string>): FormData {
+  const form = new FormData();
+  for (const [name, value] of Object.entries(fields)) form.append(name, value);
+  frames.forEach((frame, i) => form.append("frames", frame, `pose-${i + 1}.jpg`));
+  return form;
+}
 
 const euroFormat = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 

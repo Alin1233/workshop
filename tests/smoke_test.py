@@ -24,6 +24,17 @@ ADMIN_PASSWORD_FILE = Path(__file__).resolve().parent.parent / "secrets" / "admi
 # Secret TOTP du compte admin (double authentification imposée), généré par scripts/init_secrets.py.
 ADMIN_TOTP_FILE = Path(__file__).resolve().parent.parent / "secrets" / "admin_totp_secret"
 RESULTS: list[tuple[bool, str]] = []
+# Capture JPEG 16 × 16 unie, sans visage : vérifie que le WAF laisse passer l'envoi multipart de la reconnaissance faciale
+# et que les modèles tournent (refus métier face_not_detected, et non un 403 du WAF).
+BLANK_JPEG = base64.b64decode(
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABsSFBcUERsXFhceHBsgKEIrKCUlKFE6PTBCYFVlZF9VXVtqeJmBanGQc1tdhbWGkJ6jq62rZ4C8ybqmx5mo"
+    "q6T/2wBDARweHigjKE4rK06kbl1upKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKT/wAARCAAQABADASIAAhEB"
+    "AxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS"
+    "0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKz"
+    "tLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgEC"
+    "BAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpj"
+    "ZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6"
+    "/9oADAMBAAIRAxEAPwAooooA/9k=")
 
 
 def call(method: str, path: str, body: dict | None = None, token: str | None = None, headers: dict | None = None):
@@ -35,6 +46,33 @@ def call(method: str, path: str, body: dict | None = None, token: str | None = N
         req.add_header("Authorization", f"Bearer {token}")
     for key, value in (headers or {}).items():
         req.add_header(key, value)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as res:
+            return res.status, json.loads(res.read() or b"null")
+    except urllib.error.HTTPError as err:
+        raw = err.read()
+        try:
+            return err.code, json.loads(raw)
+        except ValueError:
+            return err.code, raw.decode(errors="replace")
+
+
+def post_frames(path: str, fields: dict, frames: list[bytes], token: str | None = None):
+    # Cette méthode permet d'envoyer des captures JPEG en multipart/form-data, comme le navigateur (champ « frames »),
+    # et de renvoyer (statut, corps décodé) sans lever sur 4xx/5xx.
+    boundary = uuid.uuid4().hex
+    crlf = "\r\n"
+    parts = [f'--{boundary}{crlf}Content-Disposition: form-data; name="{name}"{crlf}{crlf}{value}{crlf}'.encode()
+             for name, value in fields.items()]
+    for i, frame in enumerate(frames):
+        head = (f'--{boundary}{crlf}Content-Disposition: form-data; name="frames"; filename="pose-{i + 1}.jpg"{crlf}'
+                f"Content-Type: image/jpeg{crlf}{crlf}")
+        parts.append(head.encode() + frame + crlf.encode())
+    body = b"".join(parts) + f"--{boundary}--{crlf}".encode()
+    req = urllib.request.Request(BASE + path, data=body, method="POST")
+    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
     try:
         with urllib.request.urlopen(req, timeout=10) as res:
             return res.status, json.loads(res.read() or b"null")
@@ -120,11 +158,27 @@ def mfa_scenario() -> None:
     status, body = call("POST", "/api/auth/login/mfa", {"mfa_token": challenge["mfa_token"], "code": codes[0]})
     check(status == 200, "code de secours -> jeton")
     token = body.get("access_token")
+    face_scenario(token, codes[2])
     status, _ = call("POST", "/api/auth/mfa/disable", {"password": password, "code": codes[0]}, token)
     check(status == 400, "code de secours déjà utilisé -> refusé")
     status, _ = call("POST", "/api/auth/mfa/disable", {"password": password, "code": codes[1]}, token)
     check(status == 204 and "access_token" in call("POST", "/api/auth/login", {"email": email, "password": password})[1],
           "désactivation -> connexion par mot de passe seul")
+
+
+def face_scenario(token: str, code: str) -> None:
+    # Cette méthode permet de vérifier la chaîne de la reconnaissance faciale à travers le WAF : défi de pose tiré par
+    # l'auth-service après le code, envoi multipart des trois captures accepté par le WAF et nginx, analyse par les
+    # modèles (refus).
+    status, challenge = call("POST", "/api/auth/mfa/face/challenge", {"code": code, "consent": True}, token=token)
+    poses = challenge.get("poses", []) if isinstance(challenge, dict) else []
+    check(status == 200 and len(poses) == 3 and poses[0] == "center", f"visage : défi de pose tiré {poses}")
+    status, body = post_frames("/api/auth/mfa/face", {"challenge_id": challenge.get("challenge_id", "")},
+                               [BLANK_JPEG] * 3, token)
+    check(status == 400 and isinstance(body, dict) and body.get("code") == "face_not_detected",
+          f"visage : captures sans visage -> 400 face_not_detected, multipart accepté par le WAF (reçu {status})")
+    status, body = call("GET", "/api/auth/mfa/face", token=token)
+    check(status == 200 and body.get("enrolled") is False, "visage : rien d'enregistré après un refus")
 
 
 def main() -> int:

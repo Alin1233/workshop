@@ -6,6 +6,7 @@ Les tests qui touchent la base utilisent un vrai PostgreSQL 17 et les schémas d
 - sinon ces tests sont ignorés (skip), les autres s'exécutent normalement.
 """
 
+import base64
 import os
 import shutil
 import subprocess
@@ -27,6 +28,8 @@ from service_loader import load_service  # noqa: E402
 PG_IMAGE = "postgres:17-alpine"
 # Secret TOTP (base32) imposé au compte admin des services démarrés en test.
 ADMIN_TOTP_SECRET = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
+# Clé AES-256 (base64) des données biométriques ; les modèles faciaux ne sont pas chargés (moteur factice dans les tests).
+FACE_ENCRYPTION_KEY = base64.b64encode(b"unit-tests-only-face-vault-key!!").decode()
 
 
 def _pem_pair() -> tuple[str, str]:
@@ -111,9 +114,11 @@ def service_env(monkeypatch, database, rsa_keys):
         "DB_USER": database["user"], "DB_PASSWORD": database["password"],
         "JWT_PRIVATE_KEY": private_pem, "JWT_PUBLIC_KEY": public_pem,
         "ADMIN_PASSWORD": "admin-password-test", "ADMIN_TOTP_SECRET": ADMIN_TOTP_SECRET, "INTEGRITY_INTERVAL_SECONDS": "3600",
+        "FACE_ENCRYPTION_KEY": FACE_ENCRYPTION_KEY, "FACE_MODELS_DIR": str(Path(__file__).parent / "no-face-models"),
     }.items():
         monkeypatch.setenv(key, value)
-    for key in ("DB_PASSWORD_FILE", "JWT_PRIVATE_KEY_FILE", "JWT_PUBLIC_KEY_FILE", "ADMIN_PASSWORD_FILE", "ADMIN_TOTP_SECRET_FILE"):
+    for key in ("DB_PASSWORD_FILE", "JWT_PRIVATE_KEY_FILE", "JWT_PUBLIC_KEY_FILE", "ADMIN_PASSWORD_FILE", "ADMIN_TOTP_SECRET_FILE",
+                "FACE_ENCRYPTION_KEY_FILE"):
         monkeypatch.delenv(key, raising=False)
     return database
 

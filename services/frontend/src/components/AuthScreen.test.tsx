@@ -1,7 +1,8 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ServiceHealth } from "../lib/useServiceHealth";
+import { elapse, mockCamera, restoreCamera } from "../test/camera";
 import { deferred, json, mockFetch, networkDown } from "../test/http";
 import AuthScreen from "./AuthScreen";
 
@@ -247,5 +248,85 @@ describe("AuthScreen : double authentification", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Trop d'essais, reconnectez-vous.");
     expect(passwordInput()).toHaveValue("");
     expect(screen.getByRole("button", { name: "Se connecter" })).toBeInTheDocument();
+  });
+});
+
+describe("AuthScreen : connexion par reconnaissance faciale", () => {
+  const FACE_CHALLENGE = "POST /api/auth/login/mfa/face/challenge";
+  const FACE = "POST /api/auth/login/mfa/face";
+  const MFA_TOKEN = crypto.randomUUID();
+  const challenge = () => json(200, { mfa_required: true, mfa_token: MFA_TOKEN, expires_in: 300, methods: ["totp", "face"] });
+  const poses = () => json(200, { challenge_id: "c-1", poses: ["center", "left"], expires_in: 120 });
+
+  afterEach(restoreCamera);
+
+  // Cette méthode permet de passer le mot de passe d'un compte avec visage enregistré, caméra simulée et horloge simulée.
+  async function passPassword(routes: Parameters<typeof mockFetch>[0]) {
+    mockCamera();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const http = mockFetch({ [LOGIN]: challenge, [FACE_CHALLENGE]: poses, ...routes });
+    const onLogin = vi.fn();
+    render(<AuthScreen onLogin={onLogin} health={HEALTHY} />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.type(emailInput(), "alice@exemple.fr");
+    await user.type(passwordInput(), crypto.randomUUID());
+    await user.click(screen.getByRole("button", { name: "Se connecter" }));
+    await screen.findByText("Double authentification");
+    return { http, user, onLogin };
+  }
+
+  // Cette méthode permet de lancer la caméra puis de laisser passer les comptes à rebours (de face puis un côté).
+  async function captureFace(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: "Utiliser la caméra" }));
+    await user.click(await screen.findByRole("button", { name: "Démarrer" }));
+    await elapse(9000);
+  }
+
+  it("propose le visage en premier et ouvre la session avec deux captures (de face puis un côté)", async () => {
+    const { http, user, onLogin } = await passPassword({ [FACE]: () => loginResponse() });
+    expect(screen.getByRole("tab", { name: "Visage" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText(/deux photos : de face, puis la tête tournée d'un côté/)).toBeInTheDocument();
+
+    await captureFace(user);
+
+    await vi.waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
+    expect(http.callsTo(FACE_CHALLENGE)[0].body).toEqual({ mfa_token: MFA_TOKEN });
+    const form = http.callsTo(FACE)[0].form!;
+    expect(form.get("mfa_token")).toBe(MFA_TOKEN);
+    expect(form.get("challenge_id")).toBe("c-1");
+    expect(form.getAll("frames")).toHaveLength(2);
+    expect(http.callsTo(FACE)[0].headers.get("Content-Type")).toBeNull(); // frontière multipart posée par le navigateur
+  });
+
+  it("affiche un visage refusé et laisse recommencer avec un nouveau défi", async () => {
+    const { http, user, onLogin } = await passPassword({
+      [FACE]: () => json(401, { code: "face_no_match", detail: "Visage non reconnu." }),
+    });
+
+    await captureFace(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Visage non reconnu.");
+    await user.click(screen.getByRole("button", { name: "Réessayer" }));
+    await screen.findByRole("button", { name: "Démarrer" });
+    expect(http.callsTo(FACE_CHALLENGE)).toHaveLength(2);
+    expect(onLogin).not.toHaveBeenCalled();
+  });
+
+  it("permet de revenir au code", async () => {
+    const { user } = await passPassword({});
+
+    await user.click(screen.getByRole("tab", { name: "Code" }));
+    expect(screen.getByLabelText(/^Code de vérification/)).toBeInTheDocument();
+  });
+
+  it("n'affiche pas le choix sans visage enregistré", async () => {
+    mockFetch({ [LOGIN]: () => json(200, { mfa_required: true, mfa_token: MFA_TOKEN, expires_in: 300, methods: ["totp"] }) });
+    const { user, password } = setup();
+    await user.type(emailInput(), "alice@exemple.fr");
+    await user.type(passwordInput(), password);
+    await user.click(screen.getByRole("button", { name: "Se connecter" }));
+
+    expect(await screen.findByLabelText(/^Code de vérification/)).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Visage" })).not.toBeInTheDocument();
   });
 });

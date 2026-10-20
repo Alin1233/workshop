@@ -252,6 +252,275 @@
         ]
       }
     },
+    "/login/mfa/face/challenge": {
+      "post": {
+        "summary": "Login Face Challenge",
+        "operationId": "login_face_challenge_login_mfa_face_challenge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaTokenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceChallengeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login/mfa/face": {
+      "post": {
+        "summary": "Login Face",
+        "operationId": "login_face_login_mfa_face_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_login_face_login_mfa_face_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mfa/face": {
+      "get": {
+        "summary": "Face Status",
+        "operationId": "face_status_mfa_face_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Face Enroll",
+        "operationId": "face_enroll_mfa_face_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_face_enroll_mfa_face_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Face Remove",
+        "operationId": "face_remove_mfa_face_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/mfa/face/challenge": {
+      "post": {
+        "summary": "Face Enroll Challenge",
+        "operationId": "face_enroll_challenge_mfa_face_challenge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FaceEnrollStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceChallengeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/face-captures": {
+      "get": {
+        "summary": "List Rejected Captures",
+        "operationId": "list_rejected_captures_admin_face_captures_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RejectedCaptureOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Rejected Captures Admin Face Captures Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/face-captures/{capture_id}": {
+      "get": {
+        "summary": "Get Rejected Capture",
+        "operationId": "get_rejected_capture_admin_face_captures__capture_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "capture_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Capture Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RejectedCaptureImageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me": {
       "get": {
         "summary": "Me",
@@ -294,6 +563,150 @@
   },
   "components": {
     "schemas": {
+      "Body_face_enroll_mfa_face_post": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Challenge Id"
+          },
+          "frames": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Frames",
+            "description": "Une capture JPEG par pose du défi, dans l'ordre"
+          }
+        },
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "frames"
+        ],
+        "title": "Body_face_enroll_mfa_face_post"
+      },
+      "Body_login_face_login_mfa_face_post": {
+        "properties": {
+          "mfa_token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 20,
+            "title": "Mfa Token"
+          },
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Challenge Id"
+          },
+          "frames": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Frames",
+            "description": "Une capture JPEG par pose du défi, dans l'ordre"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "challenge_id",
+          "frames"
+        ],
+        "title": "Body_login_face_login_mfa_face_post"
+      },
+      "FaceChallengeOut": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Challenge Id"
+          },
+          "poses": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "center",
+                "left",
+                "right"
+              ]
+            },
+            "type": "array",
+            "title": "Poses"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "poses",
+          "expires_in"
+        ],
+        "title": "FaceChallengeOut"
+      },
+      "FaceEnrollStartIn": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 6,
+            "title": "Code"
+          },
+          "consent": {
+            "type": "boolean",
+            "title": "Consent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "consent"
+        ],
+        "title": "FaceEnrollStartIn"
+      },
+      "FaceStatusOut": {
+        "properties": {
+          "enrolled": {
+            "type": "boolean",
+            "title": "Enrolled"
+          },
+          "enrolled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrolled At"
+          },
+          "consented_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consented At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enrolled"
+        ],
+        "title": "FaceStatusOut"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -344,12 +757,24 @@
           "expires_in": {
             "type": "integer",
             "title": "Expires In"
+          },
+          "methods": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "totp",
+                "face"
+              ]
+            },
+            "type": "array",
+            "title": "Methods"
           }
         },
         "type": "object",
         "required": [
           "mfa_token",
-          "expires_in"
+          "expires_in",
+          "methods"
         ],
         "title": "MfaChallengeOut"
       },
@@ -448,15 +873,35 @@
           "recovery_codes_remaining": {
             "type": "integer",
             "title": "Recovery Codes Remaining"
+          },
+          "face_enrolled": {
+            "type": "boolean",
+            "title": "Face Enrolled"
           }
         },
         "type": "object",
         "required": [
           "enabled",
           "required",
-          "recovery_codes_remaining"
+          "recovery_codes_remaining",
+          "face_enrolled"
         ],
         "title": "MfaStatusOut"
+      },
+      "MfaTokenIn": {
+        "properties": {
+          "mfa_token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 20,
+            "title": "Mfa Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token"
+        ],
+        "title": "MfaTokenIn"
       },
       "RecoveryCodesOut": {
         "properties": {
@@ -502,6 +947,119 @@
           "password"
         ],
         "title": "RegisterIn"
+      },
+      "RejectedCaptureImageOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "client_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Ip"
+          },
+          "image": {
+            "type": "string",
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "captured_at",
+          "reason",
+          "score",
+          "client_ip",
+          "image"
+        ],
+        "title": "RejectedCaptureImageOut"
+      },
+      "RejectedCaptureOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "client_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Ip"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "captured_at",
+          "reason",
+          "score",
+          "client_ip"
+        ],
+        "title": "RejectedCaptureOut"
       },
       "TokenOut": {
         "properties": {

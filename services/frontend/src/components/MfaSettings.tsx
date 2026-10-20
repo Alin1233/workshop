@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, type MfaSetup, type MfaStatus } from "../lib/api";
 import { mfaCodeSchema, mfaDisableSchema, PASSWORD_MAX, validate } from "../lib/validation";
+import FaceSettings from "./FaceSettings";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-field px-3 py-2 text-sm text-ink placeholder:text-faint transition focus:border-teal focus:bg-white focus:ring-3 focus:ring-teal/15 focus:outline-none";
@@ -18,7 +19,8 @@ function groupSecret(secret: string): string {
 }
 
 // Cette méthode permet de gérer la double authentification du compte : activation par QR code et premier code,
-// affichage unique des codes de secours, désactivation confirmée par mot de passe et code (sauf compte admin).
+// affichage unique des codes de secours, désactivation confirmée par mot de passe et code (sauf compte admin) ;
+// une fois active, le visage peut être enregistré comme alternative au code.
 export default function MfaSettings({ token, onSessionExpired }: Props) {
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [step, setStep] = useState<Step>("idle");
@@ -185,6 +187,7 @@ export default function MfaSettings({ token, onSessionExpired }: Props) {
               Désactiver
             </button>
           )}
+          <FaceSettings token={token} onSessionExpired={onSessionExpired} />
         </div>
       )}
 
@@ -242,7 +245,10 @@ export default function MfaSettings({ token, onSessionExpired }: Props) {
 
       {step === "disable" && (
         <form onSubmit={disable} noValidate className="mt-3 space-y-4">
-          <p className="text-sm text-muted">Confirmez avec votre mot de passe et un code de l'application (ou de secours).</p>
+          <p className="text-sm text-muted">
+            Confirmez avec votre mot de passe et un code de l'application (ou de secours).
+            {status?.face_enrolled && " Votre visage enregistré sera aussi supprimé."}
+          </p>
           <label className="block space-y-1.5 text-sm">
             <span className="font-medium text-muted">Mot de passe</span>
             <input

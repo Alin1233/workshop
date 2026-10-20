@@ -23,7 +23,7 @@ table inet host_filter {
         ip saddr { {{ pc_hote_ssh_sources | join(', ') }} } tcp dport 22 accept
 
         # Point d'entrée applicatif (WAF), publié par Docker
-        tcp dport {{ pc_hote_waf_port }} accept
+        tcp dport { {{ pc_hote_waf_port }}, {{ pc_hote_waf_tls_port }} } accept
 
         limit rate 5/minute log prefix "nft-host-drop: " level info
         counter drop

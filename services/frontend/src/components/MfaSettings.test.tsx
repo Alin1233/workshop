@@ -9,15 +9,20 @@ const STATUS = "GET /api/auth/mfa";
 const SETUP = "POST /api/auth/mfa/setup";
 const ACTIVATE = "POST /api/auth/mfa/activate";
 const DISABLE = "POST /api/auth/mfa/disable";
+const FACE_STATUS = "GET /api/auth/mfa/face";
 const RECOVERY_CODES = Array.from({ length: 10 }, (_, i) => `abcd${i}-efgh${i}`);
-const OFF: MfaStatus = { enabled: false, required: false, recovery_codes_remaining: 0 };
-const ON: MfaStatus = { enabled: true, required: false, recovery_codes_remaining: 10 };
+const OFF: MfaStatus = { enabled: false, required: false, recovery_codes_remaining: 0, face_enrolled: false };
+const ON: MfaStatus = { enabled: true, required: false, recovery_codes_remaining: 10, face_enrolled: false };
 
 // Cette méthode permet d'afficher le panneau avec un état initial donné ; les routes reçoivent de quoi faire évoluer
 // l'état renvoyé ensuite par GET /mfa, comme le ferait l'auth-service après une action.
 function setup(initial: MfaStatus, routes: (setStatus: (next: MfaStatus) => void) => Parameters<typeof mockFetch>[0] = () => ({})) {
   let status = initial;
-  const http = mockFetch({ [STATUS]: () => json(200, status), ...routes((next) => (status = next)) });
+  const http = mockFetch({
+    [STATUS]: () => json(200, status),
+    [FACE_STATUS]: () => json(200, { enrolled: false, enrolled_at: null, consented_at: null, image: null }),
+    ...routes((next) => (status = next)),
+  });
   const onSessionExpired = vi.fn();
   const token = crypto.randomUUID();
   render(<MfaSettings token={token} onSessionExpired={onSessionExpired} />);
@@ -94,7 +99,7 @@ describe("MfaSettings", () => {
   });
 
   it("ne propose pas la désactivation quand elle est obligatoire (admin)", async () => {
-    setup({ enabled: true, required: true, recovery_codes_remaining: 2 });
+    setup({ enabled: true, required: true, recovery_codes_remaining: 2, face_enrolled: false });
 
     expect(await screen.findByText("Obligatoire pour le compte administrateur.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Désactiver" })).not.toBeInTheDocument();

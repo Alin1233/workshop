@@ -122,13 +122,16 @@ Toutes sont publiées sur `127.0.0.1` uniquement ; seul le WAF l'est sur `0.0.0.
 
 ## 4. En-têtes HTTP
 
-Relevés par `curl -D -` ; HSTS est **sans objet** : la plateforme est servie en HTTP seul (pas de TLS au WAF, l'écoute
-8443 de l'image n'est pas publiée), un navigateur ignore `Strict-Transport-Security` reçu en HTTP. Cookie `Secure` de
-Grafana : même raison.
+Relevés par `curl -D -`. Depuis la reconnaissance faciale, le WAF publie aussi l'HTTPS (8443, certificat de l'autorité
+locale `secrets/waf_ca.crt`) : la caméra n'est ouverte par le navigateur qu'en contexte sécurisé. **HSTS reste exclu** :
+le 8080 sert toujours en HTTP (sondes, tests, postes sans l'autorité), et HSTS ferait passer `http://<hôte>:8080` en
+`https://<hôte>:8080`, qui échoue. `Permissions-Policy` autorise désormais `camera=(self)` (origine de la plateforme
+seulement), et la CSP `'wasm-unsafe-eval'` : le guidage de la caméra compile un détecteur de visage WebAssembly
+(MediaPipe), servi par le front comme son modèle ; `eval` et les scripts en ligne restent interdits. Cookie `Secure` de Grafana : sans objet (interface en HTTP sur 127.0.0.1).
 
 | Réponse | Avant | Après |
 |---|---|---|
-| SPA (`/`), via le WAF | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Access-Control-Allow-Headers: *` ; pas de `Server` | + `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, `Permissions-Policy` (accéléromètre, caméra, géolocalisation, gyroscope, magnétomètre, micro, paiement, USB : interdits), `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin` ; plus de CORS |
+| SPA (`/`), via le WAF | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Access-Control-Allow-Headers: *` ; pas de `Server` | + `Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, `Permissions-Policy` (accéléromètre, caméra, géolocalisation, gyroscope, magnétomètre, micro, paiement, USB : interdits), `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin` ; plus de CORS |
 | API (`/api/auth/*`, `/api/payments/*`) | idem SPA | idem + `Cache-Control: no-store` (jetons, soldes, historique) |
 | Docs OpenAPI (`/api/*/docs`, `/redoc`) | idem SPA | CSP dédiée : Swagger UI et ReDoc chargent leurs scripts depuis `cdn.jsdelivr.net` avec un script en ligne (`'unsafe-inline'` limité à ces quatre URL), polices Google, logos `fastapi.tiangolo.com` et `cdn.redoc.ly`, workers `blob:` |
 | Page 403 du WAF | `Access-Control-Allow-Origin: *`, `Access-Control-Allow-Methods`, `Access-Control-Max-Age`, `Access-Control-Allow-Headers: *` | plus aucun en-tête CORS (variables `CORS_HEADER_*` vides) ; page HTML statique sans en-tête de sécurité (risque résiduel faible) |
@@ -378,6 +381,10 @@ Leçon, reprise au § 10 : mesurer en `DetectionOnly`, limiter un silence aux se
 | Prometheus et Alertmanager sans `X-Frame-Options` ni CSP | interfaces sur 127.0.0.1 derrière une authentification ; possible par `http_server_config.headers` du fichier web (`init_secrets.py`), à faire après la démo |
 | Affichage des mots de passe par `init_secrets.py` | voulu pour l'opérateur ; `no_log` dans Ansible |
 | RSA 2048 pour les JWT | suffisant jusqu'en 2030 (ANSSI) |
+| Reconnaissance faciale : défi de pose contournable par une vidéo ou un masque | le défi (de face puis un seul côté tiré au hasard à la connexion, 2 consignes possibles ; les deux côtés dans un ordre aléatoire à l'enregistrement) et la parallaxe du nez arrêtent une photo tenue immobile et une photo peu inclinée ; mesuré sur une photo réelle déformée en perspective, une **forte inclinaison peut passer** (le repère du nez de YuNet se décale sur une image déformée) ; une vidéo rejouée ou un masque passent. Pas de modèle anti-usurpation passif (type MiniFASNet). Le visage reste un **second** facteur : le mot de passe est exigé avant, 5 essais par étape, refus journalisés et captures gardées pour le SOC |
+| Reconnaissance faciale : seuils non calibrés sur de vraies webcams | similarité SFace 0,363 (valeur d'OpenCV), seuils de pose et de parallaxe tirés d'un modèle 3D synthétique ; réglables par variables d'environnement, journal `face_liveness` en DEBUG pour les ajuster |
+| Données biométriques dans les sauvegardes et restaurations de `authdb` | chiffrées (AES-256-GCM, clé hors base dans `secrets/`) ; une restauration peut toutefois faire réapparaître un visage supprimé entre-temps (droit à l'effacement) : à traiter par une purge après restauration |
+| Clé `face_encryption_key` régénérée par `init_secrets.py --force` | les empreintes enregistrées deviennent illisibles : la connexion par visage répond `face_reference_unreadable` et l'utilisateur réinitialise (ou supprime) son visage depuis Paramètres → Sécurité ; à restaurer avec les autres secrets (SOPS) |
 
 ## 10. Rejouer la revue
 

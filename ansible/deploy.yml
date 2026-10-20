@@ -150,6 +150,9 @@
           ansible.builtin.command: python3 scripts/init_secrets.py
           args:
             chdir: "{{ release_dir }}"
+          # Adresse du PC Hôte dans le certificat HTTPS du WAF (réémis par l'autorité locale si elle change)
+          environment:
+            RA_TLS_HOSTS: "{{ ansible_host }}"
           register: init_secrets
           changed_when: "'+ ' in init_secrets.stdout"
           # le script affiche les mots de passe admin et Grafana : rien ne doit sortir dans la console Ansible
@@ -330,4 +333,4 @@
             msg:
               - "Version active : {{ deploy_commit.stdout }} ({{ release_dir }})"
               - "Version précédente : {{ (previous_release.stat.lnk_source | default('aucune')) | basename }}"
-              - "Application : http://{{ ansible_host }}:{{ pc_hote_waf_port }}"
+              - "Application : http://{{ ansible_host }}:{{ pc_hote_waf_port }} (HTTPS, caméra : https://{{ ansible_host }}:{{ pc_hote_waf_tls_port }})"
