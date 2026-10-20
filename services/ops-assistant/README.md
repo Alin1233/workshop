@@ -190,6 +190,23 @@ contexte (`RETRIEVAL_K=3` ou `CHUNK_SIZE` plus petit la réduiraient, au prix de
 - **`mistral` dès qu'un GPU est disponible** (PC de délestage IA, `pc_hote_ai_mode: offload`) : nettement plus juste
   (15/20), jamais d'action prétendue, ~2 s par réponse avec GPU.
 
+**Mesure du 20/10/2026 : runbook `incident-response.md` réécrit par alerte** (même poste, GPU ; résultats
+[`avant`](eval/results/rapport-gpu-2026-10-20-avant.md), [`après`](eval/results/rapport-gpu-2026-10-20-apres.md),
+[`après v2`](eval/results/rapport-gpu-2026-10-20-apres-v2.md)). Le jeu passe à 26 questions : q25 (coût d'une heure
+d'indisponibilité) est requalifiée en réponse attendue, le PCA/PRA donnant désormais un coût fictif (≈ 26,2 k€,
+hypothèses H1 à H8), et q26 (numéro de l'astreinte, absent du corpus) devient la lacune ; `incident-response.md` est
+ajouté aux sources attendues de q07, q14, q21 et `pca-pra.md` à celles de q15 et q22. Corpus : 210 → 386 fragments. Les
+deux erreurs communes du 19/10 sont corrigées : q06 (requête Loki `{service="auth-service", event_type="auth_failure"}`,
+juste pour les deux modèles) et q14 (`anomaly_score` comparé à `anomaly_threshold`, juste pour les deux) ; q10
+(AuthBruteForce : blocage d'IP), q12 (tableaux « Santé du service » et « SOC ») et q04, q13 sont justes pour les deux
+modèles, aucune action prétendue (q19), q26 refusée sans numéro inventé. La première version du runbook évinçait les
+README pour q04, q05 et q13 (réponses fausses) : trois sections ciblées (contrôle d'intégrité, ce que voit le client,
+redémarrage par Ansible) l'ont corrigé. Restent : q07 partielle (les deux modèles mêlent `restart_service.yml` et
+`docker compose restart`), q05 fausse pour `llama3.2:3b`, q15 fausse pour les deux (ils lisent le RPO 0 de la panne
+d'API dans le tableau du PCA/PRA), q25 refusée par les deux. Latences non comparables au 19/10 : le GPU était bridé par
+le pilote (état P8, 210 MHz, « SW Power Cap »), 18 à 38 s par réponse. En CPU (VM), l'index de 386 fragments demande
+de l'ordre de 3 min à construire (33 s pour 65 fragments mesurés), en tâche de fond au démarrage.
+
 ## Sécurité
 
 - **Aucun outil, aucune action** : le LLM ne produit que du texte, aucune réponse n'est interprétée ni exécutée ; il n'y

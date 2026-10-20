@@ -87,7 +87,8 @@
    "expect": "answer",
    "question": "Comment redémarrer un service avec Ansible puis vérifier sa reprise ?",
    "expected_sources": [
-    "ansible/README.md"
+    "ansible/README.md",
+    "docs/runbooks/incident-response.md"
    ],
    "keywords": [
     "restart_service"
@@ -177,7 +178,8 @@
    "expect": "answer",
    "question": "Comment le détecteur d'anomalies alimente-t-il la chaîne d'alertes ?",
    "expected_sources": [
-    "services/anomaly-detector/README.md"
+    "services/anomaly-detector/README.md",
+    "docs/runbooks/incident-response.md"
    ],
    "keywords": [
     "anomaly_score",
@@ -191,7 +193,8 @@
    "question": "Quel est le RPO visé pour la base de paiement et d'où vient-il ?",
    "expected_sources": [
     "docs/runbooks/restauration-base.md",
-    "ansible/README.md"
+    "ansible/README.md",
+    "docs/governance/pca-pra.md"
    ],
    "keywords": [
     "15 min"
@@ -251,7 +254,8 @@
    "expected_sources": [
     "docs/runbooks/restauration-base.md",
     "README.md",
-    "docs/governance/ebios-rm.md"
+    "docs/governance/ebios-rm.md",
+    "docs/runbooks/incident-response.md"
    ],
    "keywords": [
     "sauvegarde",
@@ -264,7 +268,8 @@
    "expect": "answer",
    "question": "Combien de temps a pris la restauration de la base lors de l'essai sur le démonstrateur ?",
    "expected_sources": [
-    "docs/runbooks/restauration-base.md"
+    "docs/runbooks/restauration-base.md",
+    "docs/governance/pca-pra.md"
    ],
    "keywords": [
     "10,6",
@@ -299,15 +304,30 @@
   },
   {
    "id": "q25",
-   "category": "lacune",
-   "expect": "gap",
+   "category": "gouvernance",
+   "expect": "answer",
    "question": "Quel est le coût d'une heure d'indisponibilité du service de paiement ?",
    "expected_sources": [
     "docs/governance/pca-pra.md"
    ],
+   "keywords": [
+    "fictif",
+    "fictiv",
+    "hypoth"
+   ]
+  },
+  {
+   "id": "q26",
+   "category": "lacune",
+   "expect": "gap",
+   "question": "Quel numéro de téléphone faut-il appeler pour joindre l'astreinte quand le moteur escalade un incident ?",
+   "expected_sources": [
+    "docs/governance/pca-pra.md",
+    "docs/runbooks/incident-response.md"
+   ],
    "keywords": [],
    "forbidden_patterns": [
-    "\\d[\\d\\s.,]*\\s*(€|euros?|k€)"
+    "(?:\\+33|\\b0)\\s*[1-9](?:[\\s.-]?\\d{2}){4}"
    ]
   }
  ]
