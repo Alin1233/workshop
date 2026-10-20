@@ -66,6 +66,7 @@ vérifie la reprise par une transaction témoin.
 | `remediation-engine` | moteur de remédiation : webhook Alertmanager authentifié → table de décision (toutes les règles Prometheus et Loki, vérifié par un test) → redémarrage (disponibilité) ou blocage d'IP au WAF / restauration de la base par le pont de l'hôte (compromission) → vérification (conteneurs, sondes, transaction témoin) ; anti-boucle et escalade ; API d'état en lecture seule ([README](services/remediation-engine/README.md)) | non publié (réseaux `obs`, `app`, `dmz`, `docker-api`) |
 | `docker-socket-proxy` | seule porte vers le démon Docker, réservée au moteur : lecture d'état et restart / start / kill uniquement | non publié (réseau interne `docker-api`) |
 | `ops-assistant` | assistant RAG des opérateurs (Ollama + LangChain) : procédures et architecture, réponses sourcées, aucune action ([README](services/ops-assistant/README.md)) | http://127.0.0.1:8090 (admin / `secrets/ops_assistant_password`) |
+| `supervision-dashboard` | **écran de supervision du jury et du Clip Chrono** (React + Tailwind) : état global (opérationnel / incident / remédiation / rétabli), carte des composants, chronologie horodatée de la reprise, alertes, IP bloquées avec TTL, événements, historique ; back-for-front FastAPI en lecture seule (requêtes prédéfinies vers Prometheus, Alertmanager, Loki et l'API d'état du moteur, identifiants côté serveur) ([README](services/supervision-dashboard/README.md)) | http://127.0.0.1:8091 (admin / `secrets/supervision_password`) |
 
 Les interfaces de gestion ne sont publiées que sur `127.0.0.1` (`MGMT_BIND`), conformément au §4 du sujet.
 
@@ -115,7 +116,7 @@ Le moteur de remédiation rejoue lui-même une **transaction témoin** à traver
 | Journaux (Loki) | stdout de chaque conteneur, **une ligne JSON par événement** | champs `service`, `msg`, `request_id`, `client_ip`, `user_id`, `status`, `duration_ms`, `event_type` (`auth_failure`, `auth_success`, `transfer`, `integrity_violation`, `dependency_failure` ; `anomaly_detected` du détecteur, `remediation_*` du moteur avec `incident_id`, `waf_remediation_block` du WAF) |
 | Corrélation | en-tête `X-Request-ID` | généré par nginx, propagé et journalisé par les API |
 | Webhook de remédiation | `POST http://remediation-engine:8000/alerts` (réseau `obs`), appelé par Alertmanager | `Authorization: Bearer` (secret `remediation_webhook_token`, comparaison à temps constant) ; 202 immédiat, traitement en tâche de fond ; 401 sans jeton valide, 503 si le jeton n'est pas configuré, 413 au-delà de 1 Mio |
-| État de la remédiation (lecture seule) | `GET http://remediation-engine:8000/api/state`, `/api/incidents`, `/api/incidents/{id}`, `/api/decision-table` (réseaux `obs`, `app`, `dmz`) | incidents ouverts et récents avec chronologie horodatée, IP bloquées, état du pont de restauration, table de décision ; aucune route d'action, sans authentification (le futur dashboard devra filtrer l'accès) ; schéma : `docs/api/remediation-engine.openapi.json` |
+| État de la remédiation (lecture seule) | `GET http://remediation-engine:8000/api/state`, `/api/incidents`, `/api/incidents/{id}`, `/api/decision-table` (réseaux `obs`, `app`, `dmz`) | incidents ouverts et récents avec chronologie horodatée, IP bloquées, état du pont de restauration, table de décision ; aucune route d'action, sans authentification (le dashboard de supervision la lit par son back-for-front, qui porte le contrôle d'accès) ; schéma : `docs/api/remediation-engine.openapi.json` |
 
 `/metrics` et `/internal/*` sont bloqués par nginx : ils ne sont joignables que depuis les réseaux Docker internes.
 Le moteur de remédiation n'est pas derrière nginx et n'a aucun port publié : son webhook et son API d'état ne sont
@@ -125,7 +126,7 @@ joignables que depuis ces réseaux internes. Ses métriques (`remediation_*`) so
 
 | Perturbation | Comportement |
 |---|---|
-| Arrêt de PostgreSQL | API en 503 `database_unavailable` (pas de 500), `/health` en 503, front « Service dégradé » ; retour automatique dès que la base revient (connexions testées avant usage) |
+| Arrêt de PostgreSQL | API en 503 `database_unavailable` (pas de 500), `/health` en 503, front « Service indisponible » (les deux `/health`, auth et paiements, en échec) ; retour automatique dès que la base revient (connexions testées avant usage) |
 | Redémarrage / recréation d'une API | nginx la retrouve via le DNS Docker (`resolver 127.0.0.11`), sans redémarrage de nginx |
 | API de paiement coupée, auth disponible | l'utilisateur garde sa session ; le front affiche l'incident puis revient seul à l'état « opérationnel » |
 | Base absente au démarrage d'un service | 30 tentatives de connexion espacées de 2 s |
@@ -147,16 +148,16 @@ scripts/export_openapi.py  export de la documentation OpenAPI (scripts/service_l
 scripts/remediation_bridge_dev.py  pont de restauration local (développement, sans systemd)
 services/anomaly-detector/  service d'inférence ML (variables + modèle partagés avec ml/), expose anomaly_score
 services/remediation-engine/  moteur de remédiation (FastAPI) : décision, actions, vérification, API d'état ; modèle durci du proxy Docker (proxy/)
-services/supervision-dashboard/  contrat d'intégration (à développer)
+services/supervision-dashboard/  écran de supervision : React + Tailwind (src/) servi par un back-for-front FastAPI en lecture seule (app/)
 services/ops-assistant/  assistant RAG des opérateurs (FastAPI + LangChain + Ollama) et son évaluation (eval/)
 services/common/         journaux JSON, métriques, pool PostgreSQL, lecture des secrets (partagé)
 services/auth-service/   FastAPI — authentification
 services/payment-api/    FastAPI — registre et virements
-services/frontend/       React + Vite + Tailwind, nginx
+services/frontend/       React + Vite + Tailwind, nginx ; tests Vitest + React Testing Library (src/**/*.test.ts[x])
 tests/smoke_test.py      test de bout en bout = transaction témoin (stdlib uniquement)
 tests/observability_check.py  vérification de la chaîne d'observation et de défense
 tests/unit/              tests unitaires pytest (auth, paiement, paquet commun, doc OpenAPI, détecteur d'anomalies, assistant RAG,
-                         moteur de remédiation, blocage WAF, pont de restauration), sans la stack
+                         moteur de remédiation, blocage WAF, pont de restauration, back-for-front du dashboard), sans la stack
 ```
 
 ### Tests unitaires
@@ -175,5 +176,22 @@ Le moteur de remédiation, le blocage WAF et le pont de restauration se testent 
 Prometheus, Loki, pont et transaction témoin (table de décision pour chaque alerte des règles, webhook authentifié,
 machine d'états, anti-boucle, persistance). La CI (`.github/workflows/unit-tests.yml`, Python 3.12) lance aussi
 `python scripts/export_openapi.py --check`.
+
+### Tests du front
+
+```bash
+cd services/frontend && npm ci && npm test   # Vitest + React Testing Library sur jsdom, fetch simulé (aucun appel réseau)
+npm run build                                # tsc -b vérifie aussi le typage des tests (tsconfig.test.json)
+```
+
+Les tests sont à côté du code (`src/**/*.test.ts[x]`, aides communes dans `src/test/`) : règles de saisie Zod (montant
+plafonné à 10 000 €, compte `RA` + 10 chiffres, libellé ≤ 60 caractères), client HTTP (clé d'idempotence, jeton porteur,
+503 `database_unavailable`, messages d'erreur), formulaire de virement (même clé au renvoi après incident, double envoi
+bloqué), connexion et inscription, bandeau d'incident et état des services jusqu'au retour à la normale, sondage `/health`
+toutes les 5 s (horloge simulée). La CI (`.github/workflows/front-tests.yml`, Node 24, cache npm) lance `npm ci`,
+`npm test` et `npm run build` pour `services/frontend` et `services/supervision-dashboard`.
+Le dashboard de supervision a ses propres tests (`cd services/supervision-dashboard && npm ci && npm test`) : bandeau
+d'état dans chaque phase, chronologie construite depuis des incidents réels du moteur, sources en panne, compte à rebours
+des blocages ; son back-for-front est testé par `tests/unit/test_supervision_bff.py` ([README](services/supervision-dashboard/README.md#développer-et-tester)).
 
 Développement du front avec rechargement à chaud : `cd services/frontend && npm install && npm run dev` (les appels `/api` sont relayés vers la stack sur le port 8080).

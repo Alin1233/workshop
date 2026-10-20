@@ -1,5 +1,6 @@
 # Resilience-Alpha — démonstrateur de résilience (SI de paiement fictif + chaîne d'observation et de reprise)
-# Seul le WAF est publié sur le réseau du groupe. Les interfaces de gestion (Grafana, Prometheus, Loki, Alertmanager, assistant RAG)
+# Seul le WAF est publié sur le réseau du groupe. Les interfaces de gestion (Grafana, Prometheus, Loki, Alertmanager, assistant RAG,
+# dashboard de supervision)
 # ne sont publiées que sur 127.0.0.1 (MGMT_BIND) et demandent un identifiant (admin / secrets/<service>_password) :
 # base, API, secrets et outils internes ne sont jamais exposés.
 name: resilience-alpha
@@ -443,12 +444,39 @@ services:
       start_period: 5s
     networks: [docker-api]
 
-  # ─────────────────────── Composants à développer par l'équipe ──────────────────────
-  # Contrat d'intégration détaillé dans services/<nom>/README.md. Décommenter une fois le code livré.
-  #
-  # supervision-dashboard:   # React + Tailwind : composants, événements, alertes, avancement de la reprise
-  #   build: ./services/supervision-dashboard
-  #   networks: [obs, mgmt]
+  # ───────────────────── Dashboard de supervision (pilier DEV, écran du Clip Chrono) ─────────────────────
+  # Interface React + Tailwind servie par un back-for-front FastAPI (une seule image : node construit, python sert).
+  # Le navigateur ne joint que ce service (admin / secrets/supervision_password) ; le back-for-front lit Prometheus et
+  # Alertmanager (identifiants en secrets, jamais transmis au navigateur), Loki et l'API d'état du moteur sur obs,
+  # par des requêtes prédéfinies et en GET uniquement (ni requête libre, ni POST /alerts, ni silence). Healthy même
+  # quand ces sources sont arrêtées (l'interface affiche « source indisponible »). obs est interne : mgmt (non
+  # interne, comme Grafana et Prometheus) sert à publier le port sur MGMT_BIND. Détail : services/supervision-dashboard/README.md.
+  supervision-dashboard:
+    <<: *hardening
+    build:
+      context: ./services
+      dockerfile: supervision-dashboard/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-resilience-alpha}/supervision-dashboard:latest
+    read_only: true
+    tmpfs: ["/tmp"]
+    environment:
+      SERVICE_NAME: supervision-dashboard
+      ENGINE_URL: http://remediation-engine:8000
+      PROMETHEUS_URL: http://prometheus:9090
+      PROMETHEUS_USER: admin
+      PROMETHEUS_PASSWORD_FILE: /run/secrets/prometheus_password
+      ALERTMANAGER_URL: http://alertmanager:9093
+      ALERTMANAGER_USER: admin
+      ALERTMANAGER_PASSWORD_FILE: /run/secrets/alertmanager_password
+      LOKI_URL: http://loki:3100
+      SUPERVISION_PASSWORD_FILE: /run/secrets/supervision_password
+      # Durée d'affichage de « Service rétabli » après la clôture d'un incident
+      RESTORED_WINDOW_SECONDS: ${SUPERVISION_RESTORED_WINDOW_SECONDS:-180}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    secrets: [supervision_password, prometheus_password, alertmanager_password]
+    ports:
+      - "${MGMT_BIND:-127.0.0.1}:${SUPERVISION_PORT:-8091}:8000"
+    networks: [obs, mgmt]
 
 networks:
   edge: {}              # seul réseau joignable depuis le PA du groupe (port publié du WAF)
@@ -498,5 +526,7 @@ secrets:
   alertmanager_basic_auth: { file: "${SECRETS_DIR:-./secrets}/alertmanager_basic_auth" }
   loki_htpasswd: { file: "${SECRETS_DIR:-./secrets}/loki_htpasswd" }
   ops_assistant_password: { file: "${SECRETS_DIR:-./secrets}/ops_assistant_password" }
+  # Compte admin du dashboard de supervision (vérifié par son back-for-front, sans hash dérivé)
+  supervision_password: { file: "${SECRETS_DIR:-./secrets}/supervision_password" }
   # Jeton du webhook Alertmanager → moteur de remédiation (généré par scripts/init_secrets.py)
   remediation_webhook_token: { file: "${SECRETS_DIR:-./secrets}/remediation_webhook_token" }

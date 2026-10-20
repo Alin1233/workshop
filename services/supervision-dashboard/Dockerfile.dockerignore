@@ -1,0 +1,6 @@
+# Contexte de build : ./services. On n'envoie à Docker que ce que le Dockerfile copie (pas de node_modules ni de dist).
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/.pytest_cache

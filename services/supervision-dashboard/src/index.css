@@ -1,0 +1,48 @@
+@import "@fontsource-variable/inter";
+@import "tailwindcss";
+
+/* Même identité que le front client (encre, sarcelle, menthe ; ambre et brique réservés aux incidents), en version
+   « salle de contrôle » : fond encre, contrastes forts et couleurs d'état saturées pour rester lisibles dans une
+   capture vidéo 1080p. */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", monospace;
+
+  --color-ink: #0e1a24;
+  --color-ink-2: #16283a;
+  --color-night: #091219;
+  --color-panel: #102030;
+  --color-panel-2: #142a3d;
+  --color-edge: #24405a;
+  --color-snow: #eef3f6;
+  --color-fog: #a9bccb;
+  --color-mute: #7890a3;
+  --color-mint: #5ee6cf;
+  --color-teal: #0f8b7a;
+
+  --color-ok: #2fd9a6;
+  --color-ok-deep: #0b8f6c;
+  --color-warn: #ffb020;
+  --color-warn-deep: #b86e00;
+  --color-bad: #ff5a3c;
+  --color-bad-deep: #c22d16;
+  --color-busy: #45b8ff;
+  --color-unknown: #8193a3;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-night text-snow antialiased;
+    font-feature-settings: "cv11", "ss01", "tnum";
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}

@@ -22,6 +22,9 @@ SERVERS = {
     "payment-api": {"url": "/api/payments", "description": VIA_WAF},
     "remediation-engine": {"url": "http://remediation-engine:8000",
                            "description": "Réseaux Docker internes obs, app et dmz uniquement : aucun port publié"},
+    "supervision-dashboard": {"url": "http://127.0.0.1:8091",
+                              "description": "Interface de gestion publiée sur MGMT_BIND (SUPERVISION_PORT) : "
+                                             "admin / secrets/supervision_password"},
 }
 
 _ERROR = {"application/json": {"schema": {"type": "object", "properties": {"detail": {"type": "string"}}}}}
@@ -70,12 +73,32 @@ def document_webhook(schema: dict) -> None:
     operation["responses"] = dict(sorted({**WEBHOOK_OPERATION["responses"], **responses}.items()))
 
 
+# Le back-for-front du dashboard vérifie l'authentification basique dans un middleware (toutes les routes sauf /health) :
+# FastAPI ne la voit pas, elle est donc décrite ici, avec le refus 401.
+BASIC_AUTH = {"HTTPBasic": {"type": "http", "scheme": "basic",
+                            "description": "Compte admin, mot de passe dans le secret Compose supervision_password"}}
+
+
+def document_basic_auth(schema: dict) -> None:
+    # Cette méthode permet de déclarer l'authentification basique du dashboard sur chaque route, sauf la sonde de vie.
+    schema.setdefault("components", {}).setdefault("securitySchemes", {}).update(BASIC_AUTH)
+    for path, operations in schema["paths"].items():
+        if path == "/health":
+            continue
+        for operation in operations.values():
+            operation.setdefault("security", [{"HTTPBasic": []}])
+            operation.setdefault("responses", {}).setdefault(
+                "401", {"description": "Identifiant absent ou invalide (en-tête WWW-Authenticate: Basic)", "content": _ERROR})
+
+
 def render(service: str) -> str:
     # Cette méthode permet de produire le document OpenAPI d'un service, avec l'adresse par laquelle il est joint,
     # sous une forme texte stable (indentation fixe) pour que les différences restent lisibles dans Git.
     schema = copy.deepcopy(load_service(service).app.openapi())
     if service == "remediation-engine":
         document_webhook(schema)
+    if service == "supervision-dashboard":
+        document_basic_auth(schema)
     schema["servers"] = [SERVERS[service]]
     return json.dumps(schema, indent=2, ensure_ascii=False) + "\n"
 

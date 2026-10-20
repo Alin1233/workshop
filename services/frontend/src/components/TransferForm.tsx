@@ -108,7 +108,8 @@ export default function TransferForm({ token, onDone, onSessionExpired }: Props)
           <button
             key={value}
             type="button"
-            onClick={() => edit("amount", setAmount)(value)}
+            // Montant déjà choisi : la saisie ne change pas, la clé (et un éventuel renvoi en attente) non plus.
+            onClick={() => value !== amount && edit("amount", setAmount)(value)}
             className={`rounded-full border px-2.5 py-0.5 text-xs transition ${amount === value ? "border-teal bg-teal-soft text-teal-dark" : "border-line text-muted hover:border-faint hover:text-ink"}`}
           >
             {value} €

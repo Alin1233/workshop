@@ -11,10 +11,17 @@ export function useServiceHealth(): ServiceHealth {
 
   useEffect(() => {
     let cancelled = false;
+    // Numéros de sondage : une réponse lente (jusqu'au délai de 8 s) peut arriver après celle d'un sondage plus récent ;
+    // elle est alors ignorée. On n'ignore pas pour autant un sondage simplement dépassé par le suivant encore en vol :
+    // si le service ne répond plus qu'au bout du délai, chaque réponse doit continuer à mettre l'état à jour.
+    let started = 0;
+    let applied = 0;
     // Cette méthode permet d'interroger les deux /health et d'en déduire un état global.
     const poll = async () => {
+      const seq = ++started;
       const [auth, payments] = await Promise.all([api.health("auth"), api.health("payments")]);
-      if (cancelled) return;
+      if (cancelled || seq < applied) return;
+      applied = seq;
       setHealth({ state: auth && payments ? "ok" : auth || payments ? "degraded" : "down", auth, payments });
     };
     poll();
