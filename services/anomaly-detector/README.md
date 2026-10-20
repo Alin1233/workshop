@@ -69,9 +69,12 @@ Ce contrat est appliqué par le moteur de remédiation (`services/remediation-en
   `payment-api` ou `frontend`). Elle retombe ~70 s après la fin de l'incident (fenêtre glissante d'1 min).
 - Une attaque d'API traverse le frontal : `frontend` peut alerter en même temps que le service visé. Avant
   d'agir, le moteur lit la variable dominante (journal `anomaly_detected` dans Loki :
-  `{service="anomaly-detector", event_type="anomaly_detected"}`) : `probe_failed` ⇒ indisponibilité (redémarrage
-  pertinent) ; `login_failures_per_min`, `invalid_tokens_per_min`, `waf_blocks_per_min` ⇒ attaque (redémarrer ne
-  sert à rien : blocage de l'IP la plus fautive au WAF) ; sinon observation et escalade.
+  `{service="anomaly-detector", event_type="anomaly_detected"}`) : `probe_failed`, `error_ratio_5xx`, `latency_p95`
+  ⇒ indisponibilité (redémarrage du service visé) ; `login_failures_per_min`, `invalid_tokens_per_min`,
+  `waf_blocks_per_min`, `client_errors_4xx_rate` ⇒ attaque (redémarrer ne sert à rien : blocage de l'IP la plus
+  fautive au WAF, si elle compte au moins 10 événements en 2 min dans Loki, sinon escalade `no_offender`) ;
+  `frontend` en même temps qu'un incident d'API : rattaché à cet incident, sans action ; autre variable : escalade
+  (`triage_unknown`). Détail par alerte : [runbook § 6](../../docs/runbooks/incident-response.md).
 - `AnomalyDetectorBlind` et `AnomalyDetectorDown` concernent **le détecteur lui-même** (`service=anomaly-detector`,
   `severity=warning`) : le SI métier n'est pas en cause et ce n'est pas une attaque. Ils ne déclenchent
   aucune action sur un service métier ; seule reprise sûre : redémarrer `anomaly-detector` (sans état) pour

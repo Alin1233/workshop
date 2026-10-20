@@ -24,6 +24,11 @@ ssh resilience@172.16.147.10 'sudo sh -c "cat /var/backups/resilience-alpha/*/me
 ```
 
 ## Restaurer
+Avant une restauration lancée à la main, poser le silence Alertmanager ciblé décrit dans
+[incident-response.md](incident-response.md), section « Restauration lancée par l'opérateur » : le moteur ne sait pas
+qu'une restauration qu'il n'a pas demandée est en cours et relancerait les API arrêtées par le script. Lever le silence
+dès la fin.
+
 ```bash
 ansible-playbook -i ansible/inventory.ini ansible/restore_database.yml -e confirm_restore=true
 ansible-playbook -i ansible/inventory.ini ansible/restore_database.yml -e confirm_restore=true -e backup=20261019T131506Z-scheduled
@@ -32,7 +37,7 @@ ansible-playbook -i ansible/inventory.ini ansible/restore_database.yml -e confir
 Déroulé automatique :
 1. choix de la **dernière sauvegarde saine** (une sauvegarde prise après la corruption est écartée) et vérification des empreintes ;
 2. sauvegarde de l'état courant (type `pre-restore`) : **preuve pour l'investigation**, et moyen d'annuler la restauration ;
-3. arrêt de `auth-service` et `payment-api` : le front affiche « Service dégradé » ;
+3. arrêt de `auth-service` et `payment-api` : les deux `/health` échouent et le front affiche « Service indisponible » ;
 4. recréation de `authdb` et `paydb` depuis la sauvegarde, avec leurs propriétaires et leurs droits ;
 5. redémarrage des API, contrôle d'intégrité du registre (200 attendu), puis transaction témoin.
 
@@ -80,7 +85,7 @@ obtenir de plus qu'une restauration légitime.
   action ; un répertoire est seulement renommé (pas de suppression récursive par root).
 - **Schéma strict** : clés exactes, types, clés répétées et `NaN` refusés, `request_id` en 32 hex (il nomme le fichier de
   résultat), `incident_id` `[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`. Un refus ne renvoie qu'un code, jamais un extrait du contenu
-  (un lien vers `/etc/shadow` ne fuit pas dans `outbox/`).
+  (un lien vers un fichier système sensible de l'hôte ne fuit pas dans `outbox/`).
 - **Aucune interpolation** : la seule action existante est `restore-latest-healthy` ; la commande est fixe (`argv`, sans shell)
   et rien de la demande n'y entre. Le runner revérifie lui-même que le registre est en **409** avant de restaurer, et limite
   à 3 restaurations par heure : un moteur compromis ne peut ni restaurer une base saine ni enchaîner les restaurations.
