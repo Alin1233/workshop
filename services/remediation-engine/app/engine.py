@@ -52,7 +52,7 @@ class NotAllowed(RuntimeError):
 class Plan:
     """Décision prise pour un incident : quoi faire, sur quelle cible, et comment le vérifier."""
 
-    kind: str                           # act | verify | observe | escalate
+    kind: str                           # act | verify | wait | observe | escalate
     nature: str                         # availability | compromise | observe | operator | self
     reason: str                         # justification en clair (chronologie, journaux, dashboard)
     action: str | None = None           # restart | block_ip | restore_db
@@ -312,12 +312,18 @@ class Engine:
         # bornées par l'anti-boucle puis escalade.
         rule = self._rule(incident)
         observed = False
+        waited = False
         while True:
-            plan = await self._decide(incident, rule, observed)
+            plan = await self._decide(incident, rule, observed, waited)
             self._enter_decided(incident, plan)
             if plan.kind == "escalate":
                 self._escalate(incident, plan.escalate_reason or "policy", plan.reason)
                 return
+            if plan.kind == "wait":
+                # Un maillon de la chaîne démarre : on l'attend puis on refait le diagnostic, sans rien redémarrer.
+                await self._await_start(incident, plan)
+                waited = True
+                continue
             if plan.kind == "observe":
                 incident.transition(State.OBSERVING, self.clock(), reason=plan.reason)
                 self._log("remediation_observing", incident, reason=plan.reason)
@@ -384,27 +390,40 @@ class Engine:
         finally:
             self.resolved_events.pop(incident.id, None)
 
+    async def _await_start(self, incident: Incident, plan: Plan) -> None:
+        # Cette méthode permet d'attendre qu'un maillon en cours de démarrage se stabilise (sous le verrou de la chaîne)
+        # avant de refaire le diagnostic : un conteneur qui démarre est attendu, jamais désigné comme cible ni redémarré.
+        incident.event("wait:starting", self.clock(), chain=plan.chain, reason=plan.reason)
+        self._log("remediation_waiting", incident, reason=plan.reason)
+        self._save()
+        async with self._locked(plan.locks):
+            statuses = await self._settle(plan.chain)
+        incident.event("wait:settled", self.clock(), containers=statuses,
+                       reason="stabilisation terminée : nouveau diagnostic sur l'état réel des conteneurs")
+        self._save()
+
     # ───────────────────────────── décisions ─────────────────────────────
 
-    async def _decide(self, incident: Incident, rule: Rule, observed: bool = False) -> Plan:
-        # Cette méthode permet d'appliquer la stratégie de la table de décision à l'incident.
+    async def _decide(self, incident: Incident, rule: Rule, observed: bool = False, waited: bool = False) -> Plan:
+        # Cette méthode permet d'appliquer la stratégie de la table de décision à l'incident. `waited` indique qu'on a
+        # déjà laissé un maillon en cours de démarrage se stabiliser : on ne l'attend plus une seconde fois.
         strategy = rule.strategy
         if strategy is Strategy.RESTART:
-            return await self._decide_restart(incident, rule, incident.service)
+            return await self._decide_restart(incident, rule, incident.service, waited)
         if strategy is Strategy.OBSERVE_THEN_RESTART:
             if not observed:
                 return Plan("observe", Nature.OBSERVE, "latence élevée : observation avant toute action",
                             service=incident.service, wait_s=self.settings.latency_persist_s)
-            return await self._decide_restart(incident, rule, incident.service)
+            return await self._decide_restart(incident, rule, incident.service, waited)
         if strategy is Strategy.INTEGRITY_RESTORE:
-            return await self._decide_integrity(incident)
+            return await self._decide_integrity(incident, waited)
         if strategy is Strategy.BLOCK_ALERT_IP:
             labels = self._first_labels(incident)
             return await self._decide_block(labels.get("client_ip", ""), f"IP portée par {incident.alertname}")
         if strategy is Strategy.BLOCK_TOP_IP:
             return await self._decide_top_ip(incident)
         if strategy is Strategy.ANOMALY_TRIAGE:
-            return await self._decide_anomaly(incident)
+            return await self._decide_anomaly(incident, waited)
         if strategy is Strategy.RESTART_DETECTOR:
             return Plan("act", Nature.AVAILABILITY, "détecteur ML sans score : un seul redémarrage (service sans état)",
                         action="restart", service="anomaly-detector", target="anomaly-detector",
@@ -425,9 +444,11 @@ class Engine:
         # Cette méthode permet de lire l'état de plusieurs conteneurs via le proxy (ActionError si le proxy est injoignable).
         return {s: await asyncio.to_thread(self.docker.health, s) for s in services}
 
-    async def _decide_restart(self, incident: Incident, rule: Rule, service: str | None) -> Plan:
+    async def _decide_restart(self, incident: Incident, rule: Rule, service: str | None,
+                              waited: bool = False) -> Plan:
         # Cette méthode permet de décider d'un redémarrage : diagnostic de la chaîne (PostgreSQL, service, amont),
         # constat du symptôme quand tout semble sain, dédoublonnage avec une action récente d'un autre incident.
+        # Un maillon en cours de démarrage (`starting`) est d'abord attendu (`kind=wait`), jamais désigné comme cible.
         if not service or service not in RESTARTABLE:
             return Plan("escalate", Nature.AVAILABILITY, f"service {service!r} hors du périmètre de redémarrage",
                         escalate_reason="not_allowed")
@@ -440,16 +461,19 @@ class Engine:
         except ActionError as exc:
             return Plan("act", reason=f"état des conteneurs illisible ({exc}) : tentative de redémarrage de {service}",
                         target=service, **base)
-        bad = [s for s in chain if statuses[s] not in OK_STATUSES | {"starting"}]
-        starting = [s for s in chain if statuses[s] == "starting"]
         evidence = {"containers": statuses}
+        starting = [s for s in chain if statuses[s] == "starting"]
+        if starting and not waited:
+            # Conteneur en cours de démarrage : on attend sa stabilisation puis on refait le diagnostic (pas de cible).
+            return Plan("wait", Nature.AVAILABILITY,
+                        f"{', '.join(starting)} en cours de démarrage : attente de sa stabilisation puis nouveau "
+                        "diagnostic", service=service, chain=chain, locks=chain, limits="restart", evidence=evidence)
+        # Après attente, un conteneur toujours « starting » ne s'est pas stabilisé dans le délai : traité comme en panne.
+        bad = [s for s in chain if statuses[s] not in OK_STATUSES]
         if bad:
             return Plan("act", reason=f"{bad[0]} est {statuses[bad[0]]} : redémarrage de {bad[0]}"
                         + (f" (dépendance de {service})" if bad[0] != service else ""),
                         target=bad[0], evidence=evidence, **base)
-        if starting:
-            return Plan("act", reason=f"{starting[0]} est déjà en cours de démarrage : attente de sa stabilisation, "
-                        "puis nouveau diagnostic sous verrou", target=service, evidence=evidence, **base)
         recent = self._recent_action(chain, incident)
         if recent:
             return Plan("verify", reason=f"chaîne saine, {recent['target']} déjà redémarré par {recent['incident']} : "
@@ -494,13 +518,19 @@ class Engine:
             return {"target": target, **recent}
         return None
 
-    async def _decide_integrity(self, incident: Incident) -> Plan:
+    async def _decide_integrity(self, incident: Incident, waited: bool = False) -> Plan:
         # Cette méthode permet de distinguer une vraie corruption (PostgreSQL sain + 409) d'une panne de base (la jauge
         # d'intégrité tombe aussi quand la base est injoignable) : seule la première justifie une restauration.
         try:
             postgres = await asyncio.to_thread(self.docker.health, "postgres")
         except ActionError as exc:
             postgres = f"inconnu ({exc})"
+        if postgres == "starting" and not waited:
+            # PostgreSQL redémarre : le contrôle d'intégrité (409/503) serait trompeur ; on attend puis on re-juge.
+            return Plan("wait", Nature.COMPROMISE, "PostgreSQL en cours de démarrage : attente de sa stabilisation "
+                        "puis nouveau contrôle d'intégrité", service="payment-api",
+                        chain=["postgres", "payment-api"], locks=list(RESTORE_SCOPE), limits="restart",
+                        evidence={"postgres": postgres})
         code, report = await asyncio.to_thread(self.integrity.check)
         evidence = {"postgres": postgres, "integrity_status": code,
                     "checks": report.get("checks") if isinstance(report, dict) else None}
@@ -508,7 +538,7 @@ class Engine:
         postgres_down = postgres in ("exited", "unhealthy", "starting", "none") or (
             postgres not in OK_STATUSES and code != 409)
         if postgres_down or code is None or code >= 500:
-            plan = await self._decide_restart(incident, DECISION_TABLE["DependencyFailures"], "payment-api")
+            plan = await self._decide_restart(incident, DECISION_TABLE["DependencyFailures"], "payment-api", waited)
             plan.reason = (f"pas de corruption confirmée : base injoignable (postgres={postgres}, "
                            f"/internal/integrity={code or 'injoignable'}) → panne de disponibilité, aucune "
                            f"restauration. {plan.reason}")
@@ -597,7 +627,7 @@ class Engine:
                 return other
         return None
 
-    async def _decide_anomaly(self, incident: Incident) -> Plan:
+    async def _decide_anomaly(self, incident: Incident, waited: bool = False) -> Plan:
         # Cette méthode permet de router une anomalie ML selon sa variable dominante : attaque → blocage de l'IP fautive,
         # panne → redémarrage, co-alerte du frontal → rattachement, sinon observation et escalade.
         service = incident.service or ""
@@ -631,7 +661,7 @@ class Engine:
                                             f"en 2 min depuis {top[0]}", {**evidence, "events_2m": top[1]})
         if feature in AVAILABILITY_FEATURES:
             template = DECISION_TABLE["EndToEndProbeFailed" if feature == "probe_failed" else "HighErrorRate"]
-            plan = await self._decide_restart(incident, template, service)
+            plan = await self._decide_restart(incident, template, service, waited)
             plan.reason = f"anomalie de disponibilité ({feature}) sur {service} : {plan.reason}"
             plan.evidence = {**plan.evidence, **evidence}
             return plan
