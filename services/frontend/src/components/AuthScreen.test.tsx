@@ -179,3 +179,73 @@ describe("AuthScreen : état des services avant connexion", () => {
     expect(Array.from(panel.children, (chip) => chip.textContent)).toEqual(labels);
   });
 });
+
+describe("AuthScreen : double authentification", () => {
+  const MFA = "POST /api/auth/login/mfa";
+  const challenge = () => json(200, { mfa_required: true, mfa_token: crypto.randomUUID(), expires_in: 300 });
+  const codeInput = () => screen.getByLabelText(/^Code de vérification/);
+
+  // Cette méthode permet de passer l'étape du mot de passe d'un compte protégé par la double authentification.
+  async function passPassword(routes: Parameters<typeof mockFetch>[0]) {
+    const http = mockFetch({ [LOGIN]: challenge, ...routes });
+    const ctx = setup();
+    await ctx.user.type(emailInput(), "alice@exemple.fr");
+    await ctx.user.type(passwordInput(), ctx.password);
+    await ctx.user.click(screen.getByRole("button", { name: "Se connecter" }));
+    await screen.findByText("Double authentification");
+    return { http, ...ctx };
+  }
+
+  it("demande le code puis ouvre la session avec le jeton d'étape", async () => {
+    const { http, user, onLogin } = await passPassword({ [MFA]: () => loginResponse() });
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/^Mot de passe/)).not.toBeInTheDocument();
+
+    await user.type(codeInput(), "123 456");
+    await user.click(screen.getByRole("button", { name: "Vérifier" }));
+
+    await vi.waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
+    const [call] = http.callsTo(MFA);
+    expect(call.body).toEqual({ mfa_token: expect.stringMatching(/.+/), code: "123456" });
+  });
+
+  it("accepte un code de secours et refuse une saisie mal formée sans appel", async () => {
+    const { http, user, onLogin } = await passPassword({ [MFA]: () => loginResponse() });
+
+    await user.type(codeInput(), "12");
+    await user.click(screen.getByRole("button", { name: "Vérifier" }));
+    expect(screen.getByText("6 chiffres, ou un code de secours (xxxxx-xxxxx).")).toBeInTheDocument();
+    expect(http.callsTo(MFA)).toHaveLength(0);
+
+    await user.clear(codeInput());
+    await user.type(codeInput(), "abcde-fghjk");
+    await user.click(screen.getByRole("button", { name: "Vérifier" }));
+    await vi.waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
+  });
+
+  it("affiche un code refusé et laisse réessayer", async () => {
+    const { user, onLogin } = await passPassword({
+      [MFA]: () => json(401, { code: "mfa_invalid_code", detail: "Code invalide." }),
+    });
+
+    await user.type(codeInput(), "000000");
+    await user.click(screen.getByRole("button", { name: "Vérifier" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Code invalide.");
+    expect(codeInput()).toHaveValue("");
+    expect(onLogin).not.toHaveBeenCalled();
+  });
+
+  it("revient au mot de passe quand l'étape a expiré", async () => {
+    const { user } = await passPassword({
+      [MFA]: () => json(401, { code: "mfa_challenge_expired", detail: "Trop d'essais, reconnectez-vous." }),
+    });
+
+    await user.type(codeInput(), "000000");
+    await user.click(screen.getByRole("button", { name: "Vérifier" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Trop d'essais, reconnectez-vous.");
+    expect(passwordInput()).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Se connecter" })).toBeInTheDocument();
+  });
+});

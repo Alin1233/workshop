@@ -23,6 +23,7 @@ function installPlatform() {
       }),
     "GET /api/payments/accounts/me": payments(() => json(200, makeAccount({ balance_cents: 123_456 }))),
     "GET /api/payments/transfers": payments(() => json(200, [])),
+    "GET /api/auth/mfa": () => json(200, { enabled: false, required: false, recovery_codes_remaining: 0 }),
   });
 }
 
@@ -88,6 +89,41 @@ describe("App : session", () => {
 
     expect(await screen.findByRole("button", { name: "Se connecter" })).toBeInTheDocument();
     expect(loadSession()).toBeNull();
+  });
+});
+
+describe("App : paramètres du compte", () => {
+  it("ouvre la section Sécurité avec la double authentification, puis revient aux comptes", async () => {
+    installPlatform();
+    saveSession(makeSession());
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.queryByTestId("mfa-settings")).not.toBeInTheDocument(); // plus sur le tableau de bord
+
+    await user.click(screen.getByRole("button", { name: "Paramètres" }));
+
+    expect(screen.getByRole("heading", { name: "Paramètres du compte" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sécurité" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Activer" })).toBeInTheDocument();
+    expect(screen.queryByTestId("balance")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "← Retour à mes comptes" }));
+    expect(await screen.findByTestId("balance")).toBeInTheDocument();
+  });
+
+  it("repart du tableau de bord après une déconnexion depuis les paramètres", async () => {
+    installPlatform();
+    saveSession(makeSession());
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Paramètres" }));
+    await user.click(screen.getByRole("button", { name: "Déconnexion" }));
+    await user.type(screen.getByLabelText(/^Email/), "alice@exemple.fr");
+    await user.type(screen.getByLabelText(/^Mot de passe/), crypto.randomUUID());
+    await user.click(screen.getByRole("button", { name: "Se connecter" }));
+
+    expect(await screen.findByTestId("balance")).toBeInTheDocument();
   });
 });
 

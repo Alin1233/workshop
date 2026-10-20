@@ -34,7 +34,8 @@ describe("Dashboard", () => {
 
     await screen.findByText("Aucun mouvement pour le moment");
 
-    expect(http.calls.map((c) => [c.path, c.headers.get("Authorization")])).toEqual([
+    const payments = http.calls.filter((c) => c.path.startsWith("/api/payments/"));
+    expect(payments.map((c) => [c.path, c.headers.get("Authorization")])).toEqual([
       ["/api/payments/accounts/me", `Bearer ${session.token}`],
       ["/api/payments/transfers?limit=20", `Bearer ${session.token}`],
     ]);
@@ -85,7 +86,7 @@ describe("Dashboard", () => {
 
   it("laisse le bandeau d'incident expliquer la panne, sans doublon d'erreur", async () => {
     const { http } = setup({ failure: databaseUnavailable, health: PAYMENTS_DOWN });
-    await vi.waitFor(() => expect(http.calls).toHaveLength(2));
+    await vi.waitFor(() => expect(http.calls.filter((c) => c.path.startsWith("/api/payments/"))).toHaveLength(2));
 
     const alerts = await screen.findAllByRole("alert");
     expect(alerts).toHaveLength(1);

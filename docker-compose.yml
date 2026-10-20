@@ -78,8 +78,10 @@ services:
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-900}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@resilience.local}
       ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      # Secret TOTP du compte admin, à qui la double authentification est imposée (scripts/init_secrets.py)
+      ADMIN_TOTP_SECRET_FILE: /run/secrets/admin_totp_secret
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    secrets: [auth_db_password, jwt_private.pem, admin_password]
+    secrets: [auth_db_password, jwt_private.pem, admin_password, admin_totp_secret]
 
   payment-api:
     <<: *python-service
@@ -597,6 +599,7 @@ secrets:
   auth_db_password: { file: "${SECRETS_DIR:-./secrets}/auth_db_password" }
   pay_db_password: { file: "${SECRETS_DIR:-./secrets}/pay_db_password" }
   admin_password: { file: "${SECRETS_DIR:-./secrets}/admin_password" }
+  admin_totp_secret: { file: "${SECRETS_DIR:-./secrets}/admin_totp_secret" }
   grafana_admin_password: { file: "${SECRETS_DIR:-./secrets}/grafana_admin_password" }
   jwt_private.pem: { file: "${SECRETS_DIR:-./secrets}/jwt_private.pem" }
   jwt_public.pem: { file: "${SECRETS_DIR:-./secrets}/jwt_public.pem" }
