@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
   ApiError,
@@ -48,6 +48,15 @@ export default function Dashboard({ session, health, onSessionExpired }: Props) 
     const timer = setInterval(refresh, 10000);
     return () => clearInterval(timer);
   }, [refresh]);
+
+  // Retour à la normale (dégradé ou indisponible → ok) : rechargement immédiat, sans attendre le prochain tour
+  // de 10 s ; sinon l'erreur du dernier rechargement raté resterait affichée seule une fois le bandeau retiré.
+  const previousState = useRef(health.state);
+  useEffect(() => {
+    const recovered = health.state === "ok" && (previousState.current === "degraded" || previousState.current === "down");
+    previousState.current = health.state;
+    if (recovered) refresh();
+  }, [health.state, refresh]);
 
   // Cette méthode permet de copier son numéro de compte pour le communiquer à un autre utilisateur.
   const copyAccountNumber = async () => {

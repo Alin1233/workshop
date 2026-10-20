@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { loadSession, saveSession, type Session } from "./lib/api";
 import { useServiceHealth } from "./lib/useServiceHealth";
 import AuthScreen from "./components/AuthScreen";
@@ -22,10 +22,13 @@ export default function App() {
   const health = useServiceHealth();
 
   // Cette méthode permet de mettre à jour la session en mémoire et dans le stockage de l'onglet.
-  const updateSession = (next: Session | null) => {
+  const updateSession = useCallback((next: Session | null) => {
     saveSession(next);
     setSession(next);
-  };
+  }, []);
+  // Rappel stable : l'App se réaffiche à chaque sondage /health (5 s) ; un rappel recréé à chaque rendu relançait
+  // le rechargement du tableau de bord à chaque sondage au lieu de toutes les 10 s.
+  const expireSession = useCallback(() => updateSession(null), [updateSession]);
 
   if (!session) {
     return (
@@ -58,7 +61,7 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6">
-        <Dashboard session={session} health={health} onSessionExpired={() => updateSession(null)} />
+        <Dashboard session={session} health={health} onSessionExpired={expireSession} />
       </main>
     </div>
   );
