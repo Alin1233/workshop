@@ -35,6 +35,7 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
     "X-Frame-Options": "DENY",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=()",
     "Cache-Control": "no-store",
 }
 # Page servie en self uniquement : ni script ni style en ligne, aucune connexion vers une autre origine.

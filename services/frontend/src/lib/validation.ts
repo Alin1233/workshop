@@ -2,6 +2,10 @@
 import { z } from "zod";
 import { parseEuros } from "./api";
 
+// Sans compilation à la volée : la CSP du frontal interdit eval, et la sonde `Function("")` de Zod, bien qu'interceptée,
+// produirait une violation CSP à chaque chargement (docs/securite/revue-durcissement.md). Avant toute définition de schéma.
+z.config({ jitless: true });
+
 export const LABEL_MAX = 60;
 export const FULL_NAME_MAX = 80;
 export const PASSWORD_MIN = 10;

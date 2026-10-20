@@ -5,6 +5,7 @@ Sert aussi de « transaction témoin » pour prouver que le service est rétabli
 """
 
 import json
+import secrets
 import sys
 import time
 import urllib.error
@@ -48,7 +49,7 @@ def check(condition: bool, label: str) -> None:
 def new_user(prefix: str) -> tuple[str, str]:
     # Cette méthode permet de créer un utilisateur fictif unique puis de renvoyer son jeton et son numéro de compte.
     email = f"{prefix}-{uuid.uuid4().hex[:8]}@demo.local"
-    password = "Demo-password-2026"
+    password = secrets.token_urlsafe(18)   # tiré à chaque exécution : aucun mot de passe écrit dans le dépôt
     status, _ = call("POST", "/api/auth/register", {"email": email, "full_name": prefix.capitalize(), "password": password})
     check(status == 201, f"inscription {prefix} -> 201 (reçu {status})")
     status, body = call("POST", "/api/auth/login", {"email": email, "password": password})
