@@ -44,7 +44,7 @@ alimenter le moteur de remédiation.
 
 ```
  conteneurs ──stdout JSON──▶ fichiers json-file ──▶ alloy ──▶ loki ──règles SOC──┐
- API /metrics, sondes blackbox (à travers le WAF) ──▶ prometheus ──règles──────────┼──▶ alertmanager ──▶ remediation-engine (à développer)
+ API /metrics, sondes blackbox (à travers le WAF) ──▶ prometheus ──règles──────────┼──▶ alertmanager ──▶ remediation-engine ──▶ docker-socket-proxy / WAF / pont hôte
                                        grafana ◀── prometheus, loki, alertmanager ┘
  anomaly-detector (ML) ◀── prometheus + loki, toutes les 10 s ; anomaly_score{service} ──▶ prometheus (règle AnomalyDetected)
 ```
@@ -52,7 +52,7 @@ alimenter le moteur de remédiation.
 | Service | Rôle | Accès (PC Hôte uniquement) |
 |---|---|---|
 | `grafana` | tableaux « Santé du service » et « SOC » provisionnés | http://127.0.0.1:3000 (admin / `secrets/grafana_admin_password`) |
-| `prometheus` | métriques, sondes de bout en bout, 14 règles (`infra/prometheus/rules` : service, intégrité, détection ML `AnomalyDetected` et santé du détecteur, PC Hôte, sauvegardes) | http://127.0.0.1:9090 (admin / `secrets/prometheus_password`) |
+| `prometheus` | métriques, sondes de bout en bout, 16 règles (`infra/prometheus/rules` : service, intégrité, détection ML `AnomalyDetected` et santé du détecteur, PC Hôte, sauvegardes, moteur de remédiation) | http://127.0.0.1:9090 (admin / `secrets/prometheus_password`) |
 | `alertmanager` | regroupe les alertes et les envoie au moteur de remédiation | http://127.0.0.1:9093 (admin / `secrets/alertmanager_password`) |
 | `loki` | journaux centralisés + 5 règles SOC LogQL (`infra/loki/rules/fake/soc.yml`) | via `loki-proxy` |
 | `loki-proxy` | nginx : authentification basique devant Loki, qui n'en a pas (les accès internes d'Alloy et Grafana restent directs) | http://127.0.0.1:3100 (admin / `secrets/loki_password`) |
@@ -61,6 +61,8 @@ alimenter le moteur de remédiation.
 | `node-exporter` | ressources du PC Hôte (CPU, mémoire, disque) et état des sauvegardes PostgreSQL, sans accès au socket Docker | — |
 | `ollama` | LLM local de l'assistant RAG (CPU), profil `ai` (`--profile ai` ou `COMPOSE_PROFILES=ai`) ; sinon PC de délestage IA via `OLLAMA_BASE_URL` | non publié (réseau `ai`) |
 | `anomaly-detector` | détection d'anomalies ML (z-score robuste calibré, `ml/`) : `anomaly_score{service}` 0..1 pour auth-service, payment-api, frontend (NaN si pas de donnée) ; sa propre santé est surveillée (`AnomalyDetectorBlind`, `AnomalyDetectorDown`) | — (scrapé par Prometheus, réseau `obs`) |
+| `remediation-engine` | moteur de remédiation : webhook Alertmanager authentifié → table de décision → redémarrage (disponibilité) ou blocage d'IP au WAF / restauration de la base (compromission) → vérification (sondes + transaction témoin) ; API d'état en lecture seule ([README](services/remediation-engine/README.md)) | non publié (réseaux `obs`, `app`, `dmz`, `docker-api`) |
+| `docker-socket-proxy` | seule porte vers le démon Docker, réservée au moteur : lecture d'état et restart / start / kill uniquement | non publié (réseau interne `docker-api`) |
 | `ops-assistant` | assistant RAG des opérateurs (Ollama + LangChain) : procédures et architecture, réponses sourcées, aucune action ([README](services/ops-assistant/README.md)) | http://127.0.0.1:8090 (admin / `secrets/ops_assistant_password`) |
 
 Les interfaces de gestion ne sont publiées que sur `127.0.0.1` (`MGMT_BIND`), conformément au §4 du sujet.
@@ -130,7 +132,8 @@ ml/                      jeu de données, entraînement et évaluation du détec
 scripts/init_secrets.py  génération des secrets locaux
 scripts/sops_secrets.py  chiffrement des secrets (SOPS + age)
 services/anomaly-detector/  service d'inférence ML (variables + modèle partagés avec ml/), expose anomaly_score
-services/remediation-engine/, supervision-dashboard/   contrats d'intégration (à développer)
+services/remediation-engine/  moteur de remédiation (FastAPI) : décision, actions, vérification, API d'état
+services/supervision-dashboard/  contrat d'intégration (à développer)
 services/ops-assistant/  assistant RAG des opérateurs (FastAPI + LangChain + Ollama) et son évaluation (eval/)
 services/common/         journaux JSON, métriques, pool PostgreSQL, lecture des secrets (partagé)
 services/auth-service/   FastAPI — authentification

@@ -11,7 +11,8 @@ from pathlib import Path
 from types import ModuleType
 
 SERVICES_DIR = Path(__file__).resolve().parent.parent / "services"
-ALIASES = {"auth-service": "auth_app", "payment-api": "payment_app", "ops-assistant": "ops_app"}
+ALIASES = {"auth-service": "auth_app", "payment-api": "payment_app", "ops-assistant": "ops_app",
+           "remediation-engine": "remediation_app"}
 if str(SERVICES_DIR / "common") not in sys.path:
     sys.path.insert(0, str(SERVICES_DIR / "common"))
 

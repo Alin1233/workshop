@@ -21,6 +21,9 @@ OBSERVABILITY = ("prometheus", "alertmanager", "loki")
 PASSWORDS = ("postgres_password", "auth_db_password", "pay_db_password", "admin_password", "grafana_admin_password",
              *(f"{service}_password" for service in OBSERVABILITY), "ops_assistant_password")
 OBSERVABILITY_USER = "admin"
+# Jetons de service (jamais saisis par un humain) : remediation_webhook_token authentifie Alertmanager auprès du moteur
+# de remédiation (en-tête Authorization: Bearer, lu par les deux conteneurs en secret Compose).
+TOKENS = ("remediation_webhook_token",)
 
 
 def write_secret(name: str, content: str, force: bool) -> None:
@@ -115,6 +118,8 @@ def main() -> None:
     print(f"Secrets dans {SECRETS_DIR}")
     for name in PASSWORDS:
         write_secret(name, secrets.token_urlsafe(24), force)
+    for name in TOKENS:
+        write_secret(name, secrets.token_urlsafe(32), force)
     if force or not (SECRETS_DIR / "jwt_private.pem").exists():
         private_pem, public_pem = generate_rsa_pair()
         write_secret("jwt_private.pem", private_pem, True)

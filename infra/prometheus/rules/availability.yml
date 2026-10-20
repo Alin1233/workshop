@@ -97,3 +97,29 @@ groups:
             Plus aucune détection ML : la cause est donnée par GET /health du détecteur (no_model, model_mismatch,
             auth_secret_unreadable…). Le SI métier n'est pas en cause. Seule reprise sûre : redémarrer
             anomaly-detector (sans état) ; aucune action sur les services métier.
+
+  # Moteur de remédiation (services/remediation-engine). Ces alertes portent service=remediation-engine : le moteur les
+  # reçoit et les journalise mais n'agit jamais en réponse (anti-boucle) ; elles s'adressent à l'opérateur. Les séries
+  # sont créées à zéro au démarrage du moteur, increase() voit donc le premier échec. Les escalades « par conception »
+  # (reason="policy" : hôte, sauvegardes) ne sont pas des échecs de remédiation.
+  - name: remediation
+    rules:
+      - alert: RemediationFailed
+        expr: |
+          sum(increase(remediation_actions_total{result=~"failure|refused"}[10m])) > 0
+            or sum(increase(remediation_escalations_total{reason!="policy"}[10m])) > 0
+        for: 0s
+        labels: { severity: critical, domain: availability, service: remediation-engine }
+        annotations:
+          summary: "Remédiation automatique en échec ou incident escaladé : intervention humaine requise"
+          description: >-
+            Une action du moteur a échoué ou un incident a été escaladé (vérification en échec, anti-boucle, pont de
+            restauration absent, IP non attribuable…). Détail : GET /api/state du moteur ou journaux
+            event_type=remediation_escalated dans Loki.
+
+      - alert: RemediationEngineDown
+        expr: up{job="remediation-engine"} == 0
+        for: 30s
+        labels: { severity: critical, domain: availability, service: remediation-engine }
+        annotations:
+          summary: "Le moteur de remédiation ne répond plus : plus aucune reprise automatique"
