@@ -12,6 +12,10 @@ BACKUP_DIR={{ pc_hote_backup_dir }}
 APP_DIR="$(readlink -f {{ pc_hote_app_root }}/current)"
 log() { echo "$(date -u +%H:%M:%S) $*"; }
 
+# Une seule restauration à la fois (playbook de l'opérateur, pont de remédiation) : code 75 si une autre est en cours
+exec 9>"$BACKUP_DIR/.restore.lock"
+flock --nonblock 9 || { echo "restauration déjà en cours" >&2; exit 75; }
+
 if [ "$TARGET" = latest-healthy ]; then
   META="$(grep -l '"integrity": "ok"' "$BACKUP_DIR"/*/meta.json 2>/dev/null | grep -v -- '-pre-restore/' | sort | tail -n 1 || true)"
   [ -n "$META" ] || { echo "aucune sauvegarde saine dans $BACKUP_DIR" >&2; exit 1; }

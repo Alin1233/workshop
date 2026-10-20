@@ -117,6 +117,8 @@
               # Géré par Ansible (deploy.yml) : chemins stables d'une version à l'autre
               SECRETS_DIR={{ shared_secrets }}
               NODE_TEXTFILE_DIR={{ pc_hote_node_textfile_dir }}
+              # Pont de remédiation, monté en /bridge dans le moteur (tasks/remediation_bridge_install.yml)
+              REMEDIATION_BRIDGE_DIR={{ pc_hote_remediation_bridge_dir }}
               # Assistant RAG, LLM en mode « {{ pc_hote_ai_mode }} » : profil ai = conteneur ollama de la VM
               COMPOSE_PROFILES={{ 'ai' if pc_hote_ai_mode == 'container' else '' }}
               OLLAMA_BASE_URL={{ pc_hote_ai_offload_url if pc_hote_ai_mode == 'offload' else 'http://ollama:11434' }}
@@ -131,6 +133,10 @@
             src: ../../shared/.env
             dest: "{{ release_dir }}/.env"
             state: link
+
+        # Avant `docker compose up` : sinon Docker crée le répertoire monté par le moteur (root 0755, inutilisable)
+        - name: Installer le pont de remédiation (restauration demandée par le moteur, exécutée par l'hôte)
+          ansible.builtin.include_tasks: tasks/remediation_bridge_install.yml
 
         # ─────────────────────────────────── Secrets ───────────────────────────────────
         - name: Restaurer les secrets chiffrés (SOPS) s'ils sont versionnés
@@ -235,6 +241,26 @@
 
         - name: Installer la sauvegarde planifiée de la base
           ansible.builtin.include_tasks: tasks/pg_backup_install.yml
+
+        # Le heartbeat lance `docker compose ps` depuis l'unité durcie : vérifie que le durcissement laisse passer Docker
+        - name: Rafraîchir le heartbeat du pont de remédiation
+          ansible.builtin.systemd_service:
+            name: resilience-remediation-bridge-heartbeat.service
+            state: started
+          changed_when: false
+
+        - name: Lire le heartbeat du pont
+          ansible.builtin.slurp:
+            src: "{{ pc_hote_remediation_bridge_dir }}/outbox/heartbeat.json"
+          register: bridge_heartbeat
+
+        - name: Vérifier que le pont peut restaurer (runner présent, Docker joignable depuis l'unité)
+          ansible.builtin.assert:
+            that: (bridge_heartbeat.content | b64decode | from_json).docker_ok | default(false)
+            fail_msg: >-
+              Pont de remédiation : Docker injoignable depuis resilience-remediation-bridge-heartbeat.service
+              (journalctl -u resilience-remediation-bridge-heartbeat) ; la restauration automatique échouerait.
+            quiet: true
 
         # ─────────────────────────────────── Vérifications ──────────────────────────────
         - name: Vérifier le service métier sur le PC Hôte (transaction témoin, contrôle admin compris)

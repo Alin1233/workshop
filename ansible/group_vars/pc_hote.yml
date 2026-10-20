@@ -34,3 +34,12 @@ pc_hote_ai_mode: container
 pc_hote_ai_offload_url: ""
 pc_hote_ai_llm_model: llama3.2:3b
 pc_hote_ai_embed_model: nomic-embed-text
+
+# Pont de remédiation (restauration automatique, EBIOS S5) : le moteur, conteneur non privilégié, dépose une demande
+# dans ce répertoire (monté en /bridge) ; l'unité systemd resilience-remediation-bridge l'exécute avec
+# resilience-pg-restore. Écrit dans le .env de Compose (REMEDIATION_BRIDGE_DIR). Voir docs/runbooks/restauration-base.md
+pc_hote_remediation_bridge_dir: /var/lib/resilience-alpha/remediation-bridge
+pc_hote_remediation_state_dir: /var/lib/resilience-alpha/remediation-runner   # verrou et historique, root seul
+pc_hote_remediation_engine_uid: 10001          # USER du conteneur remediation-engine : seul autorisé à écrire inbox/
+pc_hote_remediation_restores_per_hour: 3       # au-delà, demande refusée (rate_limited) : un moteur compromis ne peut
+                                               # pas enchaîner les restaurations (chacune perd les écritures récentes)

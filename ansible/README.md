@@ -104,6 +104,13 @@ Procédure, mesures et limites : [docs/runbooks/restauration-base.md](../docs/ru
 - Les scripts écrivent leurs mesures pour node-exporter (`/var/lib/node-exporter/textfile/*.prom`) : alertes
   `BackupFailed` et `BackupMissing`, rangée « PC Hôte et sauvegardes » du tableau Grafana « Santé du service ».
 - Ni les rôles ni leurs mots de passe ne sont sauvegardés : `db/init/01-create-service-databases.sh` les recrée depuis les secrets.
+- **Restauration automatique** : `deploy.yml` installe aussi le pont de remédiation (`tasks/remediation_bridge_install.yml`,
+  `files/resilience-remediation-bridge.py`). Le moteur, conteneur non privilégié, ne fait que déposer une demande dans
+  `/var/lib/resilience-alpha/remediation-bridge/inbox/` (`REMEDIATION_BRIDGE_DIR` dans `shared/.env`) ; l'unité
+  `resilience-remediation-bridge.path` lance `resilience-pg-restore latest-healthy` (root sans capacités, unité durcie),
+  seulement si le registre est en 409, une seule à la fois, 3 par heure au plus. Un timer tient un heartbeat à jour ; le
+  déploiement échoue si l'unité durcie ne joint pas Docker. Protocole et modèle de sécurité : runbook ci-dessus.
+- `resilience-pg-restore` prend un verrou (code 75 si une restauration tourne déjà) : playbook et pont ne se chevauchent pas.
 
 ## Recette sur une machine vierge et PRA « perte du PC Hôte »
 
@@ -153,6 +160,9 @@ Pour une reprise complète, les secrets doivent être restaurés avec les donné
 
 ## À faire
 - [ ] Chiffrer la copie locale des sauvegardes (age, clé de l'équipe)
-- [ ] Pendant une restauration, suspendre les alertes de disponibilité (silence Alertmanager) pour que le moteur de remédiation ne relance pas les API
-- [ ] Décider si le moteur de remédiation appelle ces playbooks ou l'API Docker (expliquer le choix au jury)
+- [ ] Pendant une restauration, ne pas « réparer » les API arrêtées : le moteur le sait (`RestoreBridge.in_flight`, heartbeat
+  `busy`) ; reste à le faire pour une restauration lancée par l'opérateur (silence Alertmanager)
+- [x] Moteur de remédiation et restauration : ni playbook ni API Docker, un pont de fichiers vers une unité systemd de l'hôte
+  (le moteur ne choisit ni la commande ni ses arguments)
+- [ ] Tester le pont sur la VM (root sans capacités, `inbox/` à l'uid 10001) : essai local fait avec `systemd-run --user`
 - [ ] SOPS sur le PC Hôte : installer `sops` et la clé age (ou déchiffrer sur le poste de l'opérateur) avant de versionner `secrets.enc.json`

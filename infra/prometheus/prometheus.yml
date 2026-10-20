@@ -92,6 +92,7 @@ scrape_configs:
     honor_labels: true
     static_configs: [{ targets: ["anomaly-detector:8000"], labels: { service: anomaly-detector } }]
 
-  # À activer quand les composants existeront (sinon ServiceDown se déclencherait en permanence)
-  # - job_name: remediation-engine
-  #   static_configs: [{ targets: ["remediation-engine:8000"], labels: { service: remediation-engine } }]
+  # Moteur de remédiation (réseau obs) : actions, vérifications, escalades, incidents ouverts.
+  # Surveillé par les règles du groupe remediation (RemediationFailed, RemediationEngineDown), qu'il ne remédie jamais.
+  - job_name: remediation-engine
+    static_configs: [{ targets: ["remediation-engine:8000"], labels: { service: remediation-engine } }]

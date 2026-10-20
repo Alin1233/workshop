@@ -116,8 +116,16 @@ services:
       PROXY_TIMEOUT: 20s
       # Le WAF n'est derrière aucun proxy : $remote_addr est l'IP réelle (PC attaquant compris).
       SET_REAL_IP_FROM: 127.0.0.1
+    # Blocage d'IP par le moteur de remédiation (services/remediation-engine/docs/waf-blocking.md) : liste lue en
+    # lecture seule dans le volume waf-blocklist (écrit par le moteur, uid 10001), appliquée par SIGHUP (rechargement
+    # à chaud de nginx). 403 avant ModSecurity, journal JSON event_type=waf_remediation_block ; port interne 8081
+    # (non publié) pour que le moteur vérifie la configuration chargée.
     volumes:
       - ./infra/waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro
+      - ./infra/waf/00-remediation-blocklist.conf.template:/etc/nginx/templates/conf.d/00-remediation-blocklist.conf.template:ro
+      - ./infra/waf/location_common.conf.template:/etc/nginx/templates/includes/location_common.conf.template:ro
+      - ./infra/waf/99-remediation-blocklist-guard.sh:/docker-entrypoint.d/99-remediation-blocklist-guard.sh:ro
+      - waf-blocklist:/waf-blocklist:ro
     networks: [edge, dmz]
 
   # ─────────────────────────── Observabilité (pilier INFRA) ──────────────────────────
@@ -157,7 +165,8 @@ services:
       # Sans identifiant, n'importe quel processus local pourrait poser un silence et masquer une alerte
       - --web.config.file=/run/secrets/alertmanager_web.yml
     read_only: true
-    secrets: [alertmanager_web.yml]
+    # remediation_webhook_token : jeton porteur des appels au webhook du moteur de remédiation
+    secrets: [alertmanager_web.yml, remediation_webhook_token]
     volumes:
       - ./infra/alertmanager:/etc/alertmanager:ro
       - alertmanager-data:/alertmanager
@@ -342,18 +351,100 @@ services:
     depends_on: [prometheus, loki]
     networks: [obs]
 
+  # ───────────────────── Remédiation automatique (pilier DEV / SÉCURITÉ) ─────────────────────
+  # Reçoit les alertes d'Alertmanager (POST /alerts, jeton porteur), décide (table de décision), agit, puis vérifie
+  # (santé des conteneurs, sondes, transaction témoin à travers le WAF). Aucun port publié, API d'état en lecture seule.
+  # Disponibilité → redémarrage via docker-socket-proxy ; compromission → blocage d'IP au WAF (volume waf-blocklist)
+  # ou restauration de la base demandée au pont hôte (/bridge, jamais exécutée par le moteur). Détail :
+  # services/remediation-engine/README.md.
+  remediation-engine:
+    <<: *hardening
+    build:
+      context: ./services
+      dockerfile: remediation-engine/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-resilience-alpha}/remediation-engine:latest
+    read_only: true
+    tmpfs: ["/tmp"]
+    environment:
+      SERVICE_NAME: remediation-engine
+      # Les conteneurs sont retrouvés par leurs labels Compose (projet + service), jamais par un nom reçu dans une alerte
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-resilience-alpha}
+      DOCKER_PROXY_URL: http://docker-socket-proxy:2375
+      PROMETHEUS_URL: http://prometheus:9090
+      PROMETHEUS_USER: admin
+      PROMETHEUS_PASSWORD_FILE: /run/secrets/prometheus_password
+      LOKI_URL: http://loki:3100
+      PAYMENT_API_URL: http://payment-api:8000
+      WITNESS_BASE_URL: http://waf:8080
+      WEBHOOK_TOKEN_FILE: /run/secrets/remediation_webhook_token
+      STATE_FILE: /state/remediation-state.json
+      WAF_BLOCKLIST_PATH: /waf-blocklist/blocked-ips.conf
+      WAF_BLOCK_TTL_SECONDS: ${WAF_BLOCK_TTL_SECONDS:-300}
+      WAF_BLOCK_ALLOWLIST: ${WAF_BLOCK_ALLOWLIST:-}
+      REMEDIATION_BRIDGE_PATH: /bridge
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    secrets: [prometheus_password, remediation_webhook_token]
+    volumes:
+      - remediation-state:/state
+      - waf-blocklist:/waf-blocklist
+      - ${REMEDIATION_BRIDGE_DIR:-./.remediation-bridge}:/bridge
+    depends_on: [docker-socket-proxy]
+    # obs : Alertmanager, Prometheus, Loki ; app : /internal/integrity de payment-api ; dmz : transaction témoin via
+    # waf:8080 ; docker-api : le proxy Docker, et rien d'autre
+    networks: [obs, app, dmz, docker-api]
+
+  # Seule porte vers le démon Docker : lecture de l'état des conteneurs, restart / start / kill. Le modèle haproxy
+  # durci (services/remediation-engine/proxy/) refuse tout le reste même avec CONTAINERS=1 et POST=1 (création de
+  # conteneur, exec, suppression…). Socket en lecture seule, réseau docker-api interne partagé avec le seul moteur.
+  docker-socket-proxy:
+    <<: *hardening
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    read_only: true
+    tmpfs: ["/tmp", "/run", "/var/lib/haproxy"]
+    environment:
+      CONTAINERS: 1
+      POST: 1
+      ALLOW_RESTARTS: 1
+      ALLOW_START: 1
+      ALLOW_STOP: 0
+      ALLOW_PAUSE: 0
+      ALLOW_UNPAUSE: 0
+      AUTH: 0
+      BUILD: 0
+      COMMIT: 0
+      CONFIGS: 0
+      DISTRIBUTION: 0
+      EVENTS: 0
+      EXEC: 0
+      GRPC: 0
+      IMAGES: 0
+      INFO: 0
+      NETWORKS: 0
+      NODES: 0
+      PING: 0
+      PLUGINS: 0
+      SECRETS: 0
+      SERVICES: 0
+      SESSION: 0
+      SWARM: 0
+      SYSTEM: 0
+      TASKS: 0
+      VERSION: 0
+      VOLUMES: 0
+      DISABLE_IPV6: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./services/remediation-engine/proxy/haproxy.cfg.template:/usr/local/etc/haproxy/haproxy.cfg.template:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2375/containers/json?limit=1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks: [docker-api]
+
   # ─────────────────────── Composants à développer par l'équipe ──────────────────────
-  # Contrats d'intégration détaillés dans services/<nom>/README.md. Décommenter une fois le code livré.
-  #
-  # remediation-engine:      # reçoit les webhooks Alertmanager (POST /alerts), agit via docker-socket-proxy
-  #   build: ./services/remediation-engine
-  #   networks: [obs, app, docker-api]
-  #
-  # docker-socket-proxy:     # seule porte vers le démon Docker, limitée aux opérations de reprise
-  #   image: tecnativa/docker-socket-proxy:latest
-  #   environment: { CONTAINERS: 1, POST: 1, ALLOW_RESTARTS: 1 }
-  #   volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
-  #   networks: [docker-api]
+  # Contrat d'intégration détaillé dans services/<nom>/README.md. Décommenter une fois le code livré.
   #
   # supervision-dashboard:   # React + Tailwind : composants, événements, alertes, avancement de la reprise
   #   build: ./services/supervision-dashboard
@@ -373,6 +464,8 @@ networks:
     internal: true      # chaîne d'observation et de remédiation
   mgmt: {}              # ports de gestion publiés sur 127.0.0.1 uniquement
   ai: {}                # assistant RAG <-> Ollama conteneurisé (sortie Internet pour `ollama pull`)
+  docker-api:
+    internal: true      # moteur de remédiation <-> docker-socket-proxy, et personne d'autre
 
 volumes:
   pgdata: {}
@@ -382,6 +475,10 @@ volumes:
   alloy-data: {}
   grafana-data: {}
   ollama-data: {}
+  # Liste des IP bloquées : écrite par remediation-engine (rw, uid 10001), lue par le WAF (ro)
+  waf-blocklist: {}
+  # Incidents, chronologies et anti-boucle du moteur de remédiation (survivent à son redémarrage)
+  remediation-state: {}
 
 # SECRETS_DIR : chemin stable hors des versions sur le PC Hôte (.env écrit par deploy.yml) ; ./secrets en local.
 # Compose ne recrée pas un conteneur quand seul le chemin d'un secret change : il ne doit donc pas changer d'une version à l'autre.
@@ -401,3 +498,5 @@ secrets:
   alertmanager_basic_auth: { file: "${SECRETS_DIR:-./secrets}/alertmanager_basic_auth" }
   loki_htpasswd: { file: "${SECRETS_DIR:-./secrets}/loki_htpasswd" }
   ops_assistant_password: { file: "${SECRETS_DIR:-./secrets}/ops_assistant_password" }
+  # Jeton du webhook Alertmanager → moteur de remédiation (généré par scripts/init_secrets.py)
+  remediation_webhook_token: { file: "${SECRETS_DIR:-./secrets}/remediation_webhook_token" }

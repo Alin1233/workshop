@@ -1,0 +1,145 @@
+# Installe le pont de remédiation (restauration automatique, EBIOS S5 « registre modifié en base »).
+# Le moteur (conteneur non privilégié, uid {{ pc_hote_remediation_engine_uid }}) ne peut que déposer une demande dans
+# inbox/ ; l'unité .path la confie au runner (root, sans capacités), qui la valide et lance
+# `resilience-pg-restore latest-healthy`, puis écrit le résultat dans outbox/. Un timer tient le heartbeat à jour.
+# Protocole et modèle de sécurité : docs/runbooks/restauration-base.md (« Restauration automatique »).
+# Inclus par deploy.yml avant `docker compose up` : le répertoire monté existe avec ses droits avant le moteur.
+- name: Créer les répertoires du pont (le moteur n'écrit que dans inbox/, root seul dans outbox/)
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ pc_hote_remediation_bridge_dir | dirname }}", owner: root, mode: "0755" }
+    # Racine root 0755 : le moteur ne peut ni remplacer inbox/ ou outbox/ ni y poser de lien
+    - { path: "{{ pc_hote_remediation_bridge_dir }}", owner: root, mode: "0755" }
+    # 2770 : seul l'uid du moteur (et root) y écrit ; setgid → les demandes prennent le groupe root et restent
+    # lisibles par le runner, qui n'a pas CAP_DAC_OVERRIDE
+    - { path: "{{ pc_hote_remediation_bridge_dir }}/inbox", owner: "{{ pc_hote_remediation_engine_uid }}", mode: "2770" }
+    - { path: "{{ pc_hote_remediation_bridge_dir }}/outbox", owner: root, mode: "0755" }
+    # Verrou d'exécution unique et historique : hors du pont, le moteur ne peut pas les ouvrir
+    - { path: "{{ pc_hote_remediation_state_dir }}", owner: root, mode: "0700" }
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Installer le runner du pont
+  ansible.builtin.copy:
+    src: files/resilience-remediation-bridge.py
+    dest: /usr/local/sbin/resilience-remediation-bridge
+    owner: root
+    group: root
+    mode: "0750"
+    validate: /usr/bin/python3 -I -c "import ast, sys; ast.parse(open(sys.argv[1]).read())" %s
+
+- name: Déclarer les unités du pont
+  vars:
+    bridge_cmd: >-
+      /usr/local/sbin/resilience-remediation-bridge
+      --bridge-dir {{ pc_hote_remediation_bridge_dir }}
+      --state-dir {{ pc_hote_remediation_state_dir }}
+      --engine-uid {{ pc_hote_remediation_engine_uid }}
+      --app-dir {{ pc_hote_app_root }}/current
+      --max-restores-per-hour {{ pc_hote_remediation_restores_per_hour }}
+    # root pour posséder les fichiers et joindre le socket Docker (équivalent root : non restreignable ici),
+    # mais aucune capacité, système en lecture seule sauf les répertoires utiles, pas de réseau (socket Unix seul)
+    bridge_hardening: |
+      UMask=0077
+      NoNewPrivileges=yes
+      CapabilityBoundingSet=
+      AmbientCapabilities=
+      ProtectSystem=strict
+      ReadWritePaths=-{{ pc_hote_remediation_bridge_dir }} -{{ pc_hote_remediation_state_dir }} -{{ pc_hote_backup_dir }} -{{ pc_hote_node_textfile_dir }}
+      ProtectHome=tmpfs
+      PrivateTmp=yes
+      PrivateDevices=yes
+      PrivateNetwork=yes
+      RestrictAddressFamilies=AF_UNIX
+      ProtectKernelTunables=yes
+      ProtectKernelModules=yes
+      ProtectKernelLogs=yes
+      ProtectControlGroups=yes
+      ProtectClock=yes
+      ProtectHostname=yes
+      ProtectProc=invisible
+      RestrictNamespaces=yes
+      RestrictRealtime=yes
+      RestrictSUIDSGID=yes
+      LockPersonality=yes
+      MemoryDenyWriteExecute=yes
+      SystemCallArchitectures=native
+      SystemCallFilter=@system-service
+      SystemCallErrorNumber=EPERM
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    content: "{{ item.content }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - name: resilience-remediation-bridge.path
+      content: |
+        [Unit]
+        Description=Pont de remédiation : demande de restauration déposée par le moteur
+
+        [Path]
+        PathExists={{ pc_hote_remediation_bridge_dir }}/inbox/request.json
+        Unit=resilience-remediation-bridge.service
+
+        [Install]
+        WantedBy=paths.target
+    - name: resilience-remediation-bridge.service
+      content: |
+        [Unit]
+        Description=Pont de remédiation : restauration PostgreSQL demandée par le moteur (registre incohérent)
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        Type=oneshot
+        # La demande est toujours consommée (même refusée) : pas de relance en boucle par l'unité .path
+        ExecStart={{ bridge_cmd }} process
+        TimeoutStartSec=20min
+        {{ bridge_hardening }}
+    - name: resilience-remediation-bridge-heartbeat.service
+      content: |
+        [Unit]
+        Description=Pont de remédiation : heartbeat (runner présent, Docker joignable) et ménage
+        After=docker.service resilience-remediation-bridge.path
+        # Unité .path arrêtée ou en échec : plus de heartbeat, le moteur voit le pont indisponible et escalade
+        Requisite=resilience-remediation-bridge.path
+
+        [Service]
+        Type=oneshot
+        ExecStart={{ bridge_cmd }} heartbeat
+        TimeoutStartSec=2min
+        {{ bridge_hardening }}
+    - name: resilience-remediation-bridge-heartbeat.timer
+      content: |
+        [Unit]
+        Description=Pont de remédiation : heartbeat toutes les 30 s (périmé côté moteur au-delà de 120 s)
+
+        [Timer]
+        OnBootSec=30s
+        OnUnitActiveSec=30s
+        AccuracySec=1s
+
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  register: bridge_units
+
+- name: Recharger systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: bridge_units.changed
+
+- name: Activer le pont (surveillance des demandes) et son heartbeat
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    # relancé si une unité a changé : l'unité .path surveille alors le bon chemin
+    state: "{{ 'restarted' if bridge_units.changed else 'started' }}"
+  loop: [resilience-remediation-bridge.path, resilience-remediation-bridge-heartbeat.timer]

@@ -1,54 +1,69 @@
-# Reste à faire, par domaine
+# Reste à faire, par domaine — Groupe 6
 
-État au 19/10/2026. ✅ = livré et vérifié, ☐ = à faire. Le détail de chaque composant se trouve dans le README de son dossier.
+État au 20/10/2026 (matin). ✅ = livré et vérifié, ◐ = commencé, ☐ = à faire. Le détail de chaque composant se trouve dans le README de son dossier.
+
+**Le moteur de remédiation, le proxy Docker, le blocage WAF et le pont de restauration sont sur la branche `feature/remediation-engine`, non commités au 20/10 : à committer, ouvrir la PR et fusionner dans `main` avant toute autre chose.**
 
 ## Développement
 - ✅ SI de paiement : auth (JWT RS256), API de paiement (partie double, idempotence, contrôle d'intégrité), front React/Tailwind, PostgreSQL
-- ☐ **Moteur de remédiation** (`services/remediation-engine/`) : webhook Alertmanager → décision → action → vérification par transaction témoin. **C'est l'élément décisif pour la note (0/5 si la reprise n'est pas autonome en direct)**
-- ☐ **Dashboard de supervision React/Tailwind** (`services/supervision-dashboard/`) : composants, alertes, chronologie de la reprise (écran du Clip Chrono)
+- ✅ **Moteur de remédiation** (`services/remediation-engine/`, FastAPI) : webhook Alertmanager authentifié (jeton porteur, 401 sinon) → table de décision (21 alertes : toutes les règles Prometheus et Loki, vérifié par un test) → action → vérification (conteneurs `healthy`, sondes blackbox, **transaction témoin à travers le WAF**). Deux familles séparées : **disponibilité** (redémarrage, PostgreSQL d'abord) et **compromission** (blocage d'IP au WAF, restauration de la base) ; anti-boucle (un incident par cible, verrou, 3 actions / 10 min, refroidissement, escalade) ; machine d'états horodatée (`detected → decided → acting → verifying → recovered | failed → escalated`) persistée dans un volume ; API d'état en lecture seule pour le dashboard (`/api/state`, `/api/incidents/{id}` avec chronologie, `/api/decision-table`) ; `/metrics` scrapé, alertes `RemediationFailed` et `RemediationEngineDown` (jamais remédiées par le moteur)
+  - ✅ **Vérifié en direct** sur la stack locale le 20/10 : `payment-api` arrêtée → `ServiceDown` + `EndToEndProbeFailed` corrélées en un incident → relance via le proxy Docker → conteneurs, sondes et transaction témoin OK : **rétabli et vérifié 6,7 s après la notification** (≈ 15 s après le déclenchement de l'alerte) ; `AnomalyDetected` (variable dominante `probe_failed`) rattachée au même service, aucune action en double, vérifiée en 18,7 s
+  - ☐ Rejouer **en direct, par la chaîne d'alertes complète**, les réponses de compromission : force brute / injections depuis un second poste → `AuthBruteForce` / `WafAttackBlocked` → IP bloquée, 403, levée au bout du TTL (le blocage WAF n'a été éprouvé qu'à la main et par `WafBlocklist` sans alerte) ; registre corrompu → `LedgerIntegrityBroken` → restauration par le pont (éprouvée par appel direct à `request_restore`, pas depuis une alerte) ; anomalie ML de sécurité → blocage
+  - ☐ Point à vérifier (incident `AnomalyDetected` du 20/10) : la décision affichée visait « redémarrage de waf » parce que le WAF était `starting` ; aucun redémarrage n'a été exécuté (compteur à 0), mais un conteneur en démarrage devrait être attendu, pas désigné comme cible : revoir la décision et son libellé dans la chronologie
+  - ☐ Mettre à jour les README qui disent encore « à développer » (`services/remediation-engine/README.md` et sa liste à cocher, README racine : « 87 tests », « 14 règles », moteur « à développer ») ; ajouter l'API d'état du moteur à `scripts/export_openapi.py` / `docs/api/` (seuls auth et paiement sont exportés)
+- ☐ **Dashboard de supervision React/Tailwind** (`services/supervision-dashboard/`) : rien de commencé. Sources prêtes : `/api/state` et `/api/incidents` du moteur (chronologie de la reprise, IP bloquées, état du pont), Alertmanager `/api/v2/alerts`, Loki (`event_type=waf_remediation_block`, `remediation_*`). **C'est l'écran du Clip Chrono** : priorité juste après la fusion du moteur
 - ✅ Documentation d'API exportée dans `docs/api/` (`scripts/export_openapi.py`, vérifiée par les tests)
-- ✅ Tests unitaires pytest (`tests/unit/`, 49 tests sur PostgreSQL jetable) + CI GitHub Actions
+- ✅ Tests unitaires pytest : **326 tests en 26 s** (`tests/unit/`, PostgreSQL jetable), dont le moteur (table de décision, webhook, machine d'états, anti-boucle, idempotence des notifications, corruption vs panne de base, triage ML, persistance, API sans route de modification), le blocage WAF et le pont de restauration ; CI GitHub Actions
 - ☐ Tests du front React (aucun pour l'instant)
 
 ## Infrastructure
-- ✅ Docker Compose : réseaux segmentés (edge/dmz/app/data/obs/mgmt/ai), conteneurs durcis, interfaces de gestion sur 127.0.0.1
-- ✅ Prometheus (11 cibles, sondes de bout en bout blackbox à travers le WAF, 12 règles d'alerte)
-- ✅ Loki + Alloy (journaux de tous les conteneurs, sans socket Docker), Alertmanager (routé vers la remédiation)
+- ✅ Docker Compose : réseaux segmentés (edge/dmz/app/data/obs/mgmt/ai + `docker-api` interne, réservé au moteur et au proxy Docker), conteneurs durcis, interfaces de gestion sur 127.0.0.1 ; volumes `waf-blocklist` (moteur rw, WAF ro) et `remediation-state`
+- ✅ Prometheus : 13 cibles (moteur compris), sondes de bout en bout blackbox à travers le WAF, 16 règles d'alerte en 7 groupes (dont `remediation`)
+- ✅ Loki + Alloy (journaux de tous les conteneurs, sans socket Docker) ; Alertmanager → webhook du moteur **authentifié** (jeton en secret Compose, `group_wait` 5 s, `firing` et `resolved`)
 - ✅ Grafana provisionné : tableaux « Santé du service » et « SOC » (`infra/grafana/generate_dashboards.py`)
+- ☐ Rangée « Remédiation » dans Grafana (`remediation_actions_total`, `remediation_escalations_total`, incidents ouverts, `event_type=waf_remediation_block`) : rien n'est provisionné pour le moteur
 - ✅ VM PC Hôte provisionnée sur le Proxmox du labo par Ansible (`ansible/provision_proxmox.yml`) : `172.16.147.10`, Debian 13, 6 vCPU / 16 Go / 80 Go
 - ✅ VM préparée par `ansible/prepare_host.yml` : Docker 29 + Compose, pare-feu nftables compatible Docker, SSH durci, mises à jour de sécurité
-- ✅ Stack déployée sur la VM par `ansible/deploy.yml` (une version par commit, retour arrière, tests sur l'hôte et à travers le réseau) ; reprise d'un service par `restart_service.yml`
-- ✅ Sauvegarde PostgreSQL toutes les 15 min avec état d'intégrité du registre, restauration de la dernière sauvegarde saine (`backup_database.yml`, `restore_database.yml`, runbook `docs/runbooks/restauration-base.md`) : corruption détectée en 19 s, restauration en 10,6 s
+- ✅ Stack déployée sur la VM par `ansible/deploy.yml` (une version par commit, retour arrière, tests sur l'hôte et à travers le réseau) ; reprise d'un service par `restart_service.yml` ; `deploy.yml` installe aussi le **pont de remédiation** (`tasks/remediation_bridge_install.yml` : unités systemd durcies `.path` + heartbeat, `inbox/` à l'uid 10001, déploiement en échec si l'unité ne joint pas Docker)
+- ☐ **Déployer la branche sur la VM** (moteur, proxy Docker, pont, nouveau secret `remediation_webhook_token`) et y rejouer les trois incidents depuis un second poste : le pont n'a été essayé qu'en local (`systemd-run --user`, runner de développement), jamais en root sans capacités sur la VM
+- ✅ Sauvegarde PostgreSQL toutes les 15 min avec état d'intégrité du registre, restauration de la dernière sauvegarde saine (`backup_database.yml`, `restore_database.yml`, runbook `docs/runbooks/restauration-base.md`) : corruption détectée en 19 s ; restauration ≈ 10 s (script), 19 s avec transaction témoin (playbook), 11 à 12 s de la demande du moteur au résultat (pont) ; verrou `flock` : playbook et pont ne se chevauchent pas
+- ☐ Restauration lancée par l'opérateur (playbook) : poser un silence Alertmanager pour que le moteur ne relance pas les API arrêtées (il ne le sait que pour les restaurations qu'il a demandées lui-même)
 - ✅ PC Hôte et sauvegardes supervisés : node-exporter (sans socket Docker), alertes disque, mémoire, sauvegarde manquante ou en échec, rangée dédiée dans « Santé du service »
 - ☐ cAdvisor / postgres-exporter : non déployés (le contrat du détecteur d'anomalies n'utilise que des métriques applicatives ; cAdvisor exige le socket Docker) — à rouvrir si le pilier IA en a besoin
-- ☐ Point d'accès RESILIENCE-G6 : le PC Hôte est une VM du labo (172.16.147.10), joignable par le wifi labo et non par un point d'accès du groupe — **à faire valider par le coach** (tous les postes y arrivent avec la même IP, 172.16.255.252)
-- ✅ Déploiement vérifié sur une machine vierge depuis un clone neuf (VM de recette jetable : hôte reconstruit en 311 s) ; PRA « perte du PC Hôte » joué : données restaurées, mais **secrets à restaurer aussi** (voir Cybersécurité)
+- ☐ Point d'accès RESILIENCE-G6 : le PC Hôte est une VM du labo (172.16.147.10), joignable par le wifi labo et non par un point d'accès du groupe — **à faire valider par le coach**. Conséquence nouvelle : tous les postes du labo arrivent avec la même IP (172.16.255.252), donc **bloquer l'attaquant bloque aussi le jury** pendant le TTL (`WAF_BLOCK_TTL_SECONDS`, 300 s par défaut ; prévoir 60 à 120 s pour la démo). Un PA du groupe (192.168.137.0/24) donnerait une IP par poste et lèverait le problème
+- ✅ Déploiement vérifié sur une machine vierge depuis un clone neuf (VM de recette jetable : hôte reconstruit en 311 s) ; PRA « perte du PC Hôte » joué : données restaurées, mais **secrets à restaurer aussi** (voir Sécurité)
 
 ## IA / Data
 - ✅ **Détecteur d'anomalies ML** (`services/anomaly-detector/` + `ml/`) : jeu de données normal/attaque étiqueté, z-score robuste calibré, `anomaly_score{service}` scrapé par Prometheus, règle `AnomalyDetected` active — vérifié en direct (alerte dans Alertmanager pendant les attaques, score < 0,8 au repos et sous la transaction témoin)
+- ✅ Détecteur **raccordé à la remédiation** : `AnomalyDetected` est triée par le moteur selon la variable dominante (journal `anomaly_detected`) : panne → redémarrage, attaque → IP la plus fautive dans Loki puis blocage, sinon observation et escalade — vérifié en direct le 20/10 pour une anomalie de disponibilité (`probe_failed`, score 0,995)
+- ☐ Vérifier en direct le chemin « anomalie de sécurité → blocage » (force brute depuis un second poste, variable `login_failures_per_min`, IP attribuée dans Loki avec au moins 10 échecs en 2 min)
 - ✅ **Assistant RAG** (`services/ops-assistant/`) : Ollama + LangChain sur `docs/` et les README d'architecture, réponses sourcées (fichier + section), refus hors corpus, aucune action ni accès privilégié, healthy même sans LLM ; évalué sur 25 questions et 4 modèles (`eval/results/`) ; section dossier dans son README
 - ✅ Où tourne le LLM : conteneur `ollama` de la VM (profil `ai`, `pc_hote_ai_mode: container`, modèles tirés par `deploy.yml`) avec `llama3.2:3b` sur 4 threads (~1 min par réponse mesurée en CPU, 3,8 Go) ; `mistral` sur le PC de délestage IA si GPU (`pc_hote_ai_mode: offload`, ~2 s, plus juste)
 - ✅ Rédiger données / préparation / modèle / résultats / limites pour le dossier — partie détecteur ML : section « Dossier technique » de `ml/README.md` (à reprendre dans le PDF)
 
 ## Sécurité
 - ✅ WAF ModSecurity + OWASP CRS en unique point d'entrée (SQLi/XSS bloquées en 403, IP réelle propagée jusqu'aux API)
-- ✅ SOC intégré : 5 règles LogQL (force brute, rafale de jetons invalides, blocages WAF, violations d'intégrité, pannes de dépendance) → Alertmanager — testées
+- ✅ **Blocage d'IP par la remédiation** (`infra/waf/`, `app/actions/waf_block.py`, `services/remediation-engine/docs/waf-blocking.md`) : liste `"<ip>" 1;` écrite par le moteur dans le volume partagé, `map` nginx, 403 JSON avant ModSecurity, rechargement à chaud par SIGHUP via le proxy Docker, vérification de la configuration réellement chargée (port interne 8081), exclusions (dmz, passerelles, moteur, `WAF_BLOCK_ALLOWLIST`), TTL et levée automatique, garde-fou au démarrage si la liste est invalide ; journal `event_type=waf_remediation_block` dans Loki — éprouvé sur la stack locale (attaquant 403, autres clients 200, sondes à 1, liste invalide sans coupure du WAF)
+- ✅ SOC intégré : 5 règles LogQL (force brute, rafale de jetons invalides, blocages WAF, violations d'intégrité, pannes de dépendance) → Alertmanager → moteur (blocage d'IP pour les trois premières, restauration pour l'intégrité, redémarrage pour les dépendances)
+- ✅ **Accès du moteur à Docker sécurisé** : `docker-socket-proxy` v0.5.0 avec modèle haproxy durci (état des conteneurs, start / restart / kill seulement ; exec, création, suppression, images, volumes, réseaux refusés), socket monté en lecture seule, réseau `docker-api` interne ; le moteur ne redémarre que 6 services nommés, retrouvés par leurs labels Compose, jamais par un nom reçu dans une alerte ; webhook authentifié par jeton (`remediation_webhook_token`, généré par `init_secrets.py`) ; aucun port publié, API en lecture seule
+- ✅ Restauration sans privilège côté moteur : **pont de fichiers** vers une unité systemd de l'hôte (`ansible/files/resilience-remediation-bridge.py`) : le moteur dépose une demande, le runner (root sans capacités, `ProtectSystem=strict`, sans réseau) valide un schéma strict, revérifie le 409 du registre, limite à 3 restaurations par heure et lance la commande fixe `resilience-pg-restore latest-healthy` : rien de la demande n'entre dans la commande (modèle de sécurité : runbook `restauration-base.md`)
 - ✅ Script SOPS + age (`scripts/sops_secrets.py`) — **non testé** (sops/age absents du poste)
-- ☐ Générer les clés age de l'équipe, remplir `.sops.yaml`, chiffrer et versionner `secrets.enc.json` — **nécessaire au PRA « perte du PC Hôte »** : sans les anciens secrets, le compte admin restauré n'accepte plus le nouveau mot de passe ; installer aussi `sops` sur le PC Hôte (ou déchiffrer sur le poste de l'opérateur)
-- ☐ Sécuriser l'accès du moteur de remédiation à Docker (docker-socket-proxy restreint, webhook authentifié)
-- ☐ Revue de durcissement (Trivy, mots de passe, en-têtes, réglage du niveau de paranoïa du WAF)
-- ✅ Prometheus authentifié (`--web.config.file`, compte `admin`, hash bcrypt dérivé par `init_secrets.py`) : interface, API et `/metrics` ; Grafana et `observability_check.py` à jour
+- ☐ Générer les clés age de l'équipe, remplir `.sops.yaml` (encore `AGE_PUBLIC_KEY_A_REMPLACER`), chiffrer et versionner `secrets.enc.json` (`remediation_webhook_token` compris) — **nécessaire au PRA « perte du PC Hôte »** : sans les anciens secrets, le compte admin restauré n'accepte plus le nouveau mot de passe ; installer aussi `sops` sur le PC Hôte (ou déchiffrer sur le poste de l'opérateur)
+- ☐ Revue de durcissement (Trivy sur les images, dont `remediation-engine` et `docker-socket-proxy` ; mots de passe, en-têtes, réglage du niveau de paranoïa du WAF)
+- ✅ Prometheus authentifié (`--web.config.file`, compte `admin`, hash bcrypt dérivé par `init_secrets.py`) : interface, API et `/metrics` ; Grafana, le moteur et `observability_check.py` à jour
 - ✅ Alertmanager authentifié (`--web.config.file`) : Prometheus (`alerting`) et le ruler Loki notifient avec leur identifiant (vérifié par une alerte réelle de chaque source), Grafana et `observability_check.py` à jour
-- ✅ Loki authentifié par `loki-proxy` (nginx, authentification basique) sur le port publié ; Loki ne quitte plus le réseau `obs`, où Alloy, Grafana et Prometheus le joignent directement
+- ✅ Loki authentifié par `loki-proxy` (nginx, authentification basique) sur le port publié ; Loki ne quitte plus le réseau `obs`, où Alloy, Grafana, Prometheus et le moteur le joignent directement
 
 ## Transformation / Gouvernance
-- ☐ EBIOS RM (`docs/governance/ebios-rm.md`), relié aux alertes et aux remédiations réelles
-- ☐ PCA/PRA avec RTO/RPO **mesurés** sur le démonstrateur (`docs/governance/pca-pra.md`) ; premières mesures (restauration de la base : 10,6 s ; reconstruction complète du PC Hôte : ≈ 6 min) dans `docs/runbooks/restauration-base.md`
-- ☐ Analyse NIS2/DORA : exigences pertinentes vs démontrables (`docs/governance/nis2-dora.md`)
-- ☐ Runbooks (`docs/runbooks/`) — servent aussi de corpus au RAG
+- ◐ EBIOS RM (`docs/governance/ebios-rm.md`) : cadrage, 5 événements redoutés, sources de risque, 6 scénarios S1 à S6 reliés aux alertes, cartographie avant/après rédigés. Reste : actualiser le texte (« il manque les sauvegardes », « moteur en cours » : c'est livré), citer les mesures réelles (reprise 6,7 s, restauration 10 à 12 s, blocage WAF), reprendre la table de décision (`GET /api/decision-table` : chaque règle porte son scénario EBIOS), valider les notes G × V en équipe
+- ☐ PCA/PRA avec RTO/RPO **mesurés** (`docs/governance/pca-pra.md`, encore un squelette). Mesures disponibles : panne d'API → reprise automatique vérifiée en 6,7 s (20/10) ; corruption → alerte en 19 s, restauration 10 s (script), 19 s avec témoin (playbook), 11 à 12 s par le pont ; RPO ≤ 15 min (sauvegarde planifiée ; 52 s dans l'essai) ; perte du PC Hôte → ≈ 6 min 15 (reconstruction 311 s + restauration 13,8 s), RPO = dernière copie locale
+- ☐ Analyse NIS2/DORA : exigences pertinentes vs démontrables (`docs/governance/nis2-dora.md`, tableau vide)
+- ◐ Runbooks (`docs/runbooks/`, corpus du RAG) : `restauration-base.md` complet (restauration automatique, protocole du pont, modèle de sécurité, mesures) ; `incident-response.md` encore « à compléter » : remplacer les « à définir » par les réponses de la table de décision (redémarrer / bloquer / restaurer / escalader) et ajouter `AnomalyDetected`, `RemediationFailed`, `RemediationEngineDown`
 
-## Rendus (jeudi 23h59)
-- ☐ `Workshop2026-M2-G<n>-Dossier.pdf` (8-12 pages, contribution de chacun)
-- ☐ `Workshop2026-M2-G<n>-Pres.pptx`
-- ☐ `Workshop2026-M2-G<n>-VidChrono.mp4` (≤ 60 s, plan continu : incident → anomalie → réaction → service rétabli)
-- ☐ `Workshop2026-M2-G<n>-Code.zip` (aucun secret en clair : vérifier que `secrets/` est exclu)
+## Rendus (jeudi 22/10 : gel du code à 17 h, dépôt avant 23 h 59 ; jury vendredi 23/10)
+Fichiers regroupés dans un dossier `Workshop2026-M2-G6/` :
+- ☐ `Workshop2026-M2-G6-Dossier.pdf` (8-12 pages, contribution de chacun) : architecture et flux, incident retenu, détection et reprise, résultats des essais (mesures ci-dessus), sécurité, EBIOS RM, PCA/PRA, gouvernance
+- ☐ `Workshop2026-M2-G6-Pres.pptx` (passage de 5 min : 1 min de démarche avec introduction individuelle en anglais, 1 min de Clip Chrono, 3 min de démo en direct)
+- ☐ `Workshop2026-M2-G6-VidChrono.mp4` (≤ 60 s, plan continu : incident depuis le second poste → anomalie → réaction → service rétabli) — **l'écran filmé est le dashboard de supervision, pas encore commencé** (repli : Grafana + `GET /api/incidents`)
+- ☐ `Workshop2026-M2-G6-Code.zip` : `git archive` de `main` après fusion (n'embarque que les fichiers suivis : `secrets/`, `.remediation-bridge/`, `.dev-backups/`, `.venv/`, `node_modules/` exclus ; vérifier qu'aucun secret en clair n'y figure)
+- ☐ Figer le scénario de la démo et du clip : panne d'API (reprise 6,7 s, déjà vérifiée), force brute → blocage WAF (attention au NAT du labo, voir Infrastructure) et/ou corruption du registre → restauration (≈ 12 s) ; le rejouer sur la VM avant jeudi

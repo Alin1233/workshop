@@ -6,3 +6,6 @@ dist/
 __pycache__/
 *.pyc
 .venv/
+# Pont de remédiation local et sauvegardes du runner de développement (dumps : empreintes de mots de passe)
+.remediation-bridge/
+.dev-backups/
