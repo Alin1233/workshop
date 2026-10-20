@@ -92,11 +92,16 @@ FEATURES: dict[str, list[Feature]] = {
             "req_rate_per_min", "loki",
             'sum(count_over_time({service="frontend"} != "resilience-alpha-probe" != "/healthz" [1m]))',
         ),
-        # Requêtes bloquées par le WAF (HTTP 403 dans le journal d'audit) : rafales SQLi/XSS.
+        # Requêtes bloquées par le WAF (HTTP 403 dans le journal d'audit) : rafales SQLi/XSS. Seules celles que le WAF a
+        # interrompues : les 403 des API (non-admin sur /admin/integrity) ne sont pas des blocages. Recalculée sur les
+        # instants du jeu d'entraînement et de test (Loki) : identique dans toutes les fenêtres d'attaque, 18 instants
+        # normaux sur 269 passent de 1 à 0 (403 du smoke test) ; médiane 0 et échelle 1 (plancher) inchangées, modèle
+        # conservé sans réentraînement (docs/securite/revue-durcissement.md).
         Feature(
             "waf_blocks_per_min", "loki",
             'sum(count_over_time({service="waf"} |= "\\"transaction\\"" '
-            '| json code="transaction.response.http_code" | code="403" [1m]))',
+            '| json code="transaction.response.http_code", interrupted="transaction.is_interrupted" | __error__="" '
+            '| code="403" | interrupted="true" [1m]))',
         ),
         Feature("probe_failed", "prom", _probe_fail("frontend")),
     ],

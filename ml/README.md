@@ -73,7 +73,11 @@ Le port d'entrée est `8080` par défaut ; adapter si le WAF est publié ailleur
 
 - **Source.** Métriques Prometheus (`http_requests_total`, `http_request_duration_seconds_bucket`,
   `auth_login_attempts_total`, `probe_success`) et journaux Loki (une ligne JSON par événement :
-  `event_type`, `client_ip`, `status` ; journal d'audit WAF avec `transaction.response.http_code`).
+  `event_type`, `client_ip`, `status` ; journal d'audit WAF avec `transaction.response.http_code`). Depuis le 20/10,
+  `blocages WAF/min` ne compte que les requêtes interrompues par le WAF (`transaction.is_interrupted`), et non plus les
+  403 renvoyés par les API : recalculée sur les instants des jeux d'entraînement et de test, la variable est identique
+  dans toutes les fenêtres d'attaque et ne passe de 1 à 0 qu'en 18 instants normaux sur 269 (403 du smoke test) ;
+  médiane 0 et échelle 1 (plancher) inchangées, d'où l'absence de ré-entraînement (`docs/securite/revue-durcissement.md`).
 - **Trafic normal.** `generate_normal.py` simule des utilisateurs réalistes à travers le WAF (inscription,
   connexion, consultation de compte, virements de faibles montants), avec un **débit variable** (profil
   sinusoïdal) et des **périodes creuses** récurrentes, pour que le modèle apprenne que l'inactivité est normale.

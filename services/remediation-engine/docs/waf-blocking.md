@@ -63,8 +63,9 @@ par l'audit ModSecurity, donc par la règle SOC `WafAttackBlocked`. Le `map` ngi
   `{"level":"warning","service":"waf","event_type":"waf_remediation_block","client_ip":…,"method":…,"uri":…,"status":403,…}`.
   Alloy en fait le label Loki `event_type=waf_remediation_block`. Requête pour le dashboard ou le SOC :
   `sum by (client_ip) (count_over_time({service="waf", event_type="waf_remediation_block"} | json [5m]))`.
-- **Règle `WafAttackBlocked` inchangée** : elle ne lit que l'audit ModSecurity (`|= "\"transaction\""`, `http_code=403`),
-  que ces requêtes n'atteignent plus. Une fois l'IP bloquée, l'alerte retombe d'elle-même (fenêtre de 2 min) même si
+- **Règle `WafAttackBlocked`** : elle ne lit que l'audit ModSecurity (`|= "\"transaction\""`, `http_code=403` et, depuis
+  la revue de durcissement du 20/10, `is_interrupted=true` : les 403 renvoyés par les API elles-mêmes, journalisés
+  aussi, ne comptent plus), que ces requêtes n'atteignent plus. Une fois l'IP bloquée, l'alerte retombe d'elle-même (fenêtre de 2 min) même si
   l'attaquant insiste ; de même `AuthBruteForce` et `InvalidTokenFlood`, car les requêtes n'atteignent plus les API.
   Les variables `waf_blocks_per_min` du détecteur d'anomalies et les panneaux Grafana existants lisent aussi l'audit :
   ils ne comptent pas les refus de remédiation.

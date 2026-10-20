@@ -146,8 +146,11 @@ _AUTH_FAILURES = ('sum by (client_ip) (count_over_time({service="auth-service", 
                   '| json client_ip="client_ip" | client_ip!="" [2m]))')
 _INVALID_TOKENS = ('sum by (client_ip) (count_over_time({service="payment-api", event_type="auth_failure"} '
                    '| json client_ip="client_ip" | client_ip!="" [2m]))')
+# Requêtes interrompues par le WAF seulement (même filtre que la règle SOC WafAttackBlocked) : un 403 renvoyé par une
+# API (non-admin sur /admin/integrity) ne désigne pas un attaquant.
 _WAF_BLOCKS = ('sum by (client_ip) (count_over_time({service="waf"} |= "\\"transaction\\"" '
-               '| json client_ip="transaction.client_ip", code="transaction.response.http_code" | code="403" [2m]))')
+               '| json client_ip="transaction.client_ip", code="transaction.response.http_code", '
+               'interrupted="transaction.is_interrupted" | __error__="" | code="403" | interrupted="true" [2m]))')
 _CLIENT_ERRORS = ('sum by (client_ip) (count_over_time({{service="{service}"}} '
                   '| json client_ip="client_ip", status="status" | status=~"4.." | client_ip!="" [2m]))')
 LOGIN_FAILURES_QUERY = _AUTH_FAILURES
