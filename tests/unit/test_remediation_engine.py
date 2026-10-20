@@ -454,9 +454,6 @@ def test_dependency_failure_restarts_api_only_if_still_failing_after_postgres():
 
 def test_container_already_starting_is_awaited_not_restarted():
     docker = FakeDocker({"waf": "starting"})
-
-    def settle(fake, *_):
-        pass
     engine = make_engine(docker=docker, prom=FakeProm(scalars={'min(probe_success{job="blackbox-http",service="payments"})': 1.0}))
 
     async def scenario():
@@ -466,8 +463,28 @@ def test_container_already_starting_is_awaited_not_restarted():
         docker.statuses["waf"] = "healthy"             # le WAF finit de redémarrer de lui-même
         await engine.wait_idle(5)
     asyncio.run(scenario())
-    assert docker.calls == []
-    assert only(engine).state == "recovered"
+    incident = only(engine)
+    assert docker.calls == []                          # aucun redémarrage : le WAF démarrait
+    assert incident.state == "recovered"
+    assert "acting" not in states(incident)            # le WAF n'est jamais désigné comme cible d'un redémarrage
+    events = [e["event"] for e in incident.timeline]
+    assert "wait:starting" in events and "wait:settled" in events
+    # La décision affichée dit ce qui se passe (attente), pas « redémarrage de waf ».
+    first_decision = next(e for e in incident.timeline if e["event"] == "state:decided")["detail"]
+    assert first_decision["kind"] == "wait" and "action" not in first_decision
+    assert "démarrage" in first_decision["reason"] and "redémarrage" not in first_decision["reason"]
+
+
+def test_container_stuck_in_starting_is_eventually_restarted():
+    # Un conteneur qui reste « starting » au-delà du délai ne s'est pas stabilisé : il est alors redémarré.
+    docker = FakeDocker({"waf": "starting"})            # reste starting jusqu'au redémarrage (after → healthy)
+    engine = make_engine(docker=docker, settings=fast_settings(healthy_timeout_s=0.1))
+    process(engine, payload(alert("EndToEndProbeFailed", service="payments")))
+    incident = only(engine)
+    assert ("restart", "waf") in docker.calls
+    assert incident.state == "recovered"
+    events = [e["event"] for e in incident.timeline]
+    assert "wait:starting" in events                    # on a d'abord attendu, puis désigné la cible
 
 
 def test_healthy_chain_with_cleared_symptom_is_verified_without_action():
@@ -561,6 +578,31 @@ def test_integrity_503_with_healthy_postgres_is_not_a_corruption():
     process(engine, payload(alert("LedgerIntegrityViolationLogged", service="payment-api")))
     assert bridge.requests == []
     assert ("restart", "payment-api") in engine.docker.calls
+
+
+def test_integrity_with_starting_postgres_waits_then_confirms_corruption():
+    # PostgreSQL en cours de démarrage : on attend sa stabilisation avant de juger (ni restauration ni redémarrage
+    # « base injoignable » sur un 409/503 trompeur). Une fois sain et toujours en 409 : corruption confirmée, restauration.
+    docker = FakeDocker({"postgres": "starting"})
+    integrity = FakeIntegrity(409)
+    bridge = FakeBridge(integrity=integrity)
+    engine = make_engine(docker=docker, integrity=integrity, bridge=bridge,
+                         settings=fast_settings(healthy_timeout_s=0.3))
+
+    async def scenario():
+        await engine.start(background=False)
+        engine.ingest(payload(alert("LedgerIntegrityBroken", service="payment-api")))
+        await asyncio.sleep(0.05)
+        docker.statuses["postgres"] = "healthy"        # PostgreSQL finit de démarrer de lui-même
+        await engine.wait_idle(5)
+    asyncio.run(scenario())
+    incident = only(engine)
+    assert len(bridge.requests) == 1                    # corruption confirmée après stabilisation
+    assert docker.calls == []                           # aucun redémarrage : ce n'était pas une panne de base
+    assert incident.state == "recovered"
+    events = [e["event"] for e in incident.timeline]
+    assert "wait:starting" in events
+    assert not any(e["event"] == "reclassified" for e in incident.timeline)
 
 
 def test_conflict_with_unreadable_proxy_is_still_a_corruption():

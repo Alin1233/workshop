@@ -38,6 +38,7 @@ Loki ruler ─┴▶ Alertmanager ──POST /alerts──▶ │      restart /
 | `app/actions/waf_block.py` | blocage d'IP au WAF ([docs/waf-blocking.md](docs/waf-blocking.md)) |
 | `app/actions/db_restore.py` | client du pont de restauration ([runbook](../../docs/runbooks/restauration-base.md#restauration-automatique-moteur-de-remédiation)) |
 | `app/clients.py`, `app/witness.py` | Prometheus (authentifié), Loki, intégrité ; transaction témoin |
+| `app/config.py`, `app/metrics.py` | configuration (variables d'environnement, garde-fous anti-boucle) ; métriques `remediation_*` |
 | `proxy/haproxy.cfg.template` | modèle haproxy durci du proxy Docker (voir « Modèle de sécurité ») |
 
 ## Table de décision
@@ -130,6 +131,12 @@ sous anti-boucle, puis escalade).
 L'API est **en lecture seule** : aucune route ne déclenche ni n'annule une action (un test le vérifie). Le futur
 dashboard de supervision la lira par son back-for-front ; aucun port n'est publié.
 
+Le schéma OpenAPI du webhook et de l'API d'état est versionné dans
+[`docs/api/remediation-engine.openapi.json`](../../docs/api/remediation-engine.openapi.json) (pas de `/docs` en direct) :
+`python scripts/export_openapi.py` le régénère sans secret ni stack, `--check` (CI et `tests/unit/test_openapi_docs.py`)
+échoue s'il ne correspond plus au code. Le webhook vérifiant lui-même son jeton, son authentification porteur, son
+corps et ses refus (400, 401, 413, 503) sont ajoutés par le script d'export, sauf si l'application les déclare.
+
 ## Modèle de sécurité
 
 Le moteur a les droits les plus élevés de la plateforme : le détourner permettrait de couper les services (EBIOS :
@@ -206,11 +213,22 @@ Variables principales (valeurs par défaut dans `docker-compose.yml`) : `COMPOSE
   `.venv/bin/python -m pytest tests/unit/test_remediation_engine.py` — table de décision pour chaque alerte, webhook
   authentifié, machine d'états, anti-boucle et verrou, idempotence, corruption vs panne de base, routage des anomalies,
   vérification en échec puis escalade, persistance après redémarrage, absence de route de modification, client du proxy
-  Docker et transaction témoin contre de faux serveurs HTTP.
+  Docker et transaction témoin contre de faux serveurs HTTP. Les actions ont leurs propres fichiers :
+  `tests/unit/test_waf_block.py` (blocage WAF) et `tests/unit/test_db_restore.py` (client du pont et runner de l'hôte) ;
+  `tests/unit/test_openapi_docs.py` vérifie que `docs/api/remediation-engine.openapi.json` est à jour.
 - En direct (disponibilité) : `docker compose stop payment-api`, puis suivre `GET /api/incidents` : `ServiceDown` et
   `EndToEndProbeFailed` forment un incident, payment-api est redémarré, vérifié (sondes + témoin) puis clos à la retombée
   des alertes. Mesuré sur la pile locale : **rétabli et vérifié 46 s après l'arrêt** (alerte à +31 s, reçue à +39 s,
   conteneur sain à +45 s, témoin réussi à +46 s), incident clos à +69 s.
-- En direct (sécurité) : force brute depuis un conteneur du réseau `edge` (`POST /api/auth/login` en boucle) :
-  `AuthBruteForce` → IP bloquée au WAF **20 s** après le début de l'attaque, blocage vérifié, sondes et témoin OK ;
-  l'attaquant reçoit `403 blocked_by_remediation`.
+- En direct (sécurité et compromission) : rejeu complet **par la chaîne d'alertes** (force brute, injections, registre
+  corrompu, anomalie ML) avec des outils reproductibles — [`scripts/scenarios/attack.py`](../../scripts/scenarios/attack.py)
+  (attaques, bibliothèque standard, `--target`, mots de passe générés) et
+  [`scripts/scenarios/run_recette.py`](../../scripts/scenarios/run_recette.py) (orchestrateur hôte qui collecte les
+  preuves). Méthode, tables de mesures par scénario, bogues corrigés et limites (poste attaquant simulé, NAT du labo) :
+  **[docs/recette.md](docs/recette.md)**. Relevés du 20/10 sur la pile locale (poste attaquant = conteneur `edge`) :
+  force brute → `AuthBruteForce` → **IP bloquée au WAF ~29 s** après le début de l'attaque (alerte à +21 s), blocage
+  vérifié, sondes et témoin OK, attaquant `403 blocked_by_remediation`, **levée automatique au TTL** ; injections →
+  `WafAttackBlocked` → blocage en ~32 s ; registre corrompu → `LedgerIntegrityBroken` (Prometheus) et
+  `LedgerIntegrityViolationLogged` (Loki) corrélées en **un seul** incident → **une** restauration par le pont, intégrité
+  revenue à `200` en ~32 s ; anomalie ML de sécurité → blocage par le chemin ML, ou constat « déjà bloquée » quand le SOC
+  a bloqué avant.

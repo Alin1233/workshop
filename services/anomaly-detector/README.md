@@ -62,17 +62,21 @@ visé, avec une alerte reçue par Alertmanager **35 à 45 s** après le début d
 
 ## Pour la remédiation
 
+Ce contrat est appliqué par le moteur de remédiation (`services/remediation-engine/`, lignes `AnomalyDetected`,
+`AnomalyDetectorDown` et `AnomalyDetectorBlind` de sa [table de décision](../remediation-engine/README.md#table-de-décision)).
+
 - L'alerte `AnomalyDetected` porte `severity=critical`, `domain=anomaly` et `service` (`auth-service`,
   `payment-api` ou `frontend`). Elle retombe ~70 s après la fin de l'incident (fenêtre glissante d'1 min).
 - Une attaque d'API traverse le frontal : `frontend` peut alerter en même temps que le service visé. Avant
-  d'agir, s'appuyer sur la variable dominante (journal `anomaly_detected` dans Loki :
+  d'agir, le moteur lit la variable dominante (journal `anomaly_detected` dans Loki :
   `{service="anomaly-detector", event_type="anomaly_detected"}`) : `probe_failed` ⇒ indisponibilité (redémarrage
   pertinent) ; `login_failures_per_min`, `invalid_tokens_per_min`, `waf_blocks_per_min` ⇒ attaque (redémarrer ne
-  sert à rien : blocage / notification).
+  sert à rien : blocage de l'IP la plus fautive au WAF) ; sinon observation et escalade.
 - `AnomalyDetectorBlind` et `AnomalyDetectorDown` concernent **le détecteur lui-même** (`service=anomaly-detector`,
-  `severity=warning`) : le SI métier n'est pas en cause et ce n'est pas une attaque. Ils ne doivent déclencher
+  `severity=warning`) : le SI métier n'est pas en cause et ce n'est pas une attaque. Ils ne déclenchent
   aucune action sur un service métier ; seule reprise sûre : redémarrer `anomaly-detector` (sans état) pour
-  `AnomalyDetectorDown`, notification et vérification de la source (Loki/Prometheus) pour `AnomalyDetectorBlind`.
+  `AnomalyDetectorDown`, ce que le moteur fait une fois au plus par fenêtre anti-boucle, et vérifier la source
+  (Loki/Prometheus) pour `AnomalyDetectorBlind`, que le moteur se contente d'observer.
 
 ## Robustesse
 
