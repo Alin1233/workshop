@@ -73,6 +73,14 @@ Les interfaces de gestion ne sont publiées que sur `127.0.0.1` (`MGMT_BIND`), c
 **Revue de durcissement** (Trivy sur les 19 images, secrets, authentification des interfaces, en-têtes HTTP, niveau de
 paranoïa du WAF mesuré, conteneurs, risques résiduels, commandes pour la rejouer) : [docs/securite/revue-durcissement.md](docs/securite/revue-durcissement.md).
 
+**PCA / PRA** (fonctions critiques et coût d'indisponibilité fictif, RTO / RPO cibles et mesurés, scénarios, choix de
+restauration, RACI, tests, risques résiduels, recommandations) : [docs/governance/pca-pra.md](docs/governance/pca-pra.md).
+
+**Réponse à incident** (runbook alerte par alerte pour les 21 règles : déclenchement exact, réponse automatique du moteur,
+vérification, reprise manuelle, escalade ; où regarder, silence Alertmanager ciblé avant une restauration manuelle,
+moteur arrêté ou compromis, preuves et notification) : [docs/runbooks/incident-response.md](docs/runbooks/incident-response.md) ;
+restauration de la base : [docs/runbooks/restauration-base.md](docs/runbooks/restauration-base.md).
+
 ### Modèle métier
 
 - Chaque utilisateur reçoit un compte `RA` + 10 chiffres à sa première connexion, crédité de 1 000,00 € par la trésorerie fictive.
