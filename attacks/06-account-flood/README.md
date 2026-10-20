@@ -4,20 +4,26 @@
 
 **Pas une attaque réseau** — Pur niveau applicatif (HTTP). Exploite l'inscription ouverte sans vérification d'e-mail (cf. V5 du rapport). Lançable depuis le PC Attaquant.
 
-**Prérequis** — `curl`, `xargs`. Service joignable.
+**Prérequis** — `curl`, `xargs`, `jq` (pour `MODE=full`). Service joignable.
 
-⚠️ **Destructif / volumétrique** — 10 000 inscriptions quasi simultanées peuvent **saturer l'auth-service** (argon2id) et dégrader le service, et laissent **10 000 comptes fictifs** + **10 000 000 € minés** depuis la trésorerie (en `MODE=full`). À coordonner avec le Blue/infra. Sauvegarde conseillée avant (cf. `04-integrity-violation` et la PRA infra).
+⚠️ **Destructif / volumétrique** — Un run 10 000 / 100 le 20/10/2026 a **suspendu l'auth-service ~20 min** (argon2id) et laissé **10 000 comptes fictifs** + **10 000 000 € minés** depuis la trésorerie (en `MODE=full`). Il n'y a **pas de plafond** dans le script : le choix de `COUNT`/`CONCURRENCY` appartient à l'opérateur. À coordonner avec le Blue/infra, avec un `timeout`, et sauvegarde conseillée avant (cf. `04-integrity-violation` et la PRA infra).
 
 **Commande**
 ```bash
-# validation rapide
-TARGET=172.16.147.10 COUNT=20 CONCURRENCY=10 ./account-flood.sh
-# flood complet (10k) — coordonné
-TARGET=172.16.147.10 COUNT=10000 CONCURRENCY=100 ./account-flood.sh
+# validation rapide, avec logs par compte
+TARGET=172.16.147.10 COUNT=10 CONCURRENCY=2 ./account-flood.sh
+# flood complet (10k) — coordonné et borné dans le temps
+TARGET=172.16.147.10 COUNT=10000 CONCURRENCY=100 timeout 60 ./account-flood.sh
 # comptes seuls, sans ouverture ni crédit
-TARGET=172.16.147.10 COUNT=10000 MODE=register ./account-flood.sh
+TARGET=172.16.147.10 COUNT=10000 MODE=register timeout 60 ./account-flood.sh
 ```
-Réglages : `COUNT` (défaut 10000), `CONCURRENCY` (défaut 100), `MODE=full|register`. Arrêt : `Ctrl-C` / `pkill -f account-flood`.
+Réglages : `COUNT` (défaut 50), `CONCURRENCY` (défaut 5), `MODE=full|register`, `VERBOSE=1` (lignes par compte ; `0` pour un gros run). Arrêt : `Ctrl-C` / `pkill -f account-flood`.
+
+**Logs en direct** — Chaque inscription affiche `register -> code`, puis `login -> code` et `account -> code acct=... balance=...`. Deux fichiers sont écrits dans `attacks/logs/acctflood-*` :
+```bash
+tail -f attacks/logs/acctflood-*/created.log   # un compte ouvert par ligne
+column -s, -t attacks/logs/acctflood-*/accounts.csv | less -S
+```
 
 **Effet attendu** — Pic req/s et CPU auth-service, latence en hausse ; éventuels `503`/timeouts si l'inscription n'est pas limitée. Absence de `429` = pas de throttle d'inscription. En `MODE=full`, trésorerie débitée massivement (vérifier l'intégrité du registre sur le Hôte).
 
