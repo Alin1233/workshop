@@ -4,8 +4,12 @@ Usage : python tests/smoke_test.py [http://127.0.0.1:8080]
 Sert aussi de « transaction témoin » pour prouver que le service est rétabli après une remédiation.
 """
 
+import base64
+import hashlib
+import hmac
 import json
 import secrets
+import struct
 import sys
 import time
 import urllib.error
@@ -17,6 +21,8 @@ from pathlib import Path
 BASE = (sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8080").rstrip("/")
 # 127.0.0.1 plutôt que localhost : sous Windows, « localhost » tente d'abord IPv6 (≈1 s perdue par requête).
 ADMIN_PASSWORD_FILE = Path(__file__).resolve().parent.parent / "secrets" / "admin_password"
+# Secret TOTP du compte admin (double authentification imposée), généré par scripts/init_secrets.py.
+ADMIN_TOTP_FILE = Path(__file__).resolve().parent.parent / "secrets" / "admin_totp_secret"
 RESULTS: list[tuple[bool, str]] = []
 
 
@@ -68,6 +74,59 @@ def balance(token: str) -> int:
     return call("GET", "/api/payments/accounts/me", token=token)[1]["balance_cents"]
 
 
+def totp(secret: str, offset_steps: int = 0) -> str:
+    # Cette méthode permet de calculer le code TOTP (RFC 6238 : HMAC-SHA1, pas de 30 s, 6 chiffres) d'un secret base32,
+    # comme l'afficherait l'appli d'authentification, sans dépendance hors stdlib.
+    key = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
+    digest = hmac.new(key, struct.pack(">Q", int(time.time() // 30) + offset_steps), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    return f"{(struct.unpack('>I', digest[offset:offset + 4])[0] & 0x7FFFFFFF) % 1_000_000:06d}"
+
+
+def login_with_totp(email: str, password: str, secret: str) -> tuple[int, dict]:
+    # Cette méthode permet de se connecter à un compte à double authentification ; si le code du pas courant a déjà servi
+    # (exécution rapprochée), elle attend le pas suivant et recommence avec une nouvelle étape.
+    for attempt in range(2):
+        status, challenge = call("POST", "/api/auth/login", {"email": email, "password": password})
+        if status != 200 or not challenge.get("mfa_required"):
+            return status, challenge
+        status, body = call("POST", "/api/auth/login/mfa", {"mfa_token": challenge["mfa_token"], "code": totp(secret)})
+        if status == 200 or attempt or body.get("code") != "mfa_invalid_code":
+            return status, body
+        time.sleep(30 - time.time() % 30 + 0.5)
+    return status, body
+
+
+def mfa_scenario() -> None:
+    # Cette méthode permet de vérifier la double authentification d'un client de bout en bout : activation,
+    # connexion en deux étapes, refus d'un mauvais code, code de secours à usage unique, désactivation.
+    email = f"mfa-{uuid.uuid4().hex[:8]}@demo.local"
+    password = secrets.token_urlsafe(18)
+    call("POST", "/api/auth/register", {"email": email, "full_name": "Mfa", "password": password})
+    token = call("POST", "/api/auth/login", {"email": email, "password": password})[1].get("access_token")
+    status, setup = call("POST", "/api/auth/mfa/setup", token=token)
+    check(status == 200 and setup.get("qr_code", "").startswith("data:image/svg+xml"), "secret TOTP et QR code générés")
+    # Activation avec le code du pas précédent (toléré) : celui du pas courant reste libre pour la connexion.
+    status, activated = call("POST", "/api/auth/mfa/activate", {"code": totp(setup["secret"], -1)}, token)
+    codes = activated.get("recovery_codes", []) if isinstance(activated, dict) else []
+    check(status == 200 and len(codes) == 10, "activation -> 10 codes de secours")
+    status, challenge = call("POST", "/api/auth/login", {"email": email, "password": password})
+    check(status == 200 and challenge.get("mfa_required") and "access_token" not in challenge, "mot de passe seul -> étape « code », sans jeton")
+    status, body = call("POST", "/api/auth/login/mfa", {"mfa_token": challenge["mfa_token"], "code": "000000"})
+    check(status == 401 and body.get("code") == "mfa_invalid_code", "mauvais code -> 401")
+    status, body = call("POST", "/api/auth/login/mfa", {"mfa_token": challenge["mfa_token"], "code": totp(setup["secret"])})
+    check(status == 200 and "access_token" in body, "code TOTP valide -> jeton")
+    challenge = call("POST", "/api/auth/login", {"email": email, "password": password})[1]
+    status, body = call("POST", "/api/auth/login/mfa", {"mfa_token": challenge["mfa_token"], "code": codes[0]})
+    check(status == 200, "code de secours -> jeton")
+    token = body.get("access_token")
+    status, _ = call("POST", "/api/auth/mfa/disable", {"password": password, "code": codes[0]}, token)
+    check(status == 400, "code de secours déjà utilisé -> refusé")
+    status, _ = call("POST", "/api/auth/mfa/disable", {"password": password, "code": codes[1]}, token)
+    check(status == 204 and "access_token" in call("POST", "/api/auth/login", {"email": email, "password": password})[1],
+          "désactivation -> connexion par mot de passe seul")
+
+
 def main() -> int:
     # Cette méthode permet de dérouler le scénario métier complet et de renvoyer 0 si tout est conforme.
     print(f"Cible : {BASE}")
@@ -117,6 +176,9 @@ def main() -> int:
     check(call("GET", "/api/payments/metrics")[0] == 404, "/metrics non exposé publiquement")
     check(call("GET", "/api/payments/internal/integrity")[0] == 404, "/internal non exposé publiquement")
 
+    print("\n[Double authentification]")
+    mfa_scenario()
+
     print("\n[Concurrence : 40 virements croisés simultanés]")
 
     def cross(i: int) -> int:
@@ -133,13 +195,16 @@ def main() -> int:
     check(status == 200 and len(history) == 1 + 1 + 40, f"historique alice complet ({len(history)} lignes)")
 
     print("\n[Intégrité du registre]")
-    if ADMIN_PASSWORD_FILE.exists():
-        status, body = call("POST", "/api/auth/login", {"email": "admin@resilience.local", "password": ADMIN_PASSWORD_FILE.read_text().strip()})
-        check(status == 200, "connexion admin")
+    if ADMIN_PASSWORD_FILE.exists() and ADMIN_TOTP_FILE.exists():
+        password = ADMIN_PASSWORD_FILE.read_text().strip()
+        status, challenge = call("POST", "/api/auth/login", {"email": "admin@resilience.local", "password": password})
+        check(status == 200 and challenge.get("mfa_required") is True, "admin : mot de passe seul -> code exigé")
+        status, body = login_with_totp("admin@resilience.local", password, ADMIN_TOTP_FILE.read_text().strip())
+        check(status == 200, "connexion admin (mot de passe + TOTP)")
         status, report = call("GET", "/api/payments/admin/integrity", token=body.get("access_token"))
         check(status == 200 and report.get("ok") is True, f"registre cohérent : {report.get('checks')}")
     else:
-        print("  -- secrets/admin_password absent : contrôle admin ignoré")
+        print("  -- secrets/admin_password ou secrets/admin_totp_secret absent : contrôle admin ignoré")
 
     failed = [label for ok, label in RESULTS if not ok]
     print(f"\n{len(RESULTS) - len(failed)}/{len(RESULTS)} vérifications OK en {time.perf_counter() - started:.1f}s")

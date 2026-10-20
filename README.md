@@ -37,7 +37,7 @@ vérifie la reprise par une transaction témoin.
 |---|---|---|
 | `waf` | ModSecurity + OWASP CRS (paranoïa 1), unique point d'entrée | **oui**, port 8080 |
 | `frontend` | SPA React/Vite/Tailwind servie par nginx non privilégié, reverse proxy vers les API | non (derrière le WAF) |
-| `auth-service` | Inscription, connexion (argon2id), émission de JWT RS256 (15 min), compte admin initial | non |
+| `auth-service` | Inscription, connexion (argon2id), **double authentification TOTP** (optionnelle pour les clients, imposée à l'admin ; codes de secours), émission de JWT RS256 (15 min), compte admin initial | non |
 | `payment-api` | Comptes, virements en partie double, idempotence, contrôle d'intégrité | non |
 | `postgres` | `authdb` (rôle `auth_svc`) et `paydb` (rôle `pay_svc`), isolées | non |
 
@@ -103,7 +103,15 @@ Déploiement automatisé sur le PC Hôte (VM Proxmox `172.16.147.10`), depuis WS
   version exportée pour le rendu dans `docs/api/` (`python scripts/export_openapi.py`, `--check` pour vérifier qu'elle est à jour),
   avec celle du moteur de remédiation (`docs/api/remediation-engine.openapi.json` : webhook et API d'état), qui n'a ni
   port publié ni `/docs` en direct
-- Admin : `admin@resilience.local`, mot de passe dans `secrets/admin_password`
+- Admin : `admin@resilience.local`, mot de passe dans `secrets/admin_password` ; **double authentification imposée** :
+  secret TOTP dans `secrets/admin_totp_secret` (base32), à ajouter dans une appli d'authentification (Google Authenticator,
+  FreeOTP…) avec l'URI `otpauth://` affichée par `init_secrets.py` ; le smoke test calcule les codes lui-même
+- Double authentification des clients : à activer dans **Paramètres → Sécurité** (bouton de l'en-tête : QR code,
+  premier code, 10 codes de secours affichés une fois). Connexion en deux étapes : `POST /api/auth/login` renvoie
+  `mfa_required` et un jeton d'étape (5 min, 5 essais), puis `POST /api/auth/login/mfa` avec le code TOTP ou un code de
+  secours. Un code TOTP ne sert qu'une fois ; un code refusé est journalisé en `auth_failure` (règles SOC, détecteur ML,
+  blocage d'IP) ; le jeton d'accès porte `amr: ["pwd", "otp"]`. Les automates (transaction témoin, trafic ML,
+  scénarios d'attaque) utilisent des comptes sans double authentification
 
 Le moteur de remédiation rejoue lui-même une **transaction témoin** à travers le WAF après chaque action
 (`services/remediation-engine/app/witness.py`, même parcours que `tests/smoke_test.py`). À la main :

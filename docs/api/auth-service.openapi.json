@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Resilience-Alpha — Auth Service",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "paths": {
     "/register": {
@@ -63,6 +63,52 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/TokenOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MfaChallengeOut"
+                    }
+                  ],
+                  "title": "Response Login Login Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login/mfa": {
+      "post": {
+        "summary": "Login Mfa",
+        "operationId": "login_mfa_login_mfa_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaLoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
                   "$ref": "#/components/schemas/TokenOut"
                 }
               }
@@ -79,6 +125,131 @@
             }
           }
         }
+      }
+    },
+    "/mfa": {
+      "get": {
+        "summary": "Mfa Status",
+        "operationId": "mfa_status_mfa_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/mfa/setup": {
+      "post": {
+        "summary": "Mfa Setup",
+        "operationId": "mfa_setup_mfa_setup_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetupOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/mfa/activate": {
+      "post": {
+        "summary": "Mfa Activate",
+        "operationId": "mfa_activate_mfa_activate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCodeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/mfa/disable": {
+      "post": {
+        "summary": "Mfa Disable",
+        "operationId": "mfa_disable_mfa_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaDisableIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/me": {
@@ -157,6 +328,151 @@
           "password"
         ],
         "title": "LoginIn"
+      },
+      "MfaChallengeOut": {
+        "properties": {
+          "mfa_required": {
+            "type": "boolean",
+            "const": true,
+            "title": "Mfa Required",
+            "default": true
+          },
+          "mfa_token": {
+            "type": "string",
+            "title": "Mfa Token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "expires_in"
+        ],
+        "title": "MfaChallengeOut"
+      },
+      "MfaCodeIn": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "MfaCodeIn"
+      },
+      "MfaDisableIn": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password",
+          "code"
+        ],
+        "title": "MfaDisableIn"
+      },
+      "MfaLoginIn": {
+        "properties": {
+          "mfa_token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 20,
+            "title": "Mfa Token"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "code"
+        ],
+        "title": "MfaLoginIn"
+      },
+      "MfaSetupOut": {
+        "properties": {
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "otpauth_uri": {
+            "type": "string",
+            "title": "Otpauth Uri"
+          },
+          "qr_code": {
+            "type": "string",
+            "title": "Qr Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secret",
+          "otpauth_uri",
+          "qr_code"
+        ],
+        "title": "MfaSetupOut"
+      },
+      "MfaStatusOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required"
+          },
+          "recovery_codes_remaining": {
+            "type": "integer",
+            "title": "Recovery Codes Remaining"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "required",
+          "recovery_codes_remaining"
+        ],
+        "title": "MfaStatusOut"
+      },
+      "RecoveryCodesOut": {
+        "properties": {
+          "recovery_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recovery Codes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recovery_codes"
+        ],
+        "title": "RecoveryCodesOut"
       },
       "RegisterIn": {
         "properties": {

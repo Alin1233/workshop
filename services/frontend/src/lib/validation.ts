@@ -50,6 +50,24 @@ export const registerSchema = z.object({
     .max(PASSWORD_MAX, `${PASSWORD_MAX} caractères maximum.`),
 });
 
+// Code de l'appli d'authentification (6 chiffres) ou code de secours (« xxxxx-xxxxx »), espaces ignorés.
+export const mfaCodeSchema = z.object({
+  code: z
+    .string()
+    .transform((value) => value.replace(/\s/g, ""))
+    .pipe(
+      z
+        .string()
+        .min(1, "Code requis.")
+        .regex(/^(\d{6}|[a-z0-9]{5}-?[a-z0-9]{5})$/i, "6 chiffres, ou un code de secours (xxxxx-xxxxx)."),
+    ),
+});
+
+export const mfaDisableSchema = z.object({
+  password: z.string().min(1, "Mot de passe requis.").max(PASSWORD_MAX, `${PASSWORD_MAX} caractères maximum.`),
+  code: mfaCodeSchema.shape.code,
+});
+
 export type FieldErrors<T> = Partial<Record<keyof T, string>>;
 
 // Cette méthode permet de valider une saisie avec un schéma Zod et de renvoyer soit les données nettoyées,

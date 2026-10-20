@@ -25,6 +25,9 @@ OBSERVABILITY_USER = "admin"
 # Jetons de service (jamais saisis par un humain) : remediation_webhook_token authentifie Alertmanager auprès du moteur
 # de remédiation (en-tête Authorization: Bearer, lu par les deux conteneurs en secret Compose).
 TOKENS = ("remediation_webhook_token",)
+# Secret TOTP (RFC 6238, base32) du compte admin de l'application : la double authentification lui est imposée.
+# À enregistrer dans une appli d'authentification (URI otpauth affichée ci-dessous) ; le smoke test calcule les codes.
+ADMIN_TOTP_SECRET = "admin_totp_secret"
 
 
 def write_secret(name: str, content: str, force: bool) -> None:
@@ -131,9 +134,13 @@ def main() -> None:
         write_secret("jwt_public.pem", public_pem, True)
     else:
         print("  = jwt_private.pem / jwt_public.pem (conservés)")
+    write_secret(ADMIN_TOTP_SECRET, base64.b32encode(secrets.token_bytes(20)).decode(), force)
     for service in OBSERVABILITY:
         write_observability_auth(service, force)
     print(f"Mot de passe admin (admin@resilience.local) : {(SECRETS_DIR / 'admin_password').read_text().strip()}")
+    totp = (SECRETS_DIR / ADMIN_TOTP_SECRET).read_text().strip()
+    print(f"Double authentification admin, à ajouter dans une appli d'authentification (clé {totp}) : "
+          f"otpauth://totp/Resilience-Alpha:admin%40resilience.local?secret={totp}&issuer=Resilience-Alpha")
     print(f"Mot de passe Grafana (admin) : {(SECRETS_DIR / 'grafana_admin_password').read_text().strip()}")
     for service in OBSERVABILITY:
         print(f"Mot de passe {service.capitalize()} ({OBSERVABILITY_USER}) : {(SECRETS_DIR / f'{service}_password').read_text().strip()}")

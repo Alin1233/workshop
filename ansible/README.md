@@ -88,7 +88,8 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e deploy_ref=v1  #
   de l'opérateur**, à travers le réseau et le pare-feu, comme le PC attaquant ou le jury.
 - Les mots de passe affichés par `init_secrets.py` sont masqués (`no_log`). Pour les lire :
   `ssh resilience@172.16.147.10 sudo cat /opt/resilience-alpha/shared/secrets/admin_password`
-  (idem `grafana_admin_password`, `prometheus_password`, `alertmanager_password`, `loki_password`).
+  (idem `grafana_admin_password`, `prometheus_password`, `alertmanager_password`, `loki_password`, et `admin_totp_secret`,
+  le secret TOTP de la double authentification imposée à l'admin, à ajouter dans une appli d'authentification).
 - Les hash bcrypt de ces comptes sont calculés par `htpasswd` dans un conteneur `httpd:2.4-alpine` jetable quand
   la bibliothèque Python `bcrypt` est absente (cas de la VM) : rien à installer sur l'hôte.
 

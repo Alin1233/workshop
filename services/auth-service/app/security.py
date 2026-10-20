@@ -37,8 +37,9 @@ class TokenIssuer:
         self.ttl_seconds = ttl_seconds
         self.kid = "ra-auth-1"
 
-    def issue(self, user: dict) -> str:
-        # Cette méthode permet de produire un jeton d'accès signé contenant l'identité et le rôle de l'utilisateur.
+    def issue(self, user: dict, amr: tuple[str, ...] = ("pwd",)) -> str:
+        # Cette méthode permet de produire un jeton d'accès signé contenant l'identité, le rôle de l'utilisateur
+        # et les facteurs vérifiés à la connexion (amr, RFC 8176 : « pwd », plus « otp » avec la double authentification).
         now = int(time.time())
         claims = {
             "iss": ISSUER,
@@ -47,6 +48,7 @@ class TokenIssuer:
             "email": user["email"],
             "name": user["full_name"],
             "role": user["role"],
+            "amr": list(amr),
             "iat": now,
             "exp": now + self.ttl_seconds,
             "jti": uuid.uuid4().hex,

@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { loadSession, saveSession, type Session } from "./lib/api";
 import { useServiceHealth } from "./lib/useServiceHealth";
+import AccountSettings from "./components/AccountSettings";
 import AuthScreen from "./components/AuthScreen";
 import Brand from "./components/Brand";
 import Dashboard from "./components/Dashboard";
@@ -19,12 +20,15 @@ function initials(fullName: string): string {
 // Cette méthode permet d'afficher l'écran de connexion ou l'espace client selon l'état de la session.
 export default function App() {
   const [session, setSession] = useState<Session | null>(loadSession);
+  const [view, setView] = useState<"dashboard" | "settings">("dashboard");
   const health = useServiceHealth();
 
-  // Cette méthode permet de mettre à jour la session en mémoire et dans le stockage de l'onglet.
+  // Cette méthode permet de mettre à jour la session en mémoire et dans le stockage de l'onglet ;
+  // toute nouvelle session (ou déconnexion) revient au tableau de bord.
   const updateSession = useCallback((next: Session | null) => {
     saveSession(next);
     setSession(next);
+    setView("dashboard");
   }, []);
   // Rappel stable : l'App se réaffiche à chaque sondage /health (5 s) ; un rappel recréé à chaque rendu relançait
   // le rechargement du tableau de bord à chaque sondage au lieu de toutes les 10 s.
@@ -53,6 +57,13 @@ export default function App() {
             {initials(session.user.full_name)}
           </span>
           <button
+            onClick={() => setView("settings")}
+            aria-current={view === "settings" ? "page" : undefined}
+            className={`rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition-colors hover:bg-chip ${view === "settings" ? "bg-chip" : "bg-white"}`}
+          >
+            Paramètres
+          </button>
+          <button
             onClick={() => updateSession(null)}
             className="rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-ink transition-colors hover:bg-chip"
           >
@@ -61,7 +72,11 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6">
-        <Dashboard session={session} health={health} onSessionExpired={expireSession} />
+        {view === "settings" ? (
+          <AccountSettings session={session} onBack={() => setView("dashboard")} onSessionExpired={expireSession} />
+        ) : (
+          <Dashboard session={session} health={health} onSessionExpired={expireSession} />
+        )}
       </main>
     </div>
   );

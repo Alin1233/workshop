@@ -2,6 +2,10 @@
 
 export type User = { id: string; email: string; full_name: string; role: "client" | "admin" };
 export type Session = { token: string; expiresAt: number; user: User };
+// Connexion suspendue en attente du second facteur (jeton opaque de 5 minutes, jamais stocké).
+export type MfaChallenge = { mfaToken: string };
+export type MfaStatus = { enabled: boolean; required: boolean; recovery_codes_remaining: number };
+export type MfaSetup = { secret: string; otpauth_uri: string; qr_code: string };
 export type Account = { account_number: string; owner_name: string; currency: string; balance_cents: number; created_at: string };
 export type Transfer = {
   id: string;
@@ -71,14 +75,50 @@ function messageForStatus(status: number): string {
   return `Erreur inattendue (${status}).`;
 }
 
+type TokenResponse = { access_token: string; expires_in: number; user: User };
+
+// Cette méthode permet de convertir la réponse d'émission de jeton de l'auth-service en session du front.
+function toSession(res: TokenResponse): Session {
+  return { token: res.access_token, expiresAt: Date.now() + res.expires_in * 1000, user: res.user };
+}
+
 export const api = {
-  // Cette méthode permet d'ouvrir une session à partir d'un email et d'un mot de passe.
-  async login(email: string, password: string): Promise<Session> {
-    const res = await request<{ access_token: string; expires_in: number; user: User }>("/api/auth/login", {
+  // Cette méthode permet d'ouvrir une session à partir d'un email et d'un mot de passe ; si la double authentification
+  // est active, renvoie à la place le jeton d'étape à présenter avec le code (verifyMfa).
+  async login(email: string, password: string): Promise<Session | MfaChallenge> {
+    const res = await request<TokenResponse | { mfa_required: true; mfa_token: string }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-    return { token: res.access_token, expiresAt: Date.now() + res.expires_in * 1000, user: res.user };
+    return "mfa_token" in res ? { mfaToken: res.mfa_token } : toSession(res);
+  },
+
+  // Cette méthode permet de terminer une connexion avec double authentification (code TOTP ou code de secours).
+  async verifyMfa(mfaToken: string, code: string): Promise<Session> {
+    return toSession(
+      await request<TokenResponse>("/api/auth/login/mfa", { method: "POST", body: JSON.stringify({ mfa_token: mfaToken, code }) }),
+    );
+  },
+
+  // Cette méthode permet de connaître l'état de la double authentification du compte connecté.
+  mfaStatus(token: string): Promise<MfaStatus> {
+    return request("/api/auth/mfa", {}, token);
+  },
+
+  // Cette méthode permet d'obtenir un nouveau secret TOTP et son QR code, en attente de confirmation.
+  mfaSetup(token: string): Promise<MfaSetup> {
+    return request("/api/auth/mfa/setup", { method: "POST" }, token);
+  },
+
+  // Cette méthode permet d'activer la double authentification avec un premier code ; renvoie les codes de secours.
+  async mfaActivate(token: string, code: string): Promise<string[]> {
+    const res = await request<{ recovery_codes: string[] }>("/api/auth/mfa/activate", { method: "POST", body: JSON.stringify({ code }) }, token);
+    return res.recovery_codes;
+  },
+
+  // Cette méthode permet de désactiver la double authentification après confirmation du mot de passe et d'un code.
+  async mfaDisable(token: string, password: string, code: string): Promise<void> {
+    await request("/api/auth/mfa/disable", { method: "POST", body: JSON.stringify({ password, code }) }, token);
   },
 
   // Cette méthode permet de créer un compte client.
