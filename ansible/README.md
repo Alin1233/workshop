@@ -52,10 +52,11 @@ ansible-playbook -i ansible/inventory.ini ansible/prepare_host.yml
 - **SSH** : clé uniquement, `root` interdit, `AllowUsers resilience`, tunnels locaux seulement. Accès aux interfaces de gestion :
 
 ```bash
-ssh -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 resilience@172.16.147.10
+ssh -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 -L 8091:127.0.0.1:8091 resilience@172.16.147.10
 ```
 
-  Prometheus, Alertmanager et Loki demandent un identifiant : `admin` / `shared/secrets/<service>_password`.
+  Prometheus, Alertmanager et Loki demandent un identifiant : `admin` / `shared/secrets/<service>_password` ; de même le
+  dashboard de supervision (écran du Clip Chrono, http://127.0.0.1:8091) : `admin` / `shared/secrets/supervision_password`.
 
 - **Mises à jour** : sécurité Debian automatique, sans redémarrage ; Docker, hors de ces dépôts, ne bouge pas pendant la démo.
 
