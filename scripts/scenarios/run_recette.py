@@ -36,12 +36,17 @@ REPO = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = REPO / "scripts" / "scenarios"
 SECRETS = REPO / "secrets"
 
-# scénario d'orchestration → (sous-commande attack.py, alertes SOC/Prometheus attendues)
+# scénario d'orchestration → attaque attack.py, alertes attendues, et clé d'incident à suivre.
+# `incident_key` : si None, l'incident est retrouvé par l'IP (blocage SOC, clé ip:<IP>) ; sinon par cette clé de
+# corrélation (chemin ML, clé anomaly:<service>) car l'incident d'anomalie n'est pas indexé sur l'IP.
 SCENARIOS = {
-    "brute-force": ("brute-force", ["AuthBruteForce"]),
-    "injections": ("injections", ["WafAttackBlocked"]),
-    "invalid-tokens": ("invalid-tokens", ["InvalidTokenFlood"]),
-    "ml-anomaly": ("invalid-tokens", ["AnomalyDetected", "InvalidTokenFlood"]),
+    "brute-force": {"attack": "brute-force", "alerts": ["AuthBruteForce"], "incident_key": None},
+    "injections": {"attack": "injections", "alerts": ["WafAttackBlocked"], "incident_key": None},
+    "invalid-tokens": {"attack": "invalid-tokens", "alerts": ["InvalidTokenFlood"], "incident_key": None},
+    # Chemin ML : jetons invalides sous le seuil SOC → AnomalyDetected (payment-api) → blocage par le chemin ML.
+    "ml-anomaly": {"attack": "invalid-tokens", "alerts": ["AnomalyDetected"], "incident_key": "anomaly:payment-api"},
+    # Chemin ML : force brute sous les seuils SOC → AnomalyDetected (auth-service), variable login_failures_per_min.
+    "ml-brute-force": {"attack": "brute-force", "alerts": ["AnomalyDetected"], "incident_key": "anomaly:auth-service"},
 }
 
 
@@ -153,6 +158,17 @@ def incident_for_ip(project, client_ip):
     return None
 
 
+def incident_by_key(project, key, t0):
+    # Cette méthode permet de retrouver le dernier incident portant une clé de corrélation donnée (ex. anomaly:auth-service)
+    # ouvert après t0 : l'incident d'anomalie n'étant pas indexé sur l'IP, on le suit par sa clé.
+    best = None
+    for inc in engine_api(project, "/api/incidents?limit=30") or []:
+        if inc.get("key") == key and (epoch(inc.get("created_at")) or 0) >= t0 - 3:
+            if best is None or (epoch(inc.get("created_at")) or 0) >= (epoch(best.get("created_at")) or 0):
+                best = inc
+    return engine_api(project, f"/api/incidents/{best['id']}") if best else None
+
+
 def epoch(iso_s):
     # Cette méthode permet de convertir un horodatage ISO en epoch (None si absent).
     if not iso_s or str(iso_s).startswith("0001-"):
@@ -171,8 +187,10 @@ def timeline_offsets(incident, t0):
         if ts is None:
             continue
         off = round(ts - t0, 1)
-        key = {"state:detected": "détection (webhook)", "state:decided": "décision",
-               "action:block_ip": "blocage effectué", "state:recovered": "rétabli et vérifié",
+        key = {"state:detected": "détection (webhook)", "triage": "triage (variable dominante)",
+               "state:decided": "décision", "action:block_ip": "blocage effectué",
+               "verification:waf_block": "blocage vérifié", "state:recovered": "rétabli et vérifié",
+               "state:escalated": "escalade (pas de blocage)", "state:observing": "observation (pas de blocage)",
                "alert:resolved": "alerte retombée", "closed": "incident clos",
                "verification:witness": "transaction témoin"}.get(name)
         if name == "action:block_ip" and ev.get("detail", {}).get("result") != "success":
@@ -182,32 +200,39 @@ def timeline_offsets(incident, t0):
     return marks
 
 
-def poll(project, names, client_ip, t0, watch_s, am_user, am_pw):
-    # Cette méthode permet de suivre l'apparition de l'alerte et de l'action de blocage pendant `watch_s` secondes.
+def poll(project, names, client_ip, t0, watch_s, am_user, am_pw, incident_key=None):
+    # Cette méthode permet de suivre l'apparition de l'alerte, puis l'issue de l'incident (blocage, escalade ou
+    # observation) pendant `watch_s` secondes. Pour un incident d'anomalie (clé anomaly:<service>), l'alerte
+    # AnomalyDetected ne porte pas de client_ip : on la retrouve donc sans filtre d'IP.
     alert_seen, action_seen, incident_id = None, None, None
+    alert_ip = None if incident_key else client_ip
     deadline = time.time() + watch_s
     while time.time() < deadline:
         if alert_seen is None:
-            a = find_alert(project, names, client_ip, am_user, am_pw)
+            a = find_alert(project, names, alert_ip, am_user, am_pw)
             if a:
                 fired = epoch(a.get("startsAt"))
                 alert_seen = {**a, "seen_offset_s": round(time.time() - t0, 1),
                               "firing_offset_s": round(fired - t0, 1) if fired else None}
                 print(f"  + alerte {a['alertname']} firing à +{alert_seen['firing_offset_s']}s "
                       f"(startsAt={a['startsAt']}, vue à +{alert_seen['seen_offset_s']}s)", flush=True)
-        inc = incident_for_ip(project, client_ip)
+        inc = incident_by_key(project, incident_key, t0) if incident_key else incident_for_ip(project, client_ip)
         if inc:
             incident_id = inc.get("id")
             blocked = any(e.get("event") == "action:block_ip" and e.get("detail", {}).get("result") == "success"
                           for e in inc.get("timeline", []))
             if blocked and action_seen is None:
                 action_seen = round(time.time() - t0, 1)
-                print(f"  + blocage de {client_ip} à +{action_seen}s", flush=True)
-            if inc.get("state") == "recovered" and action_seen is not None:
-                print(f"  + incident {incident_id} rétabli et vérifié", flush=True)
+                print(f"  + blocage de {inc.get('service') or client_ip} à +{action_seen}s "
+                      f"(incident {incident_id})", flush=True)
+            state = inc.get("state")
+            if state in ("recovered", "escalated"):
+                print(f"  + incident {incident_id} → {state}"
+                      + (" (aucun blocage)" if not blocked else ""), flush=True)
                 return alert_seen, incident_id, inc
         time.sleep(2)
-    return alert_seen, incident_id, incident_for_ip(project, client_ip)
+    return alert_seen, incident_id, (incident_by_key(project, incident_key, t0) if incident_key
+                                     else incident_for_ip(project, client_ip))
 
 
 def wait_unblock(project, client_ip, attacker, t0, max_s):
@@ -239,7 +264,8 @@ def main():
     parser.add_argument("--out", default=None, help="fichier JSON de preuves")
     args = parser.parse_args()
 
-    attack_cmd, alert_names = SCENARIOS[args.scenario]
+    cfg = SCENARIOS[args.scenario]
+    attack_cmd, alert_names, incident_key = cfg["attack"], cfg["alerts"], cfg["incident_key"]
     am_pw = secret("alertmanager_password")
     attacker = f"recette-attacker-{args.scenario}"
     bystander = f"recette-bystander-{args.scenario}"
@@ -252,17 +278,29 @@ def main():
 
     t0 = time.time()
     print(f"  lancement de l'attaque à t0={now_iso()}", flush=True)
-    code, out, err = sh(["docker", "exec", attacker, "python3", "/s/attack.py", attack_cmd,
-                         "--target", "http://waf:8080", "--rate", str(args.rate), "--duration", str(args.duration)],
-                        timeout=args.duration + 120)
     attack_summary = {}
-    for line in out.splitlines():
-        if line.startswith("{"):
-            attack_summary = json.loads(line)
-    t0 = attack_summary.get("started_epoch", t0)
-    print(f"  attaque : {attack_summary.get('statuses')} ({attack_summary.get('requests')} req)", flush=True)
+    if incident_key:
+        # Incident d'anomalie : le blocage (ou l'escalade) survient PENDANT l'attaque (le score met ~1 min à monter,
+        # `for: 20s` ensuite). On lance donc l'attaque en tâche de fond et on suit l'incident en parallèle.
+        sh(["docker", "exec", "-d", attacker, "python3", "/s/attack.py", attack_cmd,
+            "--target", "http://waf:8080", "--rate", str(args.rate), "--duration", str(args.duration)])
+        attack_summary = {"note": "attaque détachée, incident d'anomalie suivi en parallèle",
+                          "rate_per_min": args.rate, "duration_s": args.duration}
+        print(f"  attaque détachée (brute-force {args.rate}/min, {args.duration}s)", flush=True)
+    else:
+        code, out, err = sh(["docker", "exec", attacker, "python3", "/s/attack.py", attack_cmd,
+                             "--target", "http://waf:8080", "--rate", str(args.rate), "--duration", str(args.duration)],
+                            timeout=args.duration + 120)
+        for line in out.splitlines():
+            if line.startswith("{"):
+                attack_summary = json.loads(line)
+        t0 = attack_summary.get("started_epoch", t0)
+        print(f"  attaque : {attack_summary.get('statuses')} ({attack_summary.get('requests')} req)", flush=True)
 
-    alert_seen, incident_id, incident = poll(args.project, alert_names, attacker_ip, t0, args.watch, "admin", am_pw)
+    alert_seen, incident_id, incident = poll(args.project, alert_names, attacker_ip, t0, args.watch, "admin", am_pw,
+                                             incident_key=incident_key)
+    blocked = bool(incident) and any(a.get("action") == "block_ip" and a.get("result") == "success"
+                                     for a in (incident or {}).get("actions", []))
 
     checks = {
         "attaquant_waf": waf_status(attacker),
@@ -272,9 +310,12 @@ def main():
     print(f"  WAF → attaquant: {checks['attaquant_waf'][:60]}", flush=True)
     print(f"  WAF → témoin tiers: {checks['temoin_tiers_waf'][:60]}", flush=True)
     print(f"  WAF → hôte (port publié): {checks['hote_waf_http']}", flush=True)
+    decision_reason = (incident or {}).get("decision", {}).get("reason") if incident else None
+    if decision_reason:
+        print(f"  décision : {decision_reason}", flush=True)
 
     unblock_off = None
-    if args.unblock_wait:
+    if args.unblock_wait and blocked:
         print(f"  attente de la levée automatique (TTL)…", flush=True)
         unblock_off = wait_unblock(args.project, attacker_ip, attacker, t0, args.unblock_wait)
         print(f"  + {attacker_ip} : expiration logique +{unblock_off['logical_s']}s, "
@@ -283,10 +324,14 @@ def main():
         print(f"  WAF → attaquant après levée: {checks['attaquant_waf_apres_levee'][:60]}", flush=True)
 
     offsets = timeline_offsets(incident or {}, t0) if incident else {}
+    triage = next((e.get("detail", {}) for e in (incident or {}).get("timeline", []) if e.get("event") == "triage"), {})
     evidence = {
         "scenario": args.scenario, "run_at": now_iso(), "attacker_ip": attacker_ip, "bystander_ip": bystander_ip,
         "attack": attack_summary, "alert": alert_seen, "incident_id": incident_id,
-        "incident_state": (incident or {}).get("state"), "offsets_s": offsets,
+        "incident_state": (incident or {}).get("state"), "incident_key": (incident or {}).get("key"),
+        "blocked": blocked, "decision_reason": decision_reason,
+        "dominant_feature": triage.get("dominant_feature"), "anomaly_score": triage.get("anomaly_score"),
+        "escalation": (incident or {}).get("escalation"), "offsets_s": offsets,
         "unblock_offset_s": unblock_off, "checks": checks,
         "block_entries": engine_api(args.project, "/api/state").get("blocked_ips", []),
     }

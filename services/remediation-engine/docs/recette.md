@@ -185,10 +185,59 @@ z ≈ 7,3) → `anomaly_score ≈ 0,94 ≥ 0,8`. C'est donc le **chemin ML** (le
 de l'IP dans Loki, blocage) qui réagit, exactement le cas demandé. Pour une attaque plus intense (force brute, > 20/min),
 les règles SOC (`for: 0s`) sont plus rapides que l'anomalie (`for: 20s`) et bloquent les premières (cas 4A).
 
+**4C — Force brute sous les seuils SOC : le chemin ML bloque sur `login_failures_per_min`.** Même démonstration que 4B,
+mais par **force brute** (`attack.py brute-force`), pour que la variable dominante soit `login_failures_per_min` et que
+l'attribution se fasse sur les `auth_failure` d'`auth-service` dans Loki. Scénario d'orchestration `ml-brute-force`
+(`run_recette.py`) : l'incident est suivi par sa clé `anomaly:auth-service` (il n'est pas indexé sur l'IP), l'attaque est
+lancée en tâche de fond et l'incident suivi en parallèle (le blocage survient pendant l'attaque).
+
+*Choix du débit, à partir des seuils réels.* Il faut rester **sous** `AuthBruteForce` (> 10 échecs/min pour une IP,
+`soc.yml`) et `LoginFailureSpike` (> 20/min au total, `availability.yml`), mais donner **≥ 10 échecs en 2 min** pour
+l'attribution Loki (`SECURITY_MIN_EVENTS = 10`) et un **`anomaly_score` ≥ 0,8**. Le modèle v3 (auth-service : médiane
+`login_failures_per_min` 0, échelle 1,0, β 3,27, `t80` 4,15) donne un score ≥ 0,8 dès `login_failures_per_min ≈ 4,1`.
+Deux débits retenus : **9/min** (cas positif : ≤ 10/min donc pas de SOC, et 2 min × 9 ≈ 18 ≥ 10) et **5/min** (cas
+négatif : l'anomalie se déclenche mais le total d'échecs reste < 10 sur la fenêtre Loki).
+
+**Score prédit vs mesuré.** Le score **prédit en régime établi** est ~1,0 à 9/min et ~0,91 à 5/min. Le score **mesuré**
+(celui que le moteur lit dans le journal `anomaly_detected`, écrit à la **transition** — donc pendant la montée du taux,
+où `login_failures_per_min ≈ 4,8`) est **0,890 à 9/min** et **0,886 à 5/min**, tous deux ≥ 0,8. Ce qui **distingue
+blocage et escalade n'est donc pas le score mais le compte d'attribution Loki sur 2 min** (10 ≥ seuil → blocage ;
+8 < seuil → escalade).
+
+*Cas positif (9/min, blocage par le chemin ML)* — incident `inc-20261020-095200-2dcd9b` :
+
+| Étape | Temps depuis le début de l'attaque |
+|---|---|
+| `AnomalyDetected` `firing` (auth-service, score 0,890 ≥ 0,8) | +55,9 s |
+| détection + triage (`dominant_feature=login_failures_per_min`) + décision | +64,7 s |
+| **blocage effectué** (Loki : **10 événements en 2 min** depuis l'IP ≥ seuil 10) | +64,8 s |
+| blocage vérifié | +65,3 s |
+| transaction témoin OK → **rétabli et vérifié** | +65,8 s |
+| expiration logique (TTL 90 s) / **levée effective** | +154,9 s / +161,7 s |
+
+Aucun incident SOC (`AuthBruteForce`/`LoginFailureSpike`) n'a été créé ; attaquant `403 blocked_by_remediation`, témoin
+tiers `200`, hôte `200` ; après la levée, attaquant `200`.
+
+*Cas négatif (5/min, attribution trop faible → pas de blocage)* — incident `inc-20261020-095530-07efed` :
+
+| Étape | Temps depuis le début de l'attaque |
+|---|---|
+| `AnomalyDetected` `firing` (auth-service, score 0,886 ≥ 0,8) | +80,1 s |
+| détection + triage + **escalade** (`reason=no_offender`) | +88,9 s |
+
+Décision du moteur : *« attaque (login_failures_per_min) sans IP dominante (meilleure : ('172.25.0.3', 8.0)) : attaque
+distribuée, escalade »*. L'IP n'a que **8 échecs en 2 min** (< 10) : le moteur **n'exécute aucun blocage** et **escalade**
+— l'attaquant reste servi (`200`). On a donc bien la garantie demandée : **pas de blocage sur une attribution faible**.
+Effet attendu de cette escalade : elle incrémente `remediation_escalations_total{reason="no_offender"}`, ce qui fait
+`firing` l'alerte `RemediationFailed` ; le moteur la traite comme une alerte **sur lui-même** (`nature=self`,
+observation seule, **jamais de self-remédiation**) et l'incident se clôt de lui-même quand l'alerte retombe (fenêtre
+`increase[10m]`).
+
 ## Bogues trouvés et corrigés
 
 - **Conteneur en cours de démarrage désigné comme cible** (décrit ci-dessus) : corrigé, testé, et **vérifié en direct**
-  (incident `inc-20261020-092442-9e870e`). C'est le seul bogue trouvé ; les cinq scénarios passent.
+  (incident `inc-20261020-092442-9e870e`). C'est le seul bogue trouvé ; tous les scénarios passent (1, 2, 3, 4A, 4B, 4C
+  positif et négatif). Le rejeu « force brute → anomalie de sécurité » (4C) n'a révélé aucun nouveau bogue.
 
 **Nuance mesurée (comportement attendu, pas un bogue).** La **levée effective** d'un blocage se produit à
 **TTL + au plus une période de fond** (`background_period_s`, 15 s) : c'est `expire()` qui réécrit le fichier et recharge
