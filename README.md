@@ -1,8 +1,9 @@
 # Resilience-Alpha — SI de paiement fictif
 
 Démonstrateur du Workshop EPSI 2026 « PROJECT RESILIENCE-ALPHA » : une plateforme de virements entre comptes fictifs,
-protégée par un WAF, observée par Prometheus / Loki / Grafana, avec une fonction SOC et une chaîne d'alertes prête à
-alimenter le moteur de remédiation.
+protégée par un WAF, observée par Prometheus / Loki / Grafana, avec une fonction SOC, une détection d'anomalies par ML
+et un moteur de remédiation qui répond aux alertes (redémarrage, blocage d'IP au WAF, restauration de la base) puis
+vérifie la reprise par une transaction témoin.
 
 **Reste à faire, par domaine : [docs/TODO.md](docs/TODO.md).**
 
@@ -40,28 +41,29 @@ alimenter le moteur de remédiation.
 | `payment-api` | Comptes, virements en partie double, idempotence, contrôle d'intégrité | non |
 | `postgres` | `authdb` (rôle `auth_svc`) et `paydb` (rôle `pay_svc`), isolées | non |
 
-### Observabilité et SOC (pilier Infrastructure / Sécurité)
+### Observabilité, SOC et remédiation (piliers Infrastructure / Sécurité / Développement)
 
 ```
  conteneurs ──stdout JSON──▶ fichiers json-file ──▶ alloy ──▶ loki ──règles SOC──┐
- API /metrics, sondes blackbox (à travers le WAF) ──▶ prometheus ──règles──────────┼──▶ alertmanager ──▶ remediation-engine ──▶ docker-socket-proxy / WAF / pont hôte
+ API /metrics, sondes blackbox (à travers le WAF) ──▶ prometheus ──règles──────────┼──▶ alertmanager ──webhook (jeton porteur)──▶ remediation-engine ──▶ docker-socket-proxy / WAF / pont hôte
                                        grafana ◀── prometheus, loki, alertmanager ┘
  anomaly-detector (ML) ◀── prometheus + loki, toutes les 10 s ; anomaly_score{service} ──▶ prometheus (règle AnomalyDetected)
+ remediation-engine ──▶ vérification de la reprise : conteneurs (proxy Docker), sondes (prometheus), transaction témoin (WAF)
 ```
 
 | Service | Rôle | Accès (PC Hôte uniquement) |
 |---|---|---|
 | `grafana` | tableaux « Santé du service » et « SOC » provisionnés | http://127.0.0.1:3000 (admin / `secrets/grafana_admin_password`) |
 | `prometheus` | métriques, sondes de bout en bout, 16 règles (`infra/prometheus/rules` : service, intégrité, détection ML `AnomalyDetected` et santé du détecteur, PC Hôte, sauvegardes, moteur de remédiation) | http://127.0.0.1:9090 (admin / `secrets/prometheus_password`) |
-| `alertmanager` | regroupe les alertes et les envoie au moteur de remédiation | http://127.0.0.1:9093 (admin / `secrets/alertmanager_password`) |
+| `alertmanager` | regroupe les alertes et les envoie au moteur de remédiation (`firing` et `resolved`, webhook authentifié par jeton porteur) | http://127.0.0.1:9093 (admin / `secrets/alertmanager_password`) |
 | `loki` | journaux centralisés + 5 règles SOC LogQL (`infra/loki/rules/fake/soc.yml`) | via `loki-proxy` |
 | `loki-proxy` | nginx : authentification basique devant Loki, qui n'en a pas (les accès internes d'Alloy et Grafana restent directs) | http://127.0.0.1:3100 (admin / `secrets/loki_password`) |
 | `alloy` | collecte les journaux en lisant les fichiers Docker (aucun accès au socket) | — |
 | `blackbox` | sonde le parcours client WAF → nginx → API → base | — |
 | `node-exporter` | ressources du PC Hôte (CPU, mémoire, disque) et état des sauvegardes PostgreSQL, sans accès au socket Docker | — |
 | `ollama` | LLM local de l'assistant RAG (CPU), profil `ai` (`--profile ai` ou `COMPOSE_PROFILES=ai`) ; sinon PC de délestage IA via `OLLAMA_BASE_URL` | non publié (réseau `ai`) |
-| `anomaly-detector` | détection d'anomalies ML (z-score robuste calibré, `ml/`) : `anomaly_score{service}` 0..1 pour auth-service, payment-api, frontend (NaN si pas de donnée) ; sa propre santé est surveillée (`AnomalyDetectorBlind`, `AnomalyDetectorDown`) | — (scrapé par Prometheus, réseau `obs`) |
-| `remediation-engine` | moteur de remédiation : webhook Alertmanager authentifié → table de décision → redémarrage (disponibilité) ou blocage d'IP au WAF / restauration de la base (compromission) → vérification (sondes + transaction témoin) ; API d'état en lecture seule ([README](services/remediation-engine/README.md)) | non publié (réseaux `obs`, `app`, `dmz`, `docker-api`) |
+| `anomaly-detector` | détection d'anomalies ML (z-score robuste calibré, `ml/`) : `anomaly_score{service}` 0..1 pour auth-service, payment-api, frontend (NaN si pas de donnée) ; sa propre santé est surveillée (`AnomalyDetectorBlind`, `AnomalyDetectorDown`) ; `AnomalyDetected` est triée par le moteur de remédiation selon la variable dominante ([README](services/anomaly-detector/README.md)) | — (scrapé par Prometheus, réseau `obs`) |
+| `remediation-engine` | moteur de remédiation : webhook Alertmanager authentifié → table de décision (toutes les règles Prometheus et Loki, vérifié par un test) → redémarrage (disponibilité) ou blocage d'IP au WAF / restauration de la base par le pont de l'hôte (compromission) → vérification (conteneurs, sondes, transaction témoin) ; anti-boucle et escalade ; API d'état en lecture seule ([README](services/remediation-engine/README.md)) | non publié (réseaux `obs`, `app`, `dmz`, `docker-api`) |
 | `docker-socket-proxy` | seule porte vers le démon Docker, réservée au moteur : lecture d'état et restart / start / kill uniquement | non publié (réseau interne `docker-api`) |
 | `ops-assistant` | assistant RAG des opérateurs (Ollama + LangChain) : procédures et architecture, réponses sourcées, aucune action ([README](services/ops-assistant/README.md)) | http://127.0.0.1:8090 (admin / `secrets/ops_assistant_password`) |
 
@@ -94,22 +96,30 @@ Déploiement automatisé sur le PC Hôte (VM Proxmox `172.16.147.10`), depuis WS
 
 - Application : http://127.0.0.1:8080 (depuis un autre poste : `http://192.168.137.1:8080`)
 - Documentation OpenAPI : http://127.0.0.1:8080/api/auth/docs et http://127.0.0.1:8080/api/payments/docs ;
-  version exportée pour le rendu dans `docs/api/` (`python scripts/export_openapi.py`, `--check` pour vérifier qu'elle est à jour)
+  version exportée pour le rendu dans `docs/api/` (`python scripts/export_openapi.py`, `--check` pour vérifier qu'elle est à jour),
+  avec celle du moteur de remédiation (`docs/api/remediation-engine.openapi.json` : webhook et API d'état), qui n'a ni
+  port publié ni `/docs` en direct
 - Admin : `admin@resilience.local`, mot de passe dans `secrets/admin_password`
 
-`python tests/smoke_test.py http://192.168.137.1:8080` sert de **transaction témoin** après une remédiation : code de sortie 0 = service métier rétabli.
+Le moteur de remédiation rejoue lui-même une **transaction témoin** à travers le WAF après chaque action
+(`services/remediation-engine/app/witness.py`, même parcours que `tests/smoke_test.py`). À la main :
+`python tests/smoke_test.py http://192.168.137.1:8080`, code de sortie 0 = service métier rétabli.
 
 ## Points d'intégration pour les autres piliers
 
 | Besoin | Où | Détail |
 |---|---|---|
 | Métriques Prometheus | `http://auth-service:8000/metrics`, `http://payment-api:8000/metrics` (réseau `app`) | `http_requests_total`, `http_request_duration_seconds`, `auth_login_attempts_total{result}`, `payment_transfers_total{result}`, `payment_ledger_integrity_ok`, `payment_accounts`, `payment_transfers_stored` |
-| Santé réelle | `GET /health` sur chaque service, `GET /healthz` sur nginx | 200 si le processus **et** la base répondent, 503 sinon |
+| Santé réelle | `GET /health` sur chaque service, `GET /healthz` sur nginx | 200 si le processus **et** la base répondent, 503 sinon (moteur de remédiation : 200 tant qu'il sert, dépendances manquantes détaillées sous `status=degraded`) |
 | Intégrité des données | `GET http://payment-api:8000/internal/integrity` (réseau interne) / `GET /api/payments/admin/integrity` (admin) | 200 si cohérent, 409 sinon, rapport JSON détaillé |
-| Journaux (Loki) | stdout de chaque conteneur, **une ligne JSON par événement** | champs `service`, `msg`, `request_id`, `client_ip`, `user_id`, `status`, `duration_ms`, `event_type` (`auth_failure`, `auth_success`, `transfer`, `integrity_violation`, `dependency_failure`) |
+| Journaux (Loki) | stdout de chaque conteneur, **une ligne JSON par événement** | champs `service`, `msg`, `request_id`, `client_ip`, `user_id`, `status`, `duration_ms`, `event_type` (`auth_failure`, `auth_success`, `transfer`, `integrity_violation`, `dependency_failure` ; `anomaly_detected` du détecteur, `remediation_*` du moteur avec `incident_id`, `waf_remediation_block` du WAF) |
 | Corrélation | en-tête `X-Request-ID` | généré par nginx, propagé et journalisé par les API |
+| Webhook de remédiation | `POST http://remediation-engine:8000/alerts` (réseau `obs`), appelé par Alertmanager | `Authorization: Bearer` (secret `remediation_webhook_token`, comparaison à temps constant) ; 202 immédiat, traitement en tâche de fond ; 401 sans jeton valide, 503 si le jeton n'est pas configuré, 413 au-delà de 1 Mio |
+| État de la remédiation (lecture seule) | `GET http://remediation-engine:8000/api/state`, `/api/incidents`, `/api/incidents/{id}`, `/api/decision-table` (réseaux `obs`, `app`, `dmz`) | incidents ouverts et récents avec chronologie horodatée, IP bloquées, état du pont de restauration, table de décision ; aucune route d'action, sans authentification (le futur dashboard devra filtrer l'accès) ; schéma : `docs/api/remediation-engine.openapi.json` |
 
 `/metrics` et `/internal/*` sont bloqués par nginx : ils ne sont joignables que depuis les réseaux Docker internes.
+Le moteur de remédiation n'est pas derrière nginx et n'a aucun port publié : son webhook et son API d'état ne sont
+joignables que depuis ces réseaux internes. Ses métriques (`remediation_*`) sont décrites dans son [README](services/remediation-engine/README.md#sorties).
 
 ## Comportements de résilience déjà vérifiés
 
@@ -120,19 +130,23 @@ Déploiement automatisé sur le PC Hôte (VM Proxmox `172.16.147.10`), depuis WS
 | API de paiement coupée, auth disponible | l'utilisateur garde sa session ; le front affiche l'incident puis revient seul à l'état « opérationnel » |
 | Base absente au démarrage d'un service | 30 tentatives de connexion espacées de 2 s |
 | 40 virements croisés simultanés | aucun interblocage, masse monétaire conservée, registre cohérent |
+| API arrêtée (`docker compose stop payment-api`), sans intervention | le moteur de remédiation corrèle `ServiceDown` et `EndToEndProbeFailed` en un seul incident, relance l'API par le proxy Docker, vérifie la reprise (conteneurs, sondes, transaction témoin) puis clôt l'incident à la retombée des alertes ; mesures dans le [README du moteur](services/remediation-engine/README.md#tester) |
 
 ## Arborescence
 
 ```
-ansible/                 playbooks de déploiement et de reprise
+ansible/                 playbooks de déploiement et de reprise, pont de restauration de l'hôte (files/, tasks/)
 db/init/                 création des bases et rôles (1er démarrage du volume)
 docs/                    TODO par domaine, gouvernance (EBIOS RM, PCA/PRA, NIS2/DORA), runbooks (corpus du RAG)
+docs/api/                OpenAPI exportée : auth-service, payment-api, remediation-engine (scripts/export_openapi.py)
 infra/                   configuration Prometheus, Alertmanager, Blackbox, Loki, Alloy, Grafana, WAF
 ml/                      jeu de données, entraînement et évaluation du détecteur d'anomalies (dossier technique : ml/README.md)
 scripts/init_secrets.py  génération des secrets locaux
 scripts/sops_secrets.py  chiffrement des secrets (SOPS + age)
+scripts/export_openapi.py  export de la documentation OpenAPI (scripts/service_loader.py : chargement des services hors conteneur)
+scripts/remediation_bridge_dev.py  pont de restauration local (développement, sans systemd)
 services/anomaly-detector/  service d'inférence ML (variables + modèle partagés avec ml/), expose anomaly_score
-services/remediation-engine/  moteur de remédiation (FastAPI) : décision, actions, vérification, API d'état
+services/remediation-engine/  moteur de remédiation (FastAPI) : décision, actions, vérification, API d'état ; modèle durci du proxy Docker (proxy/)
 services/supervision-dashboard/  contrat d'intégration (à développer)
 services/ops-assistant/  assistant RAG des opérateurs (FastAPI + LangChain + Ollama) et son évaluation (eval/)
 services/common/         journaux JSON, métriques, pool PostgreSQL, lecture des secrets (partagé)
@@ -141,14 +155,15 @@ services/payment-api/    FastAPI — registre et virements
 services/frontend/       React + Vite + Tailwind, nginx
 tests/smoke_test.py      test de bout en bout = transaction témoin (stdlib uniquement)
 tests/observability_check.py  vérification de la chaîne d'observation et de défense
-tests/unit/              tests unitaires pytest (auth, paiement, paquet commun, doc OpenAPI, détecteur d'anomalies, assistant RAG), sans la stack
+tests/unit/              tests unitaires pytest (auth, paiement, paquet commun, doc OpenAPI, détecteur d'anomalies, assistant RAG,
+                         moteur de remédiation, blocage WAF, pont de restauration), sans la stack
 ```
 
 ### Tests unitaires
 
 ```bash
 python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.txt   # Linux/WSL : .venv/bin/python
-.venv/Scripts/python -m pytest                                                         # 87 tests, ~20 s
+.venv/Scripts/python -m pytest                                                         # toute la suite tests/unit/
 ```
 
 Les tests de l'auth et du paiement démarrent les vraies applications FastAPI (lifespan compris) sur un PostgreSQL 17
@@ -156,5 +171,9 @@ jetable, avec les `schema.sql` des services : une base neuve par test. Ce serveu
 (utilisé par la CI GitHub Actions), sinon un conteneur `postgres:17-alpine` lancé puis supprimé par pytest ; sans Docker
 ni variable, ces tests sont ignorés. Ils couvrent notamment l'idempotence (y compris en concurrence), les règles métier,
 la validation des jetons RS256, la détection d'un registre altéré (409) et la réponse 503 quand la base tombe.
+Le moteur de remédiation, le blocage WAF et le pont de restauration se testent sans Docker : faux proxy Docker, WAF,
+Prometheus, Loki, pont et transaction témoin (table de décision pour chaque alerte des règles, webhook authentifié,
+machine d'états, anti-boucle, persistance). La CI (`.github/workflows/unit-tests.yml`, Python 3.12) lance aussi
+`python scripts/export_openapi.py --check`.
 
 Développement du front avec rechargement à chaud : `cd services/frontend && npm install && npm run dev` (les appels `/api` sont relayés vers la stack sur le port 8080).

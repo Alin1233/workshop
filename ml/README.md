@@ -230,8 +230,9 @@ service visé : 0,8 laisse une marge des deux côtés. Les 20 s (3 évaluations 
   entière sur l'application) fera monter le score par le seul débit : ré-entraîner avec une plage de charge plus
   large avant un tel usage. En session 2, le débit du frontal a atteint 521 lignes/min (score 0,80, sans alerte).
 - **Attribution.** Une attaque d'API traverse le frontal : l'alerte peut viser à la fois le service attaqué et
-  `frontend`. La remédiation doit s'appuyer sur la variable dominante (journal `anomaly_detected`) ou corréler,
-  plutôt que redémarrer aveuglément le service désigné.
+  `frontend`. Le moteur de remédiation s'appuie donc sur la variable dominante (journal `anomaly_detected`) et
+  corrèle les alertes, plutôt que de redémarrer aveuglément le service désigné
+  ([table de décision](../services/remediation-engine/README.md#table-de-décision)).
 - **Jeu de données modeste.** ~45 min de données sur un SI fictif, depuis une seule machine (une seule IP : la
   variable « IP distinctes/min » n'a donc pas été retenue) : suffisant pour la démonstration, non représentatif
   d'une production réelle (saisonnalité journalière/hebdomadaire absente).

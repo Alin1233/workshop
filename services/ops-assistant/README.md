@@ -202,8 +202,10 @@ contexte (`RETRIEVAL_K=3` ou `CHUNK_SIZE` plus petit la réduiraient, au prix de
   gravité, le domaine, le service, le résumé et l'heure (10 alertes au plus, 200 caractères par champ). Mais Alertmanager
   exige désormais le compte `admin`, qui permet aussi de poser des silences et donc de masquer une alerte :
   l'assistant ne reçoit pas ce secret, `OPS_ASSISTANT_ALERTMANAGER_URL` est vide et l'assistant n'est plus sur le
-  réseau `mgmt` (Alertmanager est injoignable). À rebrancher sur une API d'état en lecture seule (moteur de
-  remédiation, dashboard de supervision), sur un réseau partagé avec elle seule.
+  réseau `mgmt` (Alertmanager est injoignable). Le moteur de remédiation expose désormais une API d'état en lecture
+  seule (`GET /api/state`, `/api/incidents`), mais sur les réseaux `obs`, `app` et `dmz`, que l'assistant ne rejoint
+  pas : la rebrancher demande un réseau partagé avec cette API seule (ou le back-for-front du futur dashboard de
+  supervision), le code de l'assistant ne lisant aujourd'hui que le format d'Alertmanager.
 - **Entrées bornées** : question ≤ 500 caractères, corps ≤ 4 Ko (413 sinon), une génération à la fois (503 « occupé »
   au-delà de 20 s d'attente), réponse ≤ 400 jetons, premier jeton attendu 180 s au plus et réponse complète 240 s
   (504 au-delà : chargement à froid d'un 7B en CPU), 32 connexions simultanées au plus.
