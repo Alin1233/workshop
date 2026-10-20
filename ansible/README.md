@@ -163,7 +163,9 @@ Pour une reprise complète, les secrets doivent être restaurés avec les donné
 ## À faire
 - [ ] Chiffrer la copie locale des sauvegardes (age, clé de l'équipe)
 - [ ] Pendant une restauration, ne pas « réparer » les API arrêtées : le moteur le sait (`RestoreBridge.in_flight`, heartbeat
-  `busy`) ; reste à le faire pour une restauration lancée par l'opérateur (silence Alertmanager)
+  `busy`) ; pour une restauration lancée par l'opérateur, silence Alertmanager ciblé posé à la main (procédure et
+  commandes : `docs/runbooks/incident-response.md`, « Restauration lancée par l'opérateur ») ; reste à l'automatiser dans
+  `restore_database.yml`
 - [x] Moteur de remédiation et restauration : ni playbook ni API Docker, un pont de fichiers vers une unité systemd de l'hôte
   (le moteur ne choisit ni la commande ni ses arguments)
 - [ ] Tester le pont sur la VM (root sans capacités, `inbox/` à l'uid 10001) : essai local fait avec `systemd-run --user`
