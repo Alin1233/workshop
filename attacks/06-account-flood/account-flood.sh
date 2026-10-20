@@ -29,8 +29,9 @@ RESULTS="$OUTDIR/codes.txt"; : > "$RESULTS"
 echo "[*] Target: $BASE   COUNT=$COUNT  CONCURRENCY=$CONCURRENCY  MODE=$MODE"
 echo "[*] Started: $(ra_now)   Logs: $OUTDIR"
 echo "[*] Blue team: watch auth-service CPU, register req/s, 429/503, DB rows, treasury balance."
-hbefore=$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$BASE/health" || echo 000)
-echo "[*] /health before: $hbefore"
+# "/health" renvoie le SPA (200 même quand auth est HS) : on sonde la vraie santé auth.
+hbefore=$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$BASE/api/auth/health" || echo 000)
+echo "[*] /api/auth/health before: $hbefore"
 
 # One registration (+ optional account opening). Appends its outcome code.
 flood_one() {
@@ -60,7 +61,7 @@ dur=$SECONDS
 ok=$(grep -cxE '201|200' "$RESULTS" || true)
 rl=$(grep -cx '429' "$RESULTS" || true)
 sv=$(grep -cxE '503|502|500|000' "$RESULTS" || true)
-hafter=$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$BASE/health" || echo 000)
+hafter=$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$BASE/api/auth/health" || echo 000)
 
 echo ""
 echo "=== SUMMARY $(ra_now) ==="
@@ -69,7 +70,11 @@ echo "  created (2xx) : $ok / $COUNT"
 echo "  rate-limited  : $rl   (429 — a registration throttle would show here)"
 echo "  errors/5xx/to : $sv   (service strain)"
 echo "  code breakdown:"; sort "$RESULTS" | uniq -c | sort -rn | sed 's/^/    /'
-echo "  /health before -> after : $hbefore -> $hafter"
-[ "$rl" = 0 ] && echo "  [!] No 429 seen: registration is NOT rate-limited (V5). Mass creation unthrottled."
+echo "  /api/auth/health before -> after : $hbefore -> $hafter"
+if [ "$rl" = 0 ] && [ "$COUNT" -ge 50 ]; then
+  echo "  [!] No 429 seen: registration is NOT rate-limited (V5). Mass creation unthrottled."
+elif [ "$rl" = 0 ]; then
+  echo "  [i] No 429 seen, but COUNT=$COUNT is too small to conclude on rate limiting."
+fi
 [ "$MODE" = full ] && echo "  [i] MODE=full: each opened account minted 1000 EUR; check ledger integrity / treasury on the Hôte."
 echo "[*] Evidence: $OUTDIR"

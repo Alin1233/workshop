@@ -40,6 +40,9 @@ fi
 OUTDIR="$(ra_logdir dos)"
 exec > >(tee -a "$OUTDIR/dos.log") 2>&1
 
+# Rappelé après la redirection : la résolution ci-dessus précède le tee et n'apparaît
+# donc pas dans dos.log. Cette ligne est la preuve de l'asset réellement visé.
+echo "[*] ENDPOINT: $ENDPOINT"
 echo "[*] Controlled L7 DoS: http://$TARGET:$PORT$ENDPOINT for ${DURATION}s"
 echo "[*] SYN flood (L4) vector: $([ "$SYN_FLOOD" = 1 ] && echo ON || echo off)"
 echo "[*] Started: $(ra_now)   Logs: $OUTDIR"

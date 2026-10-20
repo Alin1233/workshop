@@ -14,7 +14,7 @@
 #   Env: TARGET, PORT, DURATION (<=60 attack window), RECOVER_WAIT (max s),
 #        INTEGRITY_ACT=1, ADMIN_TOKEN (optional, to poll /admin/integrity)
 set -euo pipefail
-source "$(dirname "$0")/../_lib/guard.sh"
+source "$(dirname "$0")/_lib/guard.sh"
 
 TARGET="${TARGET:-172.16.147.10}"
 PORT="${PORT:-8080}"
