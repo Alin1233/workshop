@@ -859,6 +859,76 @@ def test_per_service_lock_lets_only_one_incident_restart_postgres():
     assert any(e["event"] in ("dedup", "lock:waiting") for i in engine.incidents.values() for e in i.timeline)
 
 
+# ───────────────────────────── métriques ─────────────────────────────
+
+def action_samples():
+    # Cette méthode permet de lister les séries de remediation_actions_total exposées (labels de chacune).
+    return [s.labels for family in REGISTRY.collect() if family.name == "remediation_actions"
+            for s in family.samples if s.name == "remediation_actions_total"]
+
+
+def test_actions_carry_a_bounded_target_label_never_an_ip():
+    start = {"action": "start", "target": "payment-api", "result": "success"}
+    block = {"action": "block_ip", "target": "waf", "result": "success"}
+    before_start, before_block = sample("remediation_actions_total", start), sample("remediation_actions_total", block)
+    process(make_engine(docker=FakeDocker({"payment-api": "exited"})), payload(alert("ServiceDown", service="payment-api")))
+    process(make_engine(), payload(alert("AuthBruteForce", service="auth-service", client_ip=ATTACKER)))
+    assert sample("remediation_actions_total", start) == before_start + 1
+    assert sample("remediation_actions_total", block) == before_block + 1
+    allowed = set(ALL_SERVICES) | {"waf", "paydb"}
+    targets = {labels["target"] for labels in action_samples()}
+    assert targets <= allowed, targets
+    assert not any(ATTACKER in value for labels in action_samples() for value in labels.values())
+
+
+def test_durations_are_observed_only_when_the_engine_acted():
+    def counts(nature):
+        return (sample("remediation_duration_seconds_count", {"nature": nature}),
+                sample("remediation_alert_to_recovery_seconds_count", {"nature": nature}))
+
+    # Rétabli sans action : chaîne saine et symptôme disparu, puis IP déjà bloquée par un autre incident.
+    before = counts("availability"), counts("compromise")
+    engine = make_engine(prom=FakeProm(scalars={'max(up{job="payment-api"})': 1.0}))
+    process(engine, payload(alert("ServiceDown", service="payment-api")))
+    assert only(engine).state == "recovered" and engine.docker.calls == []
+    engine = make_engine()
+    engine.blocklist.block(ATTACKER, 300, "déjà bloquée", "inc-autre")
+    process(engine, payload(alert("AuthBruteForce", service="auth-service", client_ip=ATTACKER)))
+    assert only(engine).state == "recovered" and len(engine.blocklist.blocked) == 1
+    assert (counts("availability"), counts("compromise")) == before
+
+    # Rétabli après une action du moteur : les deux durées sont observées, l'alerte précédant la détection.
+    sums = (sample("remediation_duration_seconds_sum", {"nature": "availability"}),
+            sample("remediation_alert_to_recovery_seconds_sum", {"nature": "availability"}))
+    process(make_engine(docker=FakeDocker({"payment-api": "exited"})), payload(alert("ServiceDown", service="payment-api")))
+    process(make_engine(), payload(alert("AuthBruteForce", service="auth-service", client_ip=ATTACKER)))
+    assert counts("availability") == (before[0][0] + 1, before[0][1] + 1)
+    assert counts("compromise") == (before[1][0] + 1, before[1][1] + 1)
+    detection = sample("remediation_duration_seconds_sum", {"nature": "availability"}) - sums[0]
+    since_alert = sample("remediation_alert_to_recovery_seconds_sum", {"nature": "availability"}) - sums[1]
+    assert 0 < detection <= since_alert
+
+
+def test_duration_histograms_have_sub_five_second_buckets():
+    for name in ("remediation_duration_seconds_bucket", "remediation_alert_to_recovery_seconds_bucket"):
+        for le in ("0.5", "1.0", "2.0", "5.0"):
+            assert REGISTRY.get_sample_value(name, {"nature": "compromise", "le": le}) is not None, (name, le)
+
+
+def test_blocked_ips_gauge_follows_the_blocklist_without_reading_the_api():
+    engine = make_engine()
+    process(engine, payload(alert("AuthBruteForce", service="auth-service", client_ip=ATTACKER)))
+    assert sample("remediation_blocked_ips") == 1       # à jour dès le blocage, sans GET /api/state
+    engine.blocklist.entries.clear()                    # TTL écoulé : la liste du WAF est vidée par expire()
+    asyncio.run(engine.tick())
+    assert sample("remediation_blocked_ips") == 0       # la boucle de fond suffit à refléter la levée
+    engine.blocklist.block(OTHER, 300, "test", "inc-autre")
+    asyncio.run(engine.tick())
+    assert sample("remediation_blocked_ips") == 1
+    asyncio.run(make_engine(blocklist=None).tick())
+    assert sample("remediation_blocked_ips") == 0       # module WAF absent : aucune IP bloquée par le moteur
+
+
 # ───────────────────────────── persistance ─────────────────────────────
 
 def test_incidents_and_guard_survive_an_engine_restart(tmp_path):

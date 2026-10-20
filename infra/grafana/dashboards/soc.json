@@ -96,7 +96,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({service=\"waf\"} |= \"\\\"transaction\\\"\" | json client_ip=\"transaction.client_ip\", code=\"transaction.response.http_code\" | code=\"403\" [15m])) or vector(0)",
+          "expr": "sum(count_over_time({service=\"waf\"} |= \"\\\"transaction\\\"\" | json client_ip=\"transaction.client_ip\", code=\"transaction.response.http_code\", interrupted=\"transaction.is_interrupted\" | __error__=\"\" | code=\"403\" | interrupted=\"true\" [15m])) or vector(0)",
           "legendFormat": "",
           "queryType": "range"
         }
@@ -288,7 +288,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (client_ip) (count_over_time({service=\"waf\"} |= \"\\\"transaction\\\"\" | json client_ip=\"transaction.client_ip\", code=\"transaction.response.http_code\" | code=\"403\" [1m]))",
+          "expr": "sum by (client_ip) (count_over_time({service=\"waf\"} |= \"\\\"transaction\\\"\" | json client_ip=\"transaction.client_ip\", code=\"transaction.response.http_code\", interrupted=\"transaction.is_interrupted\" | __error__=\"\" | code=\"403\" | interrupted=\"true\" [1m]))",
           "legendFormat": "{{client_ip}}",
           "queryType": "range"
         }
@@ -315,7 +315,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (status) (count_over_time({service=\"frontend\"} | json status=\"status\" [1m]))",
+          "expr": "sum by (status) (count_over_time({service=\"frontend\"} | json status=\"status\" | __error__=\"\" [1m]))",
           "legendFormat": "{{status}}",
           "queryType": "range"
         }
@@ -342,7 +342,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "topk(10, sum by (client_ip) (count_over_time({service=\"frontend\"} | json client_ip=\"client_ip\" [15m])))",
+          "expr": "topk(10, sum by (client_ip) (count_over_time({service=\"frontend\"} | json client_ip=\"client_ip\" | __error__=\"\" [15m])))",
           "legendFormat": "{{client_ip}}",
           "queryType": "instant"
         }

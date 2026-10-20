@@ -53,7 +53,7 @@ vérifie la reprise par une transaction témoin.
 
 | Service | Rôle | Accès (PC Hôte uniquement) |
 |---|---|---|
-| `grafana` | tableaux « Santé du service » et « SOC » provisionnés | http://127.0.0.1:3000 (admin / `secrets/grafana_admin_password`) |
+| `grafana` | tableaux « Santé du service » et « SOC » provisionnés (générés par `infra/grafana/generate_dashboards.py`) ; « Santé du service » a une rangée **Remédiation** : incidents ouverts, IP bloquées, actions par type, cible et résultat, escalades par motif, vérifications, durées détection → rétablissement vérifié et alerte → rétablissement vérifié (p50 / p95 / moyenne, incidents où le moteur a agi), dépendances du moteur, alertes reçues et refus du webhook, journal `remediation_*` + `waf_remediation_block`, et annotations d'incident sur tous les graphiques | http://127.0.0.1:3000 (admin / `secrets/grafana_admin_password`) |
 | `prometheus` | métriques, sondes de bout en bout, 16 règles (`infra/prometheus/rules` : service, intégrité, détection ML `AnomalyDetected` et santé du détecteur, PC Hôte, sauvegardes, moteur de remédiation) | http://127.0.0.1:9090 (admin / `secrets/prometheus_password`) |
 | `alertmanager` | regroupe les alertes et les envoie au moteur de remédiation (`firing` et `resolved`, webhook authentifié par jeton porteur) | http://127.0.0.1:9093 (admin / `secrets/alertmanager_password`) |
 | `loki` | journaux centralisés + 5 règles SOC LogQL (`infra/loki/rules/fake/soc.yml`) | via `loki-proxy` |
@@ -69,6 +69,9 @@ vérifie la reprise par une transaction témoin.
 | `supervision-dashboard` | **écran de supervision du jury et du Clip Chrono** (React + Tailwind) : état global (opérationnel / incident / remédiation / rétabli), carte des composants, chronologie horodatée de la reprise, alertes, IP bloquées avec TTL, événements, historique ; back-for-front FastAPI en lecture seule (requêtes prédéfinies vers Prometheus, Alertmanager, Loki et l'API d'état du moteur, identifiants côté serveur) ([README](services/supervision-dashboard/README.md)) | http://127.0.0.1:8091 (admin / `secrets/supervision_password`) |
 
 Les interfaces de gestion ne sont publiées que sur `127.0.0.1` (`MGMT_BIND`), conformément au §4 du sujet.
+
+**Revue de durcissement** (Trivy sur les 19 images, secrets, authentification des interfaces, en-têtes HTTP, niveau de
+paranoïa du WAF mesuré, conteneurs, risques résiduels, commandes pour la rejouer) : [docs/securite/revue-durcissement.md](docs/securite/revue-durcissement.md).
 
 ### Modèle métier
 
@@ -140,6 +143,7 @@ ansible/                 playbooks de déploiement et de reprise, pont de restau
 db/init/                 création des bases et rôles (1er démarrage du volume)
 docs/                    TODO par domaine, gouvernance (EBIOS RM, PCA/PRA, NIS2/DORA), runbooks (corpus du RAG)
 docs/api/                OpenAPI exportée : auth-service, payment-api, remediation-engine (scripts/export_openapi.py)
+docs/securite/           revue de durcissement (Trivy, secrets, en-têtes, paranoïa du WAF, conteneurs)
 infra/                   configuration Prometheus, Alertmanager, Blackbox, Loki, Alloy, Grafana, WAF
 ml/                      jeu de données, entraînement et évaluation du détecteur d'anomalies (dossier technique : ml/README.md)
 scripts/init_secrets.py  génération des secrets locaux

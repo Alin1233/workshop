@@ -143,19 +143,23 @@ def find_alert(project, names, client_ip, am_user, am_pw):
     return None
 
 
-def incident_for_ip(project, client_ip):
-    # Cette méthode permet de retrouver l'incident du moteur qui porte l'IP attaquante (ouvert ou récemment clos).
+def incident_for_ip(project, client_ip, t0):
+    # Cette méthode permet de retrouver le dernier incident du moteur portant l'IP attaquante (clé exacte ip:<IP>) ouvert
+    # après t0, comme incident_by_key : l'IP edge est réattribuée d'une recette à l'autre, et un ancien incident clos
+    # sur la même IP ne doit jamais être pris pour celui de l'attaque en cours.
+    if not client_ip:
+        return None
     state = engine_api(project, "/api/state")
-    for bucket in ("open_incidents", "recent_incidents"):
-        for inc in state.get(bucket, []):
-            key = inc.get("key", "")
-            if client_ip and client_ip in key:
-                return engine_api(project, f"/api/incidents/{inc['id']}")
-    # repli : parcours des incidents récents
-    for inc in engine_api(project, "/api/incidents?limit=20") or []:
-        if client_ip and client_ip in inc.get("key", ""):
-            return engine_api(project, f"/api/incidents/{inc['id']}")
-    return None
+    listed = engine_api(project, "/api/incidents?limit=30")
+    candidates = [*state.get("open_incidents", []), *state.get("recent_incidents", []),
+                  *(listed if isinstance(listed, list) else [])]
+    best = None
+    for inc in candidates:
+        created = epoch(inc.get("created_at")) or 0
+        if inc.get("key") == f"ip:{client_ip}" and created >= t0 - 3:
+            if best is None or created >= (epoch(best.get("created_at")) or 0):
+                best = inc
+    return engine_api(project, f"/api/incidents/{best['id']}") if best else None
 
 
 def incident_by_key(project, key, t0):
@@ -216,7 +220,7 @@ def poll(project, names, client_ip, t0, watch_s, am_user, am_pw, incident_key=No
                               "firing_offset_s": round(fired - t0, 1) if fired else None}
                 print(f"  + alerte {a['alertname']} firing à +{alert_seen['firing_offset_s']}s "
                       f"(startsAt={a['startsAt']}, vue à +{alert_seen['seen_offset_s']}s)", flush=True)
-        inc = incident_by_key(project, incident_key, t0) if incident_key else incident_for_ip(project, client_ip)
+        inc = incident_by_key(project, incident_key, t0) if incident_key else incident_for_ip(project, client_ip, t0)
         if inc:
             incident_id = inc.get("id")
             blocked = any(e.get("event") == "action:block_ip" and e.get("detail", {}).get("result") == "success"
@@ -232,7 +236,7 @@ def poll(project, names, client_ip, t0, watch_s, am_user, am_pw, incident_key=No
                 return alert_seen, incident_id, inc
         time.sleep(2)
     return alert_seen, incident_id, (incident_by_key(project, incident_key, t0) if incident_key
-                                     else incident_for_ip(project, client_ip))
+                                     else incident_for_ip(project, client_ip, t0))
 
 
 def wait_unblock(project, client_ip, attacker, t0, max_s):

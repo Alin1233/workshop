@@ -42,6 +42,7 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
     "X-Frame-Options": "DENY",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=()",
 }
 PAGE_CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
             "frame-ancestors 'none'; base-uri 'none'; form-action 'none'")

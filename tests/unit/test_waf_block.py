@@ -557,3 +557,33 @@ def test_compose_mounts_blocklist_read_only_in_waf():
     assert {"/etc/nginx/templates/conf.d/00-remediation-blocklist.conf.template",
             "/etc/nginx/templates/includes/location_common.conf.template",
             "/docker-entrypoint.d/99-remediation-blocklist-guard.sh"} <= targets
+
+
+def test_waf_block_queries_count_only_requests_interrupted_by_the_waf():
+    # Le journal d'audit contient aussi les 403 renvoyés par les API (non-admin sur /admin/integrity) : la règle SOC
+    # WafAttackBlocked, la variable waf_blocks_per_min du détecteur, l'attribution d'IP du moteur et les panneaux
+    # Grafana ne comptent que les requêtes interrompues par le WAF (revue de durcissement, docs/securite/).
+    rules = yaml.safe_load((REPO / "infra/loki/rules/fake/soc.yml").read_text(encoding="utf-8"))
+    expr = next(r["expr"] for g in rules["groups"] for r in g["rules"] if r.get("alert") == "WafAttackBlocked")
+    assert 'code="403" | interrupted="true"' in expr and '__error__=""' in expr
+    sources = {
+        "soc.yml": expr,
+        "features.py": (REPO / "services/anomaly-detector/app/features.py").read_text(encoding="utf-8"),
+        "decisions.py": (REPO / "services/remediation-engine/app/decisions.py").read_text(encoding="utf-8"),
+        "generate_dashboards.py": (REPO / "infra/grafana/generate_dashboards.py").read_text(encoding="utf-8"),
+    }
+    for name, text in sources.items():
+        assert 'interrupted="transaction.is_interrupted"' in text and 'interrupted="true"' in text, name
+    # Tableau SOC régénéré : chaque requête sur le code de réponse du WAF filtre aussi les requêtes interrompues
+    soc = json.loads((REPO / "infra/grafana/dashboards/soc.json").read_text(encoding="utf-8"))
+    exprs = [e for e in _exprs(soc) if "transaction.response.http_code" in e]
+    assert exprs and all('interrupted="true"' in e for e in exprs)
+
+
+def _exprs(node):
+    # Cette méthode permet de lister récursivement les requêtes (champ expr) d'un tableau Grafana.
+    if isinstance(node, dict):
+        return ([node["expr"]] if "expr" in node else []) + [e for v in node.values() for e in _exprs(v)]
+    if isinstance(node, list):
+        return [e for v in node for e in _exprs(v)]
+    return []

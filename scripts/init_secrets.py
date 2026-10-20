@@ -115,7 +115,11 @@ def write_observability_auth(service: str, force: bool) -> None:
 def main() -> None:
     # Cette méthode permet de créer l'ensemble des secrets attendus par docker-compose.yml.
     force = "--force" in sys.argv
-    SECRETS_DIR.mkdir(exist_ok=True)
+    # Répertoire réservé à son propriétaire, comme shared/secrets sur le PC Hôte (deploy.yml) : les fichiers restent
+    # lisibles (0644) par les utilisateurs des conteneurs, qui les reçoivent montés un par un en /run/secrets (le
+    # montage ne traverse pas le répertoire), mais aucun autre compte de l'hôte ne peut l'ouvrir. Sans effet sous Windows.
+    SECRETS_DIR.mkdir(mode=0o700, exist_ok=True)
+    SECRETS_DIR.chmod(0o700)
     print(f"Secrets dans {SECRETS_DIR}")
     for name in PASSWORDS:
         write_secret(name, secrets.token_urlsafe(24), force)

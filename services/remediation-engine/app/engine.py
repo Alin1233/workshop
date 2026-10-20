@@ -692,6 +692,7 @@ class Engine:
     async def _act_and_verify(self, incident: Incident, plan: Plan) -> str:
         # Cette méthode permet d'exécuter le plan sous verrou puis de le vérifier ; renvoie recovered, failed,
         # verification_failed, exhausted, not_allowed ou container_missing.
+        previous_recovery = incident.recovered_at
         if plan.locks and any(self.locks.get(k) and self.locks[k].locked() for k in plan.locks):
             incident.event("lock:waiting", self.clock(), locks=plan.locks,
                            reason="une autre remédiation agit sur la même cible")
@@ -724,10 +725,16 @@ class Engine:
             incident.recovered_at = now
             incident.outcome = "recovered"
             duration = now - incident.created_at
-            if incident.nature in (Nature.AVAILABILITY, Nature.COMPROMISE):
+            since_alert = now - incident.alert_started_at if incident.alert_started_at else None
+            # Durées mesurées seulement si CET incident a agi depuis son dernier rétablissement : une vérification seule
+            # (cible déjà réparée par un autre incident, IP déjà bloquée) compterait deux fois la même panne.
+            acted = any(a.get("result") == "success" and a.get("ts", 0) > (previous_recovery or 0) for a in incident.actions)
+            if acted and incident.nature in (Nature.AVAILABILITY, Nature.COMPROMISE):
                 metrics.DURATION.labels(str(incident.nature)).observe(duration)
-            self._log("remediation_recovered", incident, duration_s=round(duration, 1),
-                      since_alert_s=round(now - incident.alert_started_at, 1) if incident.alert_started_at else None)
+                if since_alert is not None and since_alert >= 0:
+                    metrics.ALERT_TO_RECOVERY.labels(str(incident.nature)).observe(since_alert)
+            self._log("remediation_recovered", incident, duration_s=round(duration, 1), acted=acted,
+                      since_alert_s=round(since_alert, 1) if since_alert is not None else None)
             return "recovered"
         incident.transition(State.FAILED, now, reason="vérification en échec")
         return "verification_failed"
@@ -794,7 +801,7 @@ class Engine:
                   "duration_ms": round((now - started) * 1000), **detail}
         incident.actions.append(record)
         incident.event(f"action:{action}", now, target=target, result=result, **detail)
-        metrics.ACTIONS_TOTAL.labels(action, result).inc()
+        metrics.ACTIONS_TOTAL.labels(action, metrics.action_target(action, target), result).inc()
         if result == "success":
             self.recent_actions[target] = {"incident": incident.id, "at": now}
         self._log("remediation_action", incident, action=action, target=target, result=result,
@@ -921,6 +928,7 @@ class Engine:
                             expires_at=iso(getattr(entry, "expires_at", None)),
                             ttl_s=self.settings.waf_block_ttl_s)
         self._refresh_gauges()
+        await asyncio.to_thread(self._blocks)       # jauge des IP bloquées à jour sans attendre la boucle de fond
 
     async def _execute_restore(self, incident: Incident, plan: Plan) -> None:
         # Cette méthode permet de demander la restauration au pont hôte (le moteur n'exécute rien lui-même), après avoir
@@ -1097,6 +1105,9 @@ class Engine:
                                                                 "reason": "durée de blocage écoulée"})
             except Exception as exc:  # noqa: BLE001
                 logger.warning("remediation_expire_failed", extra={"event_type": "remediation_error", "error": str(exc)})
+        # Jauge des IP bloquées recalculée à chaque passage (au plus une période après une levée), même si personne ne
+        # lit GET /api/state ; la lecture de la liste prend un verrou de fichier, d'où le thread.
+        await asyncio.to_thread(self._blocks)
         now = self.clock()
         for incident in list(self.incidents.values()):
             if (incident.open and incident.state == State.RECOVERED and not self._running(incident)
@@ -1110,13 +1121,15 @@ class Engine:
     # ───────────────────────────── vues (API d'état) ─────────────────────────────
 
     def _refresh_gauges(self) -> None:
-        # Cette méthode permet de mettre à jour les jauges d'incidents ouverts et d'IP bloquées.
+        # Cette méthode permet de mettre à jour la jauge des incidents ouverts (celle des IP bloquées, qui lit la liste du
+        # WAF sous verrou de fichier, est tenue par _blocks dans un thread : boucle de fond, blocage, GET /api/state).
         metrics.INCIDENTS_OPEN.set(sum(1 for i in self.incidents.values() if i.open))
 
     def _blocks(self) -> list[dict]:
-        # Cette méthode permet de lister les blocages d'IP actifs (vue du dashboard) ; bloquante (verrous et fichiers
-        # du WAF) : à appeler dans un thread.
+        # Cette méthode permet de lister les blocages d'IP actifs (vue du dashboard) et de mettre à jour leur jauge ;
+        # bloquante (verrous et fichiers du WAF) : à appeler dans un thread.
         if self.blocklist is None:
+            metrics.BLOCKS_ACTIVE.set(0)
             return []
         try:
             entries = self.blocklist.active()

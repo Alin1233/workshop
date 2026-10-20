@@ -285,6 +285,7 @@ def test_page_has_strict_csp_and_security_headers(make_client):
     assert "script-src 'self'" in page.headers["content-security-policy"]
     assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
     assert page.headers["x-frame-options"] == "DENY"
+    assert "camera=()" in page.headers["permissions-policy"]
     assert client.get("/api/overview", headers=auth()).headers["cache-control"] == "no-store"
 
 

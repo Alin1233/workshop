@@ -389,6 +389,7 @@ def test_static_page_is_served_with_strict_csp(make_client):
     res = client.get("/")
     assert res.status_code == 200 and "Assistant opérateur" in res.text
     assert "script-src 'self'" in res.headers["content-security-policy"]
+    assert "camera=()" in res.headers["permissions-policy"]
     assert client.get("/static/app.js").status_code == 200
 
 
