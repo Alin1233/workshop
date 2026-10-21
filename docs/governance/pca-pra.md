@@ -298,7 +298,7 @@ Garanties sous-jacentes : un virement est une seule transaction (entier ou absen
 4. **Sécurité et Infra** : clés age, `.sops.yaml`, `secrets.enc.json` versionné, puis rejouer la perte de l'hôte : témoin attendu 28/28.
 5. **Dev** : chronométrer D2 (arrêt de PostgreSQL) et un virement en vol pendant une panne (RPO 0 à prouver).
 6. **Infra** : rejouer une restauration par l'opérateur avec un silence limité (§ 5.6).
-7. **Dev** : après fusion de la couche SQLAlchemy de `payment-api`, relancer les tests, le smoke test et la recette d'intégrité (le contrôle et la restauration dépendent du schéma du registre).
+7. **Dev** : ~~relancer les tests, le smoke test et la recette d'intégrité après la couche SQLAlchemy de `payment-api`~~ — fait le 21/10 (pile locale) : 430 tests, smoke 40/40, panne de PostgreSQL → 503 puis reprise seule, registre corrompu → restauration par le pont, rétabli à +41,2 s (alerte à +22,3 s).
 
 ### 8.3 Calendrier de tests en contexte industriel
 

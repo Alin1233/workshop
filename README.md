@@ -89,6 +89,12 @@ restauration de la base : [docs/runbooks/restauration-base.md](docs/runbooks/res
 - En-tête `Idempotency-Key` obligatoire : un virement renvoyé (double clic, nouvel essai après un incident) n'est jamais débité deux fois.
 - **Contrôle d'intégrité** (`ledger.check_integrity`) : somme des écritures nulle, soldes égaux aux écritures, virements équilibrés, aucun solde négatif.
   C'est la preuve que les **données** sont saines après une reprise, au-delà du simple redémarrage d'un conteneur.
+- **Implémentation** : FastAPI + ORM SQLAlchemy 2 (pilote psycopg 3). Les modèles (`services/payment-api/app/models/`) sont
+  le miroir de `schema.sql`, qui reste la seule source du schéma : appliqué au démarrage, jamais créé par SQLAlchemy, et
+  comparé aux modèles par un test. Un seul moteur par processus (`services/common/resilience_common/orm.py`), créé au
+  démarrage : connexions testées avant usage, pool borné à 10 connexions (5 s d'attente au plus), une session par requête,
+  rendue au pool sur tous les chemins. Le mot de passe, lu en secret, est remis au pilote sans passer par l'URL SQLAlchemy.
+  Base injoignable, connexion coupée ou pool saturé → 503 `database_unavailable` ; toute autre erreur SQL reste une 500.
 
 ## Démarrage
 
@@ -162,7 +168,7 @@ joignables que depuis ces réseaux internes. Ses métriques (`remediation_*`) so
 
 | Perturbation | Comportement |
 |---|---|
-| Arrêt de PostgreSQL | API en 503 `database_unavailable` (pas de 500), `/health` en 503, front « Service indisponible » (les deux `/health`, auth et paiements, en échec) ; retour automatique dès que la base revient (connexions testées avant usage) |
+| Arrêt de PostgreSQL | API en 503 `database_unavailable` (pas de 500), `/health` en 503, front « Service indisponible » (les deux `/health`, auth et paiements, en échec) ; retour automatique dès que la base revient (connexions testées avant usage) : 1,0 s après `docker compose start postgres`, sans redémarrage de l'API (mesuré le 21/10 après le passage à SQLAlchemy) ; si la coupure dure, le moteur de remédiation relance lui-même PostgreSQL (`DependencyFailures`, 16 s après l'arrêt dans cet essai) |
 | Redémarrage / recréation d'une API | nginx la retrouve via le DNS Docker (`resolver 127.0.0.11`), sans redémarrage de nginx |
 | API de paiement coupée, auth disponible | l'utilisateur garde sa session ; le front affiche l'incident puis revient seul à l'état « opérationnel » |
 | Base absente au démarrage d'un service | 30 tentatives de connexion espacées de 2 s |
@@ -187,9 +193,9 @@ services/anomaly-detector/  service d'inférence ML (variables + modèle partag�
 services/remediation-engine/  moteur de remédiation (FastAPI) : décision, actions, vérification, API d'état ; modèle durci du proxy Docker (proxy/)
 services/supervision-dashboard/  écran de supervision : React + Tailwind (src/) servi par un back-for-front FastAPI en lecture seule (app/)
 services/ops-assistant/  assistant RAG des opérateurs (FastAPI + LangChain + Ollama) et son évaluation (eval/)
-services/common/         journaux JSON, métriques, pool PostgreSQL, lecture des secrets (partagé)
+services/common/         journaux JSON, métriques, pool PostgreSQL (psycopg) et moteur SQLAlchemy (orm.py), lecture des secrets (partagé)
 services/auth-service/   FastAPI — authentification
-services/payment-api/    FastAPI — registre et virements
+services/payment-api/    FastAPI + SQLAlchemy — registre et virements (modèles dans app/models/, schéma dans app/schema.sql)
 services/frontend/       React + Vite + Tailwind, nginx ; tests Vitest + React Testing Library (src/**/*.test.ts[x])
 tests/smoke_test.py      test de bout en bout = transaction témoin (stdlib uniquement)
 tests/observability_check.py  vérification de la chaîne d'observation et de défense
@@ -208,7 +214,9 @@ Les tests de l'auth et du paiement démarrent les vraies applications FastAPI (l
 jetable, avec les `schema.sql` des services : une base neuve par test. Ce serveur est celui de `RA_TEST_DATABASE_URL`
 (utilisé par la CI GitHub Actions), sinon un conteneur `postgres:17-alpine` lancé puis supprimé par pytest ; sans Docker
 ni variable, ces tests sont ignorés. Ils couvrent notamment l'idempotence (y compris en concurrence), les règles métier,
-la validation des jetons RS256, la détection d'un registre altéré (409) et la réponse 503 quand la base tombe.
+la validation des jetons RS256, la détection d'un registre altéré (409), la réponse 503 quand la base tombe puis la reprise
+seule à son retour, l'ouverture simultanée d'un même compte (un seul crédit de bienvenue), l'absence de session ou de
+connexion perdue après une erreur, et la fidélité des modèles SQLAlchemy à `schema.sql`.
 Le moteur de remédiation, le blocage WAF et le pont de restauration se testent sans Docker : faux proxy Docker, WAF,
 Prometheus, Loki, pont et transaction témoin (table de décision pour chaque alerte des règles, webhook authentifié,
 machine d'états, anti-boucle, persistance). La CI (`.github/workflows/unit-tests.yml`, Python 3.12) lance aussi
