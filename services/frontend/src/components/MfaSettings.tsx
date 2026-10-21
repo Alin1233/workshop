@@ -124,6 +124,24 @@ export default function MfaSettings({ token, onSessionExpired }: Props) {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  // Cette méthode permet de télécharger les codes de secours dans un fichier texte, un code par ligne sous un court
+  // en-tête daté, pour les conserver hors ligne.
+  const downloadCodes = () => {
+    const header = [
+      "Resilience-Alpha - codes de secours",
+      `Générés le ${new Date().toLocaleString("fr-FR")}`,
+      "Chaque code permet une seule connexion.",
+      "",
+    ];
+    const blob = new Blob([[...header, ...recoveryCodes, ""].join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "resilience-alpha-codes-de-secours.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const codeField = (label: string, autoFocus = false) => (
     <label className="block space-y-1.5 text-sm">
       <span className="font-medium text-muted">{label}</span>
@@ -239,6 +257,9 @@ export default function MfaSettings({ token, onSessionExpired }: Props) {
                 {copied ? "Copiés ✓" : "Copier"}
               </button>
             )}
+            <button onClick={downloadCodes} className={secondaryButton}>
+              Télécharger (.txt)
+            </button>
           </div>
         </div>
       )}

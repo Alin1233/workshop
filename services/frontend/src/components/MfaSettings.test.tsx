@@ -63,6 +63,38 @@ describe("MfaSettings", () => {
     expect(screen.getByText(/10 codes de secours restants/)).toBeInTheDocument();
   });
 
+  it("télécharge les codes de secours dans un fichier texte", async () => {
+    const { user } = setup(OFF, (setStatus) => ({
+      [SETUP]: () => json(200, SETUP_RESPONSE),
+      [ACTIVATE]: () => {
+        setStatus(ON);
+        return json(200, { recovery_codes: RECOVERY_CODES });
+      },
+    }));
+    let blob: Blob | undefined;
+    URL.createObjectURL = vi.fn((value: Blob) => {
+      blob = value;
+      return "blob:codes";
+    });
+    URL.revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.download).toBe("resilience-alpha-codes-de-secours.txt");
+      expect(this.href).toBe("blob:codes");
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Activer" }));
+    await user.type(await screen.findByLabelText(/^Code de l'application/), "123456");
+    await user.click(screen.getByRole("button", { name: "Confirmer l'activation" }));
+    await user.click(await screen.findByRole("button", { name: "Télécharger (.txt)" }));
+
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:codes");
+    const lines = (await blob!.text()).split("\n");
+    expect(lines[0]).toBe("Resilience-Alpha - codes de secours");
+    expect(lines.filter((line) => RECOVERY_CODES.includes(line))).toEqual(RECOVERY_CODES);
+    click.mockRestore();
+  });
+
   it("affiche le refus du premier code sans quitter l'activation", async () => {
     const { user } = setup(OFF, () => ({
       [SETUP]: () => json(200, SETUP_RESPONSE),
