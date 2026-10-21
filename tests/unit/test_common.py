@@ -1,17 +1,19 @@
-"""Tests du paquet partagé resilience_common : configuration, journaux JSON, middleware, erreurs de base."""
+"""Tests du paquet partagé resilience_common : configuration, journaux JSON, middleware, erreurs de base (psycopg et SQLAlchemy)."""
 
 import json
 import logging
 import uuid
 
+import psycopg
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from psycopg import OperationalError
-from psycopg.conninfo import conninfo_to_dict
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from sqlalchemy import exc as sa_exc
 
 import service_loader  # noqa: F401 - ajoute services/common au chemin d'import
-from resilience_common import database, observability, settings
+from resilience_common import database, observability, orm, settings
 
 
 def test_env_requires_value_without_default(monkeypatch):
@@ -95,3 +97,58 @@ def test_database_errors_become_503(demo_client):
     res = demo_client.get("/db-down")
     assert res.status_code == 503
     assert res.json()["code"] == "database_unavailable"
+
+
+@pytest.fixture
+def orm_client():
+    # Cette méthode permet de monter une mini application qui lève les erreurs SQLAlchemy rencontrées en production.
+    app = FastAPI()
+    observability.instrument(app, "demo-orm")
+    orm.register_orm_errors(app)
+    failures = {
+        "refused": lambda: sa_exc.OperationalError("SELECT 1", {}, psycopg.OperationalError("connection refused")),
+        "closed": lambda: sa_exc.InterfaceError("SELECT 1", {}, psycopg.InterfaceError("the connection is closed")),
+        "invalidated": lambda: sa_exc.DBAPIError("SELECT 1", {}, psycopg.DatabaseError("server closed the connection"),
+                                                 connection_invalidated=True),
+        "pool-full": lambda: sa_exc.TimeoutError("QueuePool limit of size 5 overflow 5 reached"),
+        "constraint": lambda: sa_exc.IntegrityError("INSERT", {}, psycopg.errors.UniqueViolation("duplicate key")),
+        "syntax": lambda: sa_exc.ProgrammingError("SELEC 1", {}, psycopg.errors.SyntaxError("syntax error")),
+    }
+
+    @app.get("/fail/{kind}")
+    def fail(kind: str):
+        # Cette méthode permet de lever l'erreur demandée, comme le ferait une requête du registre.
+        raise failures[kind]()
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        yield client
+
+
+@pytest.mark.parametrize("kind", ["refused", "closed", "invalidated", "pool-full"])
+def test_sqlalchemy_availability_errors_become_503(orm_client, kind):
+    res = orm_client.get(f"/fail/{kind}")
+    assert res.status_code == 503
+    assert res.json()["code"] == "database_unavailable"
+
+
+@pytest.mark.parametrize("kind", ["constraint", "syntax"])
+def test_other_sqlalchemy_errors_stay_500(orm_client, kind):
+    # Une erreur SQL applicative est un bogue, pas une panne de dépendance : jamais maquillée en 503.
+    assert orm_client.get(f"/fail/{kind}").status_code == 500
+
+
+def test_engine_startup_retries_then_gives_up_without_leaking_the_password(monkeypatch, caplog):
+    generated = uuid.uuid4().hex  # valeur générée : aucun secret, même factice, dans le dépôt
+    dsn = make_conninfo(host="127.0.0.1", port="1", dbname="paydb", user="pay_svc", password=generated, connect_timeout=2)
+    sleeps = []
+    monkeypatch.setattr(orm.time, "sleep", sleeps.append)
+    with caplog.at_level(logging.WARNING, logger="resilience_common.orm"), pytest.raises(RuntimeError):
+        orm.create_database_engine(dsn, "SELECT 1", attempts=3)
+    attempts = [record.attempt for record in caplog.records if record.getMessage() == "database_unavailable"]
+    assert attempts == [1, 2, 3] and sleeps == [2, 2, 2]
+    assert all(generated not in repr(vars(record)) for record in caplog.records)
+
+    engine = orm.new_engine(dsn)
+    assert generated not in repr(engine) and generated not in str(engine.url)
+    assert orm.engine_alive(engine) is False
+    engine.dispose()

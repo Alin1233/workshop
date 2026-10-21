@@ -47,17 +47,23 @@ def database_alive(pool: ConnectionPool) -> bool:
     except Exception:  # noqa: BLE001
         return False
 
+def database_unavailable_response(request: Request, error: str) -> JSONResponse:
+    # Cette méthode permet de journaliser l'indisponibilité de la base et de répondre 503 au client
+    # (réponse commune au pool psycopg et au moteur SQLAlchemy, voir orm.py).
+    logger.error("database_unavailable", extra={"path": request.url.path, "error": error, "event_type": "dependency_failure"})
+    return JSONResponse(
+        {"code": "database_unavailable", "detail": "Service momentanément indisponible. Réessayez dans quelques instants."},
+        status_code=503,
+    )
+
+
 def register_database_errors(app: FastAPI) -> None:
     # Cette méthode permet de convertir une base injoignable en réponse 503 explicite (au lieu d'une 500 opaque),
     # ce qui distingue clairement, côté supervision, une panne de dépendance d'un bug applicatif.
 
     async def handler(request: Request, exc: Exception) -> JSONResponse:
-        # Cette méthode permet de journaliser l'indisponibilité de la base et de répondre 503 au client.
-        logger.error("database_unavailable", extra={"path": request.url.path, "error": str(exc), "event_type": "dependency_failure"})
-        return JSONResponse(
-            {"code": "database_unavailable", "detail": "Service momentanément indisponible. Réessayez dans quelques instants."},
-            status_code=503,
-        )
+        # Cette méthode permet de répondre 503 à une erreur de connexion psycopg ou à un pool saturé.
+        return database_unavailable_response(request, str(exc))
 
     app.add_exception_handler(OperationalError, handler)
     app.add_exception_handler(PoolTimeout, handler)
