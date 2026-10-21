@@ -8,6 +8,8 @@ import { databaseUnavailable, json, makeAccount, makeSession, mockFetch, plain }
 // État simulé de la plateforme : l'API de paiement (et sa base) peut tomber puis revenir.
 let paymentsUp = true;
 let tokenAccepted = true;
+// Première connexion du compte sans double authentification : l'auth-service le signale (suggest_mfa).
+let firstLogin = false;
 
 function installPlatform() {
   const payments = (body: () => Response) => () =>
@@ -20,6 +22,7 @@ function installPlatform() {
         access_token: crypto.randomUUID(),
         expires_in: 900,
         user: { id: crypto.randomUUID(), email: (body as { email: string }).email, full_name: "Alice Martin", role: "client" },
+        suggest_mfa: firstLogin,
       }),
     "GET /api/payments/accounts/me": payments(() => json(200, makeAccount({ balance_cents: 123_456 }))),
     "GET /api/payments/transfers": payments(() => json(200, [])),
@@ -39,6 +42,7 @@ const status = () => screen.getByTestId("service-status");
 beforeEach(() => {
   paymentsUp = true;
   tokenAccepted = true;
+  firstLogin = false;
 });
 
 describe("App : session", () => {
@@ -89,6 +93,44 @@ describe("App : session", () => {
 
     expect(await screen.findByRole("button", { name: "Se connecter" })).toBeInTheDocument();
     expect(loadSession()).toBeNull();
+  });
+});
+
+describe("App : double authentification proposée à la première connexion", () => {
+  // Cette méthode permet de se connecter depuis l'écran de connexion, comme le ferait le client.
+  async function signIn(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByLabelText(/^Email/), "alice@exemple.fr");
+    await user.type(screen.getByLabelText(/^Mot de passe/), crypto.randomUUID());
+    await user.click(screen.getByRole("button", { name: "Se connecter" }));
+  }
+
+  it("ouvre la modale à la première connexion, et ne la rouvre plus après « Plus tard »", async () => {
+    installPlatform();
+    firstLogin = true;
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+    await signIn(user);
+
+    const dialog = await screen.findByRole("dialog", { name: "Protégez votre compte" });
+    expect(dialog).toHaveAttribute("open");
+    await user.click(await screen.findByRole("button", { name: "Plus tard" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Déconnexion" })).toBeInTheDocument();
+    expect(loadSession()?.suggestMfa).toBe(false);
+    unmount();
+    render(<App />); // rechargement de l'onglet
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("n'ouvre pas la modale aux connexions suivantes", async () => {
+    installPlatform();
+    const user = userEvent.setup();
+    render(<App />);
+    await signIn(user);
+
+    expect(await screen.findByRole("button", { name: "Déconnexion" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 

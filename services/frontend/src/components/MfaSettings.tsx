@@ -11,7 +11,9 @@ const primaryButton =
 const secondaryButton = "rounded-lg border border-line bg-white px-4 py-2 text-sm text-ink transition hover:bg-chip disabled:opacity-60";
 
 type Step = "idle" | "setup" | "codes" | "disable";
-type Props = { token: string; onSessionExpired: () => void };
+// onClose : affichage dans la modale de première connexion (sans en-tête ni cadre), fermée par « Plus tard »
+// ou une fois les codes de secours notés.
+type Props = { token: string; onSessionExpired: () => void; onClose?: () => void };
 
 // Cette méthode permet de grouper la clé TOTP par 4 caractères pour la saisir sans erreur dans une appli.
 function groupSecret(secret: string): string {
@@ -21,7 +23,7 @@ function groupSecret(secret: string): string {
 // Cette méthode permet de gérer la double authentification du compte : activation par QR code et premier code,
 // affichage unique des codes de secours, désactivation confirmée par mot de passe et code (sauf compte admin) ;
 // une fois active, le visage peut être enregistré comme alternative au code.
-export default function MfaSettings({ token, onSessionExpired }: Props) {
+export default function MfaSettings({ token, onSessionExpired, onClose }: Props) {
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [step, setStep] = useState<Step>("idle");
   const [setup, setSetup] = useState<MfaSetup | null>(null);
@@ -163,17 +165,19 @@ export default function MfaSettings({ token, onSessionExpired }: Props) {
   );
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-5" data-testid="mfa-settings">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-semibold">Double authentification</h2>
-        {status && (
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.enabled ? "bg-teal-soft text-teal" : "bg-chip text-muted"}`}
-          >
-            {status.enabled ? "Activée" : "Désactivée"}
-          </span>
-        )}
-      </div>
+    <section className={onClose ? "" : "rounded-2xl border border-line bg-white p-5"} data-testid="mfa-settings">
+      {!onClose && (
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold">Double authentification</h2>
+          {status && (
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.enabled ? "bg-teal-soft text-teal" : "bg-chip text-muted"}`}
+            >
+              {status.enabled ? "Activée" : "Désactivée"}
+            </span>
+          )}
+        </div>
+      )}
 
       {status === null && !error && <span className="skeleton mt-3 block h-4 w-2/3" aria-busy />}
 
@@ -183,13 +187,20 @@ export default function MfaSettings({ token, onSessionExpired }: Props) {
             En plus du mot de passe, un code à usage unique généré par une application d'authentification (Google
             Authenticator, Microsoft Authenticator, FreeOTP…) sera demandé à chaque connexion.
           </p>
-          <button onClick={startSetup} disabled={busy} className={primaryButton}>
-            Activer
-          </button>
+          <div className="flex gap-2">
+            <button onClick={startSetup} disabled={busy} className={primaryButton}>
+              {onClose ? "Activer maintenant" : "Activer"}
+            </button>
+            {onClose && (
+              <button onClick={onClose} className={secondaryButton}>
+                Plus tard
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {status && step === "idle" && status.enabled && (
+      {status && step === "idle" && status.enabled && !onClose && (
         <div className="mt-2 space-y-3">
           <p className="text-sm text-muted">
             Un code est demandé à chaque connexion.{" "}
@@ -249,7 +260,13 @@ export default function MfaSettings({ token, onSessionExpired }: Props) {
             ))}
           </ul>
           <div className="flex gap-2">
-            <button onClick={() => reset()} className={primaryButton}>
+            <button
+              onClick={() => {
+                reset();
+                onClose?.();
+              }}
+              className={primaryButton}
+            >
               J'ai noté mes codes
             </button>
             {navigator.clipboard && (

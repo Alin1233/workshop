@@ -92,6 +92,7 @@ def test_admin_account_is_seeded_with_mandatory_mfa(auth_client):
     done = auth_client.post("/login/mfa", json={"mfa_token": res.json()["mfa_token"], "code": totp_code(ADMIN_TOTP_SECRET)})
     assert done.status_code == 200, done.text
     assert done.json()["user"]["role"] == "admin"
+    assert done.json()["suggest_mfa"] is False  # première connexion, mais double authentification déjà active
     headers = bearer(done.json()["access_token"])
     assert auth_client.get("/mfa", headers=headers).json()["required"] is True
     refused = auth_client.post("/mfa/disable", headers=headers, json={"password": "admin-password-test", "code": "000000"})
@@ -112,6 +113,12 @@ def test_register_then_login_returns_usable_token(auth_client, rsa_keys):
 
     me = auth_client.get("/me", headers={"Authorization": f"Bearer {body['access_token']}"})
     assert me.json()["email"] == "client@test.local"
+
+
+def test_first_login_without_mfa_suggests_enabling_it_once(auth_client):
+    register(auth_client)
+    assert login(auth_client).json()["suggest_mfa"] is True
+    assert login(auth_client).json()["suggest_mfa"] is False
 
 
 def test_duplicate_email_is_refused_case_insensitively(auth_client):

@@ -1,7 +1,8 @@
 // Client HTTP des services Resilience-Alpha, appelés via le reverse proxy (/api/auth, /api/payments).
 
 export type User = { id: string; email: string; full_name: string; role: "client" | "admin" };
-export type Session = { token: string; expiresAt: number; user: User };
+// suggestMfa : première connexion d'un compte sans double authentification, le front propose alors de l'activer.
+export type Session = { token: string; expiresAt: number; user: User; suggestMfa?: boolean };
 // Second facteur accepté : code (appli ou secours), ou visage s'il est enregistré.
 export type MfaMethod = "totp" | "face";
 // Connexion suspendue en attente du second facteur (jeton opaque de 5 minutes, jamais stocké).
@@ -90,11 +91,12 @@ function messageForStatus(status: number): string {
   return `Erreur inattendue (${status}).`;
 }
 
-type TokenResponse = { access_token: string; expires_in: number; user: User };
+type TokenResponse = { access_token: string; expires_in: number; user: User; suggest_mfa?: boolean };
 
 // Cette méthode permet de convertir la réponse d'émission de jeton de l'auth-service en session du front.
 function toSession(res: TokenResponse): Session {
-  return { token: res.access_token, expiresAt: Date.now() + res.expires_in * 1000, user: res.user };
+  const session: Session = { token: res.access_token, expiresAt: Date.now() + res.expires_in * 1000, user: res.user };
+  return res.suggest_mfa ? { ...session, suggestMfa: true } : session;
 }
 
 export const api = {

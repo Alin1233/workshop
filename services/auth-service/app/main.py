@@ -93,6 +93,8 @@ class TokenOut(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: UserOut
+    # Première connexion du compte sans double authentification : le front propose alors de l'activer.
+    suggest_mfa: bool = False
 
 
 class MfaTokenIn(BaseModel):
@@ -295,7 +297,8 @@ def complete_login(row: dict, request: Request, amr: tuple[str, ...]) -> TokenOu
     logger.info("login_succeeded", extra={"user_id": str(row["id"]), "client_ip": client_ip(request),
                                           "event_type": "auth_success", "amr": list(amr)})
     issuer: TokenIssuer = request.app.state.issuer
-    return TokenOut(access_token=issuer.issue(row, amr), expires_in=issuer.ttl_seconds, user=to_user_out(row))
+    return TokenOut(access_token=issuer.issue(row, amr), expires_in=issuer.ttl_seconds, user=to_user_out(row),
+                    suggest_mfa=row["last_login_at"] is None and not row["mfa_enabled"])
 
 
 def verify_second_factor(conn, row: dict, code: str) -> str | None:

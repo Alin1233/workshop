@@ -5,6 +5,7 @@ import AccountSettings from "./components/AccountSettings";
 import AuthScreen from "./components/AuthScreen";
 import Brand from "./components/Brand";
 import Dashboard from "./components/Dashboard";
+import MfaOnboardingDialog from "./components/MfaOnboardingDialog";
 import ServiceStatus from "./components/ServiceStatus";
 
 // Cette méthode permet de calculer les initiales affichées dans l'avatar à partir du nom complet.
@@ -33,6 +34,10 @@ export default function App() {
   // Rappel stable : l'App se réaffiche à chaque sondage /health (5 s) ; un rappel recréé à chaque rendu relançait
   // le rechargement du tableau de bord à chaque sondage au lieu de toutes les 10 s.
   const expireSession = useCallback(() => updateSession(null), [updateSession]);
+
+  // Cette méthode permet de ne plus proposer la double authentification une fois la modale fermée,
+  // y compris après un rechargement de l'onglet (la modale ne s'ouvre que sur le tableau de bord, juste après la connexion).
+  const dismissMfaSuggestion = () => session && updateSession({ ...session, suggestMfa: false });
 
   if (!session) {
     return (
@@ -78,6 +83,9 @@ export default function App() {
           <Dashboard session={session} health={health} onSessionExpired={expireSession} />
         )}
       </main>
+      {session.suggestMfa && (
+        <MfaOnboardingDialog session={session} onClose={dismissMfaSuggestion} onSessionExpired={expireSession} />
+      )}
     </div>
   );
 }
