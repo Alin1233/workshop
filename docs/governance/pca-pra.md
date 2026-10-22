@@ -9,8 +9,8 @@ Documents liés : [EBIOS RM](ebios-rm.md) (scénarios S1 à S6), [NIS2 / DORA](n
 ## Synthèse pour la direction
 
 - **Fonction la plus critique : exécuter un virement.** Durée maximale d'interruption admissible (DMIA) : **5 min**, seuil de l'événement redouté « paiement indisponible plus de 5 min » (EBIOS, G3). Coût fictif d'un arrêt : 240 € à 5 min, ≈ 18,5 k€ à 30 min, ≈ 26 k€ à 1 h, ≈ 160 k€ à 2 h ; au-delà de 5 min, pénalités des partenaires et départs de clients dominent.
-- **Panne d'API rétablie et vérifiée sans humain en 43 à 46 s [local]**, transaction témoin comprise, soit ≈ 37 € de coût fictif. 85 % de ce délai sert à confirmer et acheminer l'alerte (choix délibéré) ; le moteur réagit en ≈ 7 s.
-- **Compromissions confinées** en 29,5 s (force brute) et 32,5 s (injections) par les règles SOC, en 66 à 88 s par le détecteur ML [local] ; **registre corrompu restauré et vérifié en 31,9 s [local]**, avec une perte de données bornée à 15 min (52 s dans l'essai [VM]).
+- **Panne d'API rétablie et vérifiée sans humain en 43 à 46 s [local], 48 s sur le PC Hôte [VM]**, transaction témoin comprise, soit ≈ 37 € de coût fictif. 85 % de ce délai sert à confirmer et acheminer l'alerte (choix délibéré) ; le moteur réagit en ≈ 7 s.
+- **Compromissions confinées** en 29,5 s (force brute) et 32,5 s (injections) par les règles SOC (blocage à 35 s sur le PC Hôte [VM]), en 66 à 88 s par le détecteur ML [local] ; **registre corrompu restauré et vérifié en 31,9 s [local], 34 s sur le PC Hôte par le pont en production [VM]**, avec une perte de données bornée à 15 min (52 s dans l'essai [VM]).
 - **Perte du PC Hôte reconstruite en ≈ 6 min 16 [VM]**, mais ce PRA est **incomplet** : sans séquestre des secrets (SOPS pas encore en place), le compte admin restauré est inaccessible, et les données perdues remontent à la dernière copie hors hôte, faite à la main.
 - **Écart principal : personne n'est prévenu d'une escalade.** Ce que le moteur ne sait pas corriger n'est vu que si quelqu'un regarde l'écran : incompatible avec le délai de notification DORA de 4 h.
 - **Arbitrage** : la disponibilité est rétablie automatiquement ; une compromission est **confinée** automatiquement (blocage, restauration), mais son **éradication** (secrets, comptes, cause) reste humaine. Un service rétabli ne clôt pas un incident de sécurité.
@@ -95,15 +95,15 @@ RTO : de la perturbation au service **vérifié** par la transaction témoin. Po
 
 | Scénario | Grandeur | Cible | Mesuré | Où | Source | Écart |
 |---|---|---|---|---|---|---|
-| Panne d'API (S3) | RTO | ≤ 2 min | 46 s ; 43 s au 2e essai | [local] | moteur README « Tester » ; supervision README « Recette » | tenu ; pas encore rejoué sur la VM |
+| Panne d'API (S3) | RTO | ≤ 2 min | 46 s ; 43 s au 2e essai [local] ; **48 s** (arrêt → transaction témoin OK) [VM] | [local], [VM] | moteur README « Tester » ; supervision README « Recette » ; TODO (recette VM du 21/10) | tenu sur la VM |
 | Panne d'API (S3) | réaction du moteur (webhook → vérifié) | — | 6,7 s ; 7,0 s ; 17,0 s lors d'une revérification | [local] | TODO ; supervision README ; TODO (rangée Grafana) | dispersion non expliquée : mesurer une série |
 | Panne d'API (S3) | RPO | 0 | 0 par conception (virement en une transaction, idempotence) | [non mesuré] | README racine, « Modèle métier » | tester un virement en vol pendant l'arrêt |
 | Base injoignable (S4) | RTO | ≤ 2 min | comportement vérifié (503, retour seul), durée non relevée | [local] | README racine | à chronométrer |
 | Saturation (S3) | RTO | ≤ 5 min | aucune action avant ≈ 4 min (`for: 1m` + 3 min d'observation) ; un redémarrage ne règle pas la surcharge | [local] | revue § 7.3 ; moteur README | non tenu |
-| Force brute (S1) | confinement | ≤ 1 min | 29,5 s | [local] | recette § 1 | tenu ; effet du NAT non mesuré |
+| Force brute (S1) | confinement | ≤ 1 min | 29,5 s [local] ; **35,2 s** (alerte à +29,3 s, IP bloquée à +34,4 s, vérifiée à +35,2 s ; levée au TTL à +349 s) [VM] | [local], [VM] | recette § 1 ; TODO (recette VM du 21/10) | tenu ; attaquant simulé par un conteneur du réseau `edge` : effet du NAT du labo non mesuré |
 | Injections (S2) | confinement | ≤ 1 min | 32,5 s | [local] | recette § 2 | tenu |
 | Attaque lente vue par le ML (S1) | confinement | ≤ 2 min | 65,8 s (force brute à 9/min) ; 87,5 s (jetons invalides à 15/min) ; à 5/min : escalade sans blocage | [local] | recette § 4B, § 4C | tenu si l'IP est attribuable |
-| Registre corrompu (S5) | RTO automatique | ≤ 5 min | 31,9 s (pont, runner de développement) | [local] | recette § 3 | pont non éprouvé sur la VM |
+| Registre corrompu (S5) | RTO automatique | ≤ 5 min | 31,9 s (pont, runner de développement) [local] ; **34 s** (409 → 200, pont systemd en root sans capacités, `status: restored`, témoin 40/40) [VM] | [local], [VM] | recette § 3 ; TODO (recette VM du 21/10) | tenu ; pont éprouvé sur la VM |
 | Registre corrompu (S5) | RTO par l'opérateur | — | alerte en 19 s, playbook en 19 s, hors temps de décision humaine | [VM] | runbook restauration | |
 | Registre corrompu (S5) | restauration seule | — | 10,6 s (script) [VM] ; 10,8 s et 9,9 s (script), 11,0 à 12,0 s de la demande au résultat (pont) [local] | [VM], [local] | runbook restauration | |
 | Registre corrompu (S5) | RPO | ≤ 15 min | 52 s dans l'essai ; borne de 15 min (timer) | [VM] | runbook restauration ; ansible README | `BackupMissing` n'alerte qu'après 30 min |
