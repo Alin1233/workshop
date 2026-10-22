@@ -158,14 +158,18 @@ Pour une reprise complète, les secrets doivent être restaurés avec les donné
 | `deploy.yml` | commit → version extraite → secrets → `docker compose up --wait` → tests sur l'hôte et à travers le réseau | testé (19/10) |
 | `restart_service.yml` | recrée un service autorisé de la version active et vérifie la reprise réelle | testé (19/10) |
 | `backup_database.yml` | sauvegarde à la demande + copie vérifiée sur le poste de l'opérateur ; (ré)installe la sauvegarde planifiée | testé (19/10) |
-| `restore_database.yml` | restaure la dernière sauvegarde saine (ou `-e backup=<nom>`), contrôle d'intégrité, transaction témoin | testé (19/10) |
+| `restore_database.yml` | silence ciblé, restaure la dernière sauvegarde saine (ou `-e backup=<nom>`), contrôle d'intégrité, transaction témoin, levée du silence | testé (22/10) |
 
 ## À faire
 - [ ] Chiffrer la copie locale des sauvegardes (age, clé de l'équipe)
-- [ ] Pendant une restauration, ne pas « réparer » les API arrêtées : le moteur le sait (`RestoreBridge.in_flight`, heartbeat
-  `busy`) ; pour une restauration lancée par l'opérateur, silence Alertmanager ciblé posé à la main (procédure et
-  commandes : `docs/runbooks/incident-response.md`, « Restauration lancée par l'opérateur ») ; reste à l'automatiser dans
-  `restore_database.yml`
+- [x] Pendant une restauration, ne pas « réparer » les API arrêtées : le moteur le sait quand il l'a demandée
+  (`RestoreBridge.in_flight`, heartbeat `busy`) ; `restore_database.yml` pose lui-même le silence Alertmanager ciblé
+  (`tasks/alertmanager_silence.yml`) et le lève à la fin, même en échec
+- [x] Fenêtre de maintenance du déploiement : `deploy.yml` pose le même silence pour 15 min
+  (`pc_hote_deploy_silence_minutes`, 0 pour le désactiver), qui expire seul ; sans lui, les transactions témoins du
+  déploiement faisaient lever `AnomalyDetected` et `RemediationFailed` restait rouge 10 min. Pas de démo ni de clip
+  dans les 15 min qui suivent un déploiement
+- [x] Durée d'un blocage d'IP au WAF fixée par `pc_hote_waf_block_ttl_seconds` (120 s), écrite dans le `.env` de la VM
 - [x] Moteur de remédiation et restauration : ni playbook ni API Docker, un pont de fichiers vers une unité systemd de l'hôte
   (le moteur ne choisit ni la commande ni ses arguments)
 - [ ] Tester le pont sur la VM (root sans capacités, `inbox/` à l'uid 10001) : essai local fait avec `systemd-run --user`

@@ -24,10 +24,11 @@ ssh resilience@172.16.147.10 'sudo sh -c "cat /var/backups/resilience-alpha/*/me
 ```
 
 ## Restaurer
-Avant une restauration lancée à la main, poser le silence Alertmanager ciblé décrit dans
-[incident-response.md](incident-response.md), section « Restauration lancée par l'opérateur » : le moteur ne sait pas
-qu'une restauration qu'il n'a pas demandée est en cours et relancerait les API arrêtées par le script. Lever le silence
-dès la fin.
+Le playbook `restore_database.yml` pose lui-même le silence Alertmanager ciblé décrit dans
+[incident-response.md](incident-response.md), section « Restauration lancée par l'opérateur » (10 min au plus), et le
+lève dès la fin, même en cas d'échec : le moteur ne sait pas qu'une restauration qu'il n'a pas demandée est en cours et
+relancerait sinon les API arrêtées par le script. Le silence manuel de cette section ne sert plus que si l'on lance
+`resilience-pg-restore` directement sur l'hôte, sans le playbook.
 
 ```bash
 ansible-playbook -i ansible/inventory.ini ansible/restore_database.yml -e confirm_restore=true

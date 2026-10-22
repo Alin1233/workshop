@@ -887,6 +887,8 @@ avec `sudo systemctl start resilience-pg-backup`.
 
 ## 9. Restauration lancée par l'opérateur : poser un silence ciblé
 
+**Depuis le 22/10, `ansible/restore_database.yml` pose ce silence et le lève tout seul** (et `deploy.yml` en pose un de 15 min, qui expire seul, pour couvrir la recréation des conteneurs et ses transactions témoins). La procédure manuelle ci-dessous reste valable pour une restauration lancée directement sur l'hôte avec `resilience-pg-restore`, sans le playbook.
+
 ### Pourquoi le moteur doit être tenu à l'écart
 
 Le moteur ne sait qu'une restauration est en cours que lorsqu'il l'a demandée lui-même (demande en vol dans le pont, ou
