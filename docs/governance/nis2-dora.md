@@ -16,7 +16,7 @@ En France, l'autorité compétente pour les incidents DORA d'un établissement d
 
 Légende : ✅ démontré par un essai · ◐ partiellement (mécanisme présent, pas le processus) · ❌ non démontrable en 4 jours.
 
-Les mesures citées viennent de la recette du 20/10 sur la pile locale (`services/remediation-engine/docs/recette.md`) ; le pont de restauration n'a pas encore été rejoué sur la VM.
+Les mesures citées viennent de la recette du 20/10 sur la pile locale (`services/remediation-engine/docs/recette.md`) et de la recette du 21/10 sur le PC Hôte (VM) : panne d'API rétablie en 48 s, blocage d'IP à 35 s, registre restauré par le pont en 34 s (`docs/governance/pca-pra.md`).
 
 | Exigence | Pertinente pour l'entité fictive ? | Démontrée par le prototype ? | Preuve / lien | Ce qui manquerait en contexte industriel |
 |---|---|---|---|---|
@@ -34,9 +34,9 @@ Les mesures citées viennent de la recette du 20/10 sur la pile locale (`service
 | ↳ e) sécurité du développement et de la maintenance, vulnérabilités | Oui | ◐ | Tests et CI, OpenAPI vérifiée (`docs/api/`), déploiement par commit avec retour arrière (`ansible/deploy.yml`) | Scan de dépendances et d'images en CI, revue de code obligatoire, politique de divulgation |
 | ↳ f) évaluation de l'efficacité des mesures | Oui | ✅ à l'échelle du prototype | Chaque réponse est vérifiée (conteneurs, sondes, intégrité, transaction témoin) et chronométrée | Indicateurs suivis dans le temps, audits |
 | ↳ g) cyber-hygiène et formation | Oui | ❌ | — | Sensibilisation des équipes, formation des dirigeants (exigée aussi par DORA art. 5) |
-| ↳ h) cryptographie | Oui (données de paiement) | ◐ | JWT RS256, mots de passe en argon2id | HTTPS de bout en bout (absent, risque accepté dans EBIOS), chiffrement des sauvegardes et de la base, gestion des clés |
+| ↳ h) cryptographie | Oui (données de paiement) | ◐ | JWT RS256, mots de passe en argon2id, HTTPS au WAF (port 8443, autorité de certification locale), empreintes faciales chiffrées AES-256-GCM en base | HTTPS imposé (le port 8080 en clair reste ouvert), certificats d'une autorité reconnue, TLS entre les services, chiffrement des sauvegardes et de la base, gestion des clés |
 | ↳ i) RH, contrôle d'accès, gestion des actifs | Oui | ◐ | Rôle admin sur les routes sensibles, interfaces de gestion sur 127.0.0.1, Prometheus / Alertmanager / Loki authentifiés, SSH durci | Gestion des identités (arrivées, départs), revue des droits, comptes nominatifs au lieu de `admin` partagé |
-| ↳ j) authentification multifacteur, communications sécurisées | Oui | ❌ | — | MFA pour les clients (DSP2 l'exige déjà) et les administrateurs, canal de crise de secours |
+| ↳ j) authentification multifacteur, communications sécurisées | Oui | ◐ | Double authentification TOTP **imposée à l'admin**, proposée aux clients dès la première connexion (codes de secours, reconnaissance faciale au choix du code), échecs comptés par le SOC (`auth-service`, README racine) | MFA imposée aux clients (DSP2 : authentification forte), MFA sur les interfaces d'exploitation (Grafana, SSH), canal de crise de secours |
 | NIS2 — notification d'incident (24 h / 72 h / 1 mois) (art. 23) | Non en droit : remplacée par la notification DORA, plus exigeante (4 h) | ❌ | Même constat que la ligne DORA art. 17-19 | Même chose que DORA ; à retenir pour nos prestataires soumis à NIS2, qui doivent nous prévenir de leurs propres incidents |
 
 ## 3. Ce que 4 jours démontrent, et ce qu'ils ne peuvent pas démontrer
@@ -56,4 +56,4 @@ Les mesures citées viennent de la recette du 20/10 sur la pile locale (`service
 3. **Sortir les sauvegardes et les secrets du PC Hôte** : copie chiffrée et immuable sur un autre site, clés age de l'équipe et secrets chiffrés par SOPS. Sans cela, le PRA « perte du PC Hôte » reste incomplet.
 4. **Tenir le registre des prestataires TIC** (hébergeur, images, modèles d'IA) avec leurs plans de sortie.
 5. **Programme de tests annuel** : Trivy et scan des dépendances en CI, puis test d'intrusion externe ; rejouer chaque trimestre les scénarios de la recette, qui servent déjà de tests de non-régression de la résilience.
-6. **Combler les écarts de protection acceptés pour le prototype** : HTTPS, MFA, comptes nominatifs.
+6. **Combler les écarts de protection acceptés pour le prototype** : HTTPS imposé, MFA imposée aux clients et aux interfaces d'exploitation, comptes nominatifs.
