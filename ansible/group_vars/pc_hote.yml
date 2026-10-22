@@ -48,3 +48,7 @@ pc_hote_remediation_state_dir: /var/lib/resilience-alpha/remediation-runner   # 
 pc_hote_remediation_engine_uid: 10001          # USER du conteneur remediation-engine : seul autorisé à écrire inbox/
 pc_hote_remediation_restores_per_hour: 3       # au-delà, demande refusée (rate_limited) : un moteur compromis ne peut
                                                # pas enchaîner les restaurations (chacune perd les écritures récentes)
+
+# Durée d'un blocage d'IP au WAF par le moteur (WAF_BLOCK_TTL_SECONDS ; 300 s par défaut dans Compose). Derrière le NAT
+# du wifi du labo, tous les postes ont la même IP : bloquer l'attaquant bloque aussi le jury pendant cette durée.
+pc_hote_waf_block_ttl_seconds: 120

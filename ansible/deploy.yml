@@ -119,6 +119,8 @@
               NODE_TEXTFILE_DIR={{ pc_hote_node_textfile_dir }}
               # Pont de remédiation, monté en /bridge dans le moteur (tasks/remediation_bridge_install.yml)
               REMEDIATION_BRIDGE_DIR={{ pc_hote_remediation_bridge_dir }}
+              # Durée d'un blocage d'IP au WAF par le moteur (group_vars/pc_hote.yml : NAT du labo)
+              WAF_BLOCK_TTL_SECONDS={{ pc_hote_waf_block_ttl_seconds }}
               # Assistant RAG, LLM en mode « {{ pc_hote_ai_mode }} » : profil ai = conteneur ollama de la VM
               COMPOSE_PROFILES={{ 'ai' if pc_hote_ai_mode == 'container' else '' }}
               OLLAMA_BASE_URL={{ pc_hote_ai_offload_url if pc_hote_ai_mode == 'offload' else 'http://ollama:11434' }}
