@@ -1,0 +1,49 @@
+# Pose le silence Alertmanager ciblé du runbook incident-response.md § 9 : alertes de disponibilité des deux API et de
+# leurs sondes seulement (jamais l'intégrité, la sécurité, PostgreSQL ni le frontal). Le moteur de remédiation ne reçoit
+# plus ces alertes pendant une opération qui arrête ou recrée volontairement les API.
+# Variables : silence_minutes, silence_comment. Résultat : am_silence_id ('' si Alertmanager est injoignable, par
+# exemple au tout premier déploiement : l'opération continue, sans silence).
+- name: Lire le mot de passe d'Alertmanager
+  ansible.builtin.slurp:
+    src: "{{ pc_hote_app_root }}/shared/secrets/alertmanager_password"
+  register: am_password
+  failed_when: false
+
+- name: Lire l'heure (secondes depuis 1970, UTC)
+  ansible.builtin.command: date +%s
+  register: silence_clock
+  changed_when: false
+
+- name: Poser le silence ciblé ({{ silence_minutes }} min)
+  ansible.builtin.uri:
+    url: http://127.0.0.1:9093/api/v2/silences
+    method: POST
+    url_username: admin
+    url_password: "{{ am_password.content | b64decode | trim }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      matchers:
+        - { name: alertname, value: "ServiceDown|EndToEndProbeFailed|HighErrorRate|DependencyFailures|AnomalyDetected", isRegex: true, isEqual: true }
+        # les sondes de bout en bout portent service=auth / payments, pas le nom du service Compose
+        - { name: service, value: "auth-service|payment-api|auth|payments", isRegex: true, isEqual: true }
+      startsAt: "{{ '%Y-%m-%dT%H:%M:%SZ' | strftime(silence_epoch | int, utc=true) }}"
+      endsAt: "{{ '%Y-%m-%dT%H:%M:%SZ' | strftime(silence_epoch | int + silence_minutes | int * 60, utc=true) }}"
+      createdBy: ansible
+      comment: "{{ silence_comment }}"
+    return_content: true
+  vars:
+    silence_epoch: "{{ silence_clock.stdout }}"
+  register: am_silence
+  when: am_password.content is defined
+  failed_when: false
+  no_log: true
+
+- name: Retenir l'identifiant du silence
+  ansible.builtin.set_fact:
+    am_silence_id: "{{ (am_silence.json | default({})).silenceID | default('') }}"
+
+- name: Signaler l'absence de silence
+  ansible.builtin.debug:
+    msg: "Alertmanager injoignable ({{ am_silence.status | default('pas de secret') }}) : opération sans silence, le moteur peut réagir"
+  when: am_silence_id | length == 0

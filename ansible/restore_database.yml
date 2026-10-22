@@ -42,25 +42,38 @@
             mode: "0600"
           loop: [authdb.dump, paydb.dump, meta.json, SHA256SUMS]
 
-    - name: Restaurer
-      ansible.builtin.command: /usr/local/sbin/resilience-pg-restore {{ backup_from_local | default(backup) | quote }}
-      register: restore_run
-      changed_when: true
+    # Le script arrête volontairement les API : sans silence, le moteur les relancerait au milieu de la restauration
+    # (incident-response.md § 9, désormais automatique)
+    - name: Tenir le moteur de remédiation à l'écart
+      ansible.builtin.include_tasks: tasks/alertmanager_silence.yml
+      vars:
+        silence_minutes: 10
+        silence_comment: "restore_database.yml : API arrêtées volontairement pendant la restauration"
 
-    - name: Lire la version active
-      ansible.builtin.stat:
-        path: "{{ pc_hote_app_root }}/current"
-      register: current
+    - name: Restaurer et vérifier
+      block:
+        - name: Restaurer
+          ansible.builtin.command: /usr/local/sbin/resilience-pg-restore {{ backup_from_local | default(backup) | quote }}
+          register: restore_run
+          changed_when: true
 
-    - name: Transaction témoin
-      ansible.builtin.command: python3 tests/smoke_test.py
-      args:
-        chdir: "{{ current.stat.lnk_source }}"
-      register: smoke
-      retries: 5
-      delay: 5
-      until: smoke.rc == 0
-      changed_when: false
+        - name: Lire la version active
+          ansible.builtin.stat:
+            path: "{{ pc_hote_app_root }}/current"
+          register: current
+
+        - name: Transaction témoin
+          ansible.builtin.command: python3 tests/smoke_test.py
+          args:
+            chdir: "{{ current.stat.lnk_source }}"
+          register: smoke
+          retries: 5
+          delay: 5
+          until: smoke.rc == 0
+          changed_when: false
+      always:
+        - name: Rendre la main au moteur
+          ansible.builtin.include_tasks: tasks/alertmanager_unsilence.yml
 
     - name: Résumé (mesures pour le PCA/PRA)
       ansible.builtin.debug:

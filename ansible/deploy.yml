@@ -166,6 +166,16 @@
 
         # Compose est lancé depuis le chemin réel de la version : les montages changent de chemin à chaque version,
         # donc les conteneurs qui lisent une configuration du dépôt sont recréés avec la bonne.
+        # Fenêtre de maintenance : les conteneurs recréés et les transactions témoins (mauvais identifiants volontaires)
+        # ne doivent pas faire agir le moteur. Sans silence, AnomalyDetected (login_failures_per_min) faisait escalader
+        # le moteur et laissait RemediationFailed en rouge 10 min. Le silence expire seul : pas de démo juste après.
+        - name: Ouvrir la fenêtre de maintenance ({{ pc_hote_deploy_silence_minutes }} min)
+          ansible.builtin.include_tasks: tasks/alertmanager_silence.yml
+          vars:
+            silence_minutes: "{{ pc_hote_deploy_silence_minutes }}"
+            silence_comment: "deploy.yml {{ deploy_commit.stdout }} : conteneurs recréés et transactions témoins"
+          when: pc_hote_deploy_silence_minutes | int > 0
+
         - name: Construire et démarrer la stack, attendre les healthchecks
           ansible.builtin.command: docker compose up -d --build --remove-orphans --wait --wait-timeout 300
           args:
@@ -334,3 +344,4 @@
               - "Version active : {{ deploy_commit.stdout }} ({{ release_dir }})"
               - "Version précédente : {{ (previous_release.stat.lnk_source | default('aucune')) | basename }}"
               - "Application : http://{{ ansible_host }}:{{ pc_hote_waf_port }} (HTTPS, caméra : https://{{ ansible_host }}:{{ pc_hote_waf_tls_port }})"
+              - "Fenêtre de maintenance : {{ ('silence Alertmanager ' ~ am_silence_id ~ ', expire seul dans ' ~ pc_hote_deploy_silence_minutes ~ ' min') if (am_silence_id | default('')) else 'aucune' }}"
