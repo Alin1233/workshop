@@ -50,7 +50,7 @@ describe("compte à rebours des blocages d'IP", () => {
 
   it("affiche l'absence de blocage et l'état du pont", () => {
     render(<BlocksPanel data={{ ...blocked(90), blocks: [], bridge: { configured: true, available: false, runner: "dev" } }} />);
-    expect(screen.getByText("✓ Aucune IP bloquée")).toBeInTheDocument();
+    expect(screen.getByText("Aucune IP bloquée")).toBeInTheDocument();
     expect(screen.getByText("runner absent")).toBeInTheDocument();
     expect(screen.getByText("chargée")).toBeInTheDocument();
   });

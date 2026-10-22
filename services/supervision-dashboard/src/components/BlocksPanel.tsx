@@ -9,30 +9,30 @@ export function remainingSeconds(block: BlockItem, now: number): number | null {
   return expires === null ? null : Math.max(0, (expires - now) / 1000);
 }
 
-// Cette méthode permet d'afficher une IP bloquée : compte à rebours jusqu'à la levée automatique, barre de progression,
-// motif et incident à l'origine du blocage.
+// Cette méthode permet d'afficher une IP bloquée : compte à rebours jusqu'à la levée automatique, jauge du TTL restant,
+// motif et heure de levée.
 function BlockRow({ block, now }: { block: BlockItem; now: number }) {
   const remaining = remainingSeconds(block, now);
   const ttl = block.ttl_s ?? null;
   const ratio = remaining !== null && ttl ? Math.min(1, remaining / ttl) : null;
   const expired = remaining !== null && remaining <= 0;
   return (
-    <li className="rounded-lg border border-bad/50 bg-bad/10 px-3 py-2" data-testid="block-item">
+    <li className="border-b border-edge-weak py-1.5 last:border-b-0" data-testid="block-item">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[20px] font-bold text-snow">{block.ip}</span>
-        <span className={`text-[28px] font-black tabular ${expired ? "text-ok" : "text-bad"}`} data-testid="block-ttl">
+        <span className="truncate tabular text-[15px] font-semibold text-snow">{block.ip}</span>
+        <span className={`text-[24px] leading-none font-semibold tabular ${expired ? "text-ok" : "text-bad"}`} data-testid="block-ttl">
           {remaining === null ? "—" : expired ? "levée…" : chrono(remaining)}
         </span>
       </div>
       {ratio !== null ? (
-        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
-          <div className="h-full rounded-full bg-bad transition-[width] duration-1000 ease-linear" style={{ width: `${ratio * 100}%` }} />
+        <div className="mt-1.5 h-2 rounded-sm bg-panel-2" aria-hidden>
+          <div className="h-full rounded-sm bg-bad transition-[width] duration-1000 ease-linear" style={{ width: `${ratio * 100}%` }} />
         </div>
       ) : null}
-      <p className="mt-1 truncate text-[13px] text-fog" title={block.reason}>
+      <p className="mt-1 truncate text-[12.5px] text-snow/90" title={block.reason}>
         {block.reason || "blocage de remédiation"}
       </p>
-      <p className="text-[12px] text-mute">
+      <p className="text-[12px] text-fog">
         levée automatique à {clockTime(toMs(block.expires_at))}
         {ttl ? ` · TTL ${ttl} s` : ""}
       </p>
@@ -49,17 +49,17 @@ export default function BlocksPanel({ data }: { data: BlocksResponse | null }) {
   return (
     <div className="flex h-full flex-col gap-2">
       {data.blocks.length === 0 ? (
-        <Empty tone="ok">✓ Aucune IP bloquée</Empty>
+        <Empty tone="ok">Aucune IP bloquée</Empty>
       ) : (
-        <ul className="flex flex-col gap-1.5">{data.blocks.map((block) => <BlockRow key={block.ip} block={block} now={now} />)}</ul>
+        <ul className="flex flex-col">{data.blocks.map((block) => <BlockRow key={block.ip} block={block} now={now} />)}</ul>
       )}
-      <dl className="mt-auto grid grid-cols-[auto_1fr] gap-x-2 border-t border-edge pt-2 text-[13px]">
-        <dt className="text-mute">Liste WAF</dt>
-        <dd className={data.waf_blocklist === false ? "text-warn" : data.waf_blocklist ? "text-ok" : "text-unknown"}>
+      <dl className="mt-auto grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 border-t border-edge-weak pt-1.5 text-[12.5px]">
+        <dt className="text-fog">Liste WAF</dt>
+        <dd className={`text-right font-medium ${data.waf_blocklist === false ? "text-warn" : data.waf_blocklist ? "text-ok" : "text-unknown"}`}>
           {data.waf_blocklist === false ? "indisponible" : data.waf_blocklist ? "chargée" : "inconnue"}
         </dd>
-        <dt className="text-mute">Pont de restauration</dt>
-        <dd className={bridge?.busy ? "text-busy" : bridge?.available ? "text-ok" : "text-warn"}>
+        <dt className="text-fog">Pont de restauration</dt>
+        <dd className={`text-right font-medium ${bridge?.busy ? "text-busy" : bridge?.available ? "text-ok" : "text-warn"}`}>
           {!bridge ? "inconnu" : !bridge.configured ? "non configuré" : bridge.busy ? "restauration en cours" : bridge.available ? `prêt (${bridge.runner ?? "hôte"})` : "runner absent"}
         </dd>
       </dl>

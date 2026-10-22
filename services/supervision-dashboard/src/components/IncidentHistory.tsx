@@ -21,31 +21,43 @@ function whatWasDone(incident: IncidentSummary, all: IncidentSummary[]): string 
   return decisionLabel(incident.decision);
 }
 
-// Cette méthode permet d'afficher l'historique des derniers incidents : heure, alerte, nature, réponse, issue, durée.
+// Cette méthode permet d'afficher l'historique des derniers incidents en tableau : heure, alerte, nature, réponse, issue,
+// durée. Dans un panneau étroit, la nature puis la réponse sont masquées (largeur du panneau, pas de l'écran).
 export default function IncidentHistory({ incidents, focusId }: { incidents: IncidentSummary[] | null; focusId: string | null }) {
   if (incidents === null) return <Empty>En attente de l'historique…</Empty>;
   if (incidents.length === 0) return <Empty>Aucun incident enregistré</Empty>;
   return (
-    <ul className="flex flex-col" data-testid="incident-history">
-      {incidents.map((incident) => {
-        const outcome = incident.open
-          ? { label: incident.state === "recovered" ? "rétabli" : "en cours", className: incident.state === "recovered" ? "text-ok" : "text-warn" }
-          : OUTCOMES[incident.outcome ?? ""] ?? { label: incident.outcome ?? "—", className: "text-fog" };
-        return (
-          <li key={incident.id} className={`border-b border-edge/60 px-1.5 py-1.5 ${incident.id === focusId ? "bg-white/5" : ""}`}>
-            <div className="flex items-center gap-2">
-              <span className="w-[62px] shrink-0 text-[13px] text-fog tabular">{clockTime(incident.created_at)}</span>
-              <span className="truncate text-[14.5px] font-semibold text-snow">{incident.alertname}</span>
-              <NatureChip nature={incident.nature} />
-              <span className={`ml-auto shrink-0 text-[13px] font-bold ${outcome.className}`}>{outcome.label}</span>
-            </div>
-            <div className="flex items-center gap-2 pl-[70px] text-[12.5px] text-mute">
-              <span className="truncate">{incident.service ?? "—"} · {whatWasDone(incident, incidents)}</span>
-              {incident.duration_s !== null ? <span className="ml-auto shrink-0 tabular">{duration(incident.duration_s)}</span> : null}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="@container">
+      <table className="w-full table-fixed border-collapse text-[13px]" data-testid="incident-history">
+        <thead>
+          <tr className="border-b border-edge text-left text-[12.5px] text-fog">
+            <th className="w-[7.25rem] py-1.5 pr-2 font-medium">Heure</th>
+            <th className="py-1.5 pr-2 font-medium @sm:w-[30%]">Alerte</th>
+            <th className="hidden w-[7rem] py-1.5 pr-2 font-medium @xl:table-cell">Nature</th>
+            <th className="hidden py-1.5 pr-2 font-medium @sm:table-cell">Réponse</th>
+            <th className="w-[4.5rem] py-1.5 pr-2 font-medium">Issue</th>
+            <th className="w-[3.75rem] py-1.5 text-right font-medium">Durée</th>
+          </tr>
+        </thead>
+        <tbody>
+          {incidents.map((incident) => {
+            const outcome = incident.open
+              ? { label: incident.state === "recovered" ? "rétabli" : "en cours", className: incident.state === "recovered" ? "text-ok" : "text-warn" }
+              : OUTCOMES[incident.outcome ?? ""] ?? { label: incident.outcome ?? "—", className: "text-fog" };
+            const response = `${incident.service ?? "—"} · ${whatWasDone(incident, incidents)}`;
+            return (
+              <tr key={incident.id} className={`border-b border-edge-weak last:border-b-0 ${incident.id === focusId ? "bg-white/[0.05]" : ""}`} title={incident.id}>
+                <td className="truncate py-1.5 pr-2 tabular text-[12.5px] text-fog">{clockTime(incident.created_at)}</td>
+                <td className="truncate py-1.5 pr-2 font-semibold text-snow">{incident.alertname}</td>
+                <td className="hidden py-1.5 pr-2 @xl:table-cell"><NatureChip nature={incident.nature} /></td>
+                <td className="hidden truncate py-1.5 pr-2 text-fog @sm:table-cell" title={response}>{response}</td>
+                <td className={`truncate py-1.5 pr-2 font-semibold ${outcome.className}`}>{outcome.label}</td>
+                <td className="py-1.5 text-right text-snow tabular">{incident.duration_s !== null ? duration(incident.duration_s) : "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
