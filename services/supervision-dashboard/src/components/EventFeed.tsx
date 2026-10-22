@@ -4,10 +4,11 @@ import { useNow } from "../lib/poll";
 import type { EventItem } from "../lib/types";
 import { Empty } from "./ui";
 
-const TONES = { ok: "bg-ok", bad: "bg-bad", warn: "bg-warn", info: "bg-busy" };
+const TONES = { ok: "border-ok", bad: "border-bad", warn: "border-warn", info: "border-busy" };
 
-// Cette méthode permet d'afficher le fil d'événements (journaux Loki en liste blanche), du plus récent au plus ancien ;
-// les événements des dix dernières secondes sont surlignés pour que leur arrivée se voie dans la capture.
+// Cette méthode permet d'afficher le fil d'événements (journaux Loki en liste blanche), du plus récent au plus ancien,
+// comme le panneau « logs » de Grafana : barre de niveau colorée, heure, message et détail sur une ligne. Les événements
+// des dix dernières secondes sont surlignés pour que leur arrivée se voie dans la capture.
 export default function EventFeed({ events }: { events: EventItem[] | null }) {
   const now = useNow(1000);
   if (events === null) return <Empty>En attente des journaux…</Empty>;
@@ -21,15 +22,14 @@ export default function EventFeed({ events }: { events: EventItem[] | null }) {
         return (
           <li
             key={`${event.ts}-${event.event_type}-${i}`}
-            className={`flex items-start gap-2.5 border-b border-edge/60 px-1.5 py-1 transition-colors duration-700 ${fresh ? "bg-white/10" : ""}`}
+            className={`flex items-baseline gap-2 border-l-[3px] py-[3px] pr-1 pl-2 transition-colors duration-700 ${TONES[tone]} ${fresh ? "bg-white/[0.07]" : "hover:bg-white/[0.03]"}`}
             data-testid="event-item"
           >
-            <span className="w-[62px] shrink-0 text-[13px] text-fog tabular">{clockTime(event.ts)}</span>
-            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONES[tone]}`} aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[14.5px] font-semibold leading-snug text-snow" title={title}>{title}</p>
-              {detail ? <p className="truncate text-[12.5px] leading-snug text-mute" title={detail}>{detail}</p> : null}
-            </div>
+            <span className="shrink-0 tabular text-[12.5px] text-fog">{clockTime(event.ts)}</span>
+            <p className="min-w-0 flex-1 truncate text-[13.5px] leading-snug" title={detail ? `${title} — ${detail}` : title}>
+              <span className="text-snow">{title}</span>
+              {detail ? <span className="text-fog"> · {detail}</span> : null}
+            </p>
           </li>
         );
       })}

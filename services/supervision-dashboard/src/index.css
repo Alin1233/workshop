@@ -1,48 +1,73 @@
 @import "@fontsource-variable/inter";
 @import "tailwindcss";
 
-/* Même identité que le front client (encre, sarcelle, menthe ; ambre et brique réservés aux incidents), en version
-   « salle de contrôle » : fond encre, contrastes forts et couleurs d'état saturées pour rester lisibles dans une
-   capture vidéo 1080p. */
+/* Thème sombre inspiré de Grafana (toile #111217, panneaux #181b1f, bordures fines, palette vert / orange / rouge / bleu
+   des seuils) : l'écran se lit comme les tableaux de bord Grafana voisins. Seul l'anneau menthe rappelle la marque. */
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", monospace;
 
-  --color-ink: #0e1a24;
-  --color-ink-2: #16283a;
-  --color-night: #091219;
-  --color-panel: #102030;
-  --color-panel-2: #142a3d;
-  --color-edge: #24405a;
-  --color-snow: #eef3f6;
-  --color-fog: #a9bccb;
-  --color-mute: #7890a3;
+  --color-canvas: #111217;
+  --color-panel: #181b1f;
+  --color-panel-2: #22252b;
+  --color-edge: #2c2f36;
+  --color-edge-weak: #24272d;
+  --color-snow: #ccccdc;
+  --color-fog: #9d9eae;
+  --color-mute: #7e8090;
+  --color-ink: #111217;
   --color-mint: #5ee6cf;
-  --color-teal: #0f8b7a;
 
-  --color-ok: #2fd9a6;
-  --color-ok-deep: #0b8f6c;
-  --color-warn: #ffb020;
-  --color-warn-deep: #b86e00;
-  --color-bad: #ff5a3c;
-  --color-bad-deep: #c22d16;
-  --color-busy: #45b8ff;
-  --color-unknown: #8193a3;
+  --color-ok: #73bf69;
+  --color-ok-deep: #37872d;
+  --color-warn: #ff9830;
+  --color-warn-deep: #fa6400;
+  --color-bad: #f2495c;
+  --color-bad-deep: #c4162a;
+  --color-busy: #5794f2;
+  --color-busy-deep: #1f60c4;
+  --color-unknown: #8e909e;
+  --color-unknown-deep: #41454d;
 }
+
+/* Écran mural (capture 1080p du Clip Chrono) : tout tient à l'écran sans défilement. En dessous, la page défile et les
+   panneaux gardent leur hauteur naturelle, comme un tableau de bord Grafana sur portable ou téléphone. */
+@custom-variant wall (@media (min-width: 80rem) and (min-height: 53.75rem));
 
 @layer base {
   html,
   body,
   #root {
-    @apply h-full;
+    @apply min-h-full;
   }
 
   body {
-    @apply bg-night text-snow antialiased;
+    @apply bg-canvas text-[14px] text-snow antialiased;
     font-feature-settings: "cv11", "ss01", "tnum";
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3a3d45 transparent;
   }
 }
 
 @utility tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Fonds des panneaux « stat » en mode arrière-plan (léger dégradé, comme Grafana) */
+@utility fill-ok {
+  background-image: linear-gradient(120deg, #3f9334, #2f7a27);
+}
+@utility fill-warn {
+  background-image: linear-gradient(120deg, #ff8c1a, #f06000);
+}
+@utility fill-bad {
+  background-image: linear-gradient(120deg, #d42638, #b01224);
+}
+@utility fill-busy {
+  background-image: linear-gradient(120deg, #2d6fd3, #1d58b5);
+}
+@utility fill-unknown {
+  background-image: linear-gradient(120deg, #4a4f58, #3b3f47);
 }

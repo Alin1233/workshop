@@ -3,7 +3,13 @@
 Interface **React + Tailwind** (imposé, sujet §3.1) qui montre au jury les composants, les alertes, les événements et
 l'avancement de la reprise, en direct. C'est **l'écran du Clip Chrono** (§7.3) : pensé pour une capture **1080p**
 (1920 × 1080, sans défilement), contrastes forts, changements d'état évidents, horloge à la seconde (preuve d'une
-séquence continue).
+séquence continue). Présentation calquée sur **Grafana** (thème sombre, panneaux à bordure fine, panneaux stat colorés,
+tableaux, journaux) pour faire suite aux tableaux de bord Grafana de la stack.
+
+- **Disposition** : grille de 24 colonnes en grand écran ; tout tient sans défilement dès **1280 × 860** (écran mural,
+  variante `wall` de `src/index.css`). En dessous (portable 1366 × 768, tablette, téléphone), la page défile : 12
+  colonnes puis une seule, listes longues bornées dans leur panneau, colonnes du tableau des incidents masquées selon la
+  largeur du panneau (*container queries*). Jamais de défilement horizontal de la page.
 
 - **URL** : http://127.0.0.1:8091 (`MGMT_BIND`, `SUPERVISION_PORT`) — identifiant **`admin`** / `secrets/supervision_password`
   (généré par `python scripts/init_secrets.py`).
@@ -33,21 +39,24 @@ image, construite en deux étapes (`Dockerfile`, contexte `./services`) : **node
 | `app/sources.py` | clients **GET uniquement** des quatre sources, chemins autorisés par source, requêtes PromQL/LogQL **constantes**, cache |
 | `app/shaping.py` | fonctions pures : carte des composants, bandeau d'état global, alertes, événements, blocages, incidents |
 | `app/config.py` | configuration (variables d'environnement), secrets relus à chaque usage |
-| `src/` | interface React 19 + Tailwind 4 + TypeScript (Vite 8), mêmes versions et même identité que `services/frontend` |
+| `src/` | interface React 19 + Tailwind 4 + TypeScript (Vite 8), mêmes versions que `services/frontend` ; thème sombre façon Grafana (`src/index.css`) |
 | `src/lib/timeline.ts` | chronologie affichée, construite depuis la chronologie brute du moteur |
 
 ## L'écran
 
 | Zone | Contenu |
 |---|---|
-| En-tête | marque, indicateur **EN DIRECT** (heure du dernier rafraîchissement ; « données figées » ou « supervision injoignable » sinon), horloge du serveur à la seconde |
-| **Bandeau d'état** | **Opérationnel** (fond sombre, vert) · **Incident en cours** (rouge) · **Remédiation en cours** (ambre) · **Service rétabli** (vert plein) · État inconnu ; étape en cours en clair, chronomètre depuis la première anomalie observée (ou durée figée du rétablissement + temps de réaction du moteur), décision du moteur (nature + action), identifiant d'incident, pastilles d'avancement *Anomalie → Alerte et décision → Action → Vérification → Rétabli* |
-| Carte des composants | parcours client **WAF → frontal → auth-service → payment-api → PostgreSQL**, puis chaîne de résilience **observation → détecteur ML → moteur → pont de restauration** ; vert / ambre / rouge / bleu (en action) / gris (inconnu), avec la raison ; intégrité du registre et scores ML |
+| Barre du haut | fil d'Ariane, indicateur **EN DIRECT** (heure du dernier rafraîchissement ; « données figées » ou « supervision injoignable » sinon), fenêtre (30 min) et période de rafraîchissement, horloge du serveur à la seconde |
+| **État global** (3 panneaux stat) | **Opérationnel** (fond sombre, vert) · **Incident en cours** (fond rouge) · **Remédiation en cours** (fond orange) · **Service rétabli** (fond vert) · État inconnu ; étape en cours en clair, décision du moteur (nature + action), identifiant d'incident ; chronomètre depuis la première anomalie observée (ou durée figée du rétablissement + temps de réaction du moteur) ; segments d'avancement *Anomalie → Alerte et décision → Action → Vérification → Rétabli* |
+| Carte des composants | tuiles pleines, parcours client **WAF → frontal → auth-service → payment-api → PostgreSQL**, puis chaîne de résilience **observation → détecteur ML → moteur → pont de restauration** ; vert / orange / rouge / bleu (en action) / gris (inconnu), avec la raison ; intégrité du registre, scores ML en jauges avec le seuil |
 | Chronologie de la reprise | incident en cours (ou dernier incident) **horodaté par le moteur** : alerte → détecté → décision (*Disponibilité* / *Compromission* + redémarrage / blocage d'IP / restauration, avec la justification) → action et son résultat → vérification (**conteneurs, blocage WAF, intégrité, sondes, transaction témoin**, chacun OK / échec / indisponible) → rétabli ou échec / escalade ; heure, écart `T+` depuis l'alerte, durée de chaque étape. Avant que le moteur ne reçoive l'alerte : « Anomalie observée », étapes suivantes à venir |
-| Alertes actives | Alertmanager (règles Prometheus **et** SOC Loki) + règles encore *en confirmation* dans Prometheus ; gravité, domaine, source, service, IP |
-| IP bloquées au WAF | IP, motif, **compte à rebours jusqu'à la levée automatique** (heure du serveur) et barre de TTL ; état de la liste WAF et du pont de restauration |
-| Événements en direct | journaux Loki en liste blanche, les plus récents surlignés ; rafales d'attaque regroupées (« Échec d'authentification ×37 depuis 172.25.0.3 ») |
-| Derniers incidents | heure, alerte, nature, réponse exécutée, issue, durée ; les incidents **rattachés** (même panne, déjà traitée, seulement vérifiée) sont signalés |
+| Alertes actives | Alertmanager (règles Prometheus **et** SOC Loki) + règles encore *en confirmation* dans Prometheus ; gravité, domaine, source, service, IP en étiquettes |
+| IP bloquées au WAF | IP, motif, **compte à rebours jusqu'à la levée automatique** (heure du serveur) et jauge du TTL ; état de la liste WAF et du pont de restauration |
+| Événements en direct | journaux Loki en liste blanche, une ligne par événement avec sa barre de niveau, les plus récents surlignés ; rafales d'attaque regroupées (« Échec d'authentification ×37 depuis 172.25.0.3 ») |
+| Derniers incidents | tableau : heure, alerte, nature, réponse exécutée, issue, durée ; les incidents **rattachés** (même panne, déjà traitée, seulement vérifiée) sont signalés |
+
+Une source en panne se voit dans son panneau : coin orange (comme une erreur de requête dans Grafana) et avertissement en
+clair, jamais un panneau vide sans raison.
 
 **Ce que montre chaque phase** (arrêt de `payment-api`, relevé en direct le 20/10, voir « Recette ») :
 
@@ -59,7 +68,7 @@ image, construite en deux étapes (`Dockerfile`, contexte `./services`) : **node
 4. **Réaction** (+36 s) : *Remédiation en cours — Action : redémarrage de payment-api*, décision *Disponibilité ·
    redémarrage de payment-api*, moteur en bleu « en action », événements « Incident ouvert », « Décision », « Démarrage ».
 5. **Vérification** (+43 s) : contrôles conteneurs 4/4, sondes 3/3, **transaction témoin** (virement 1,00 € à travers le WAF).
-6. **Rétabli** (+43 s) : *Service rétabli* plein écran vert, **37 s** de la première anomalie au service vérifié, réaction du
+6. **Rétabli** (+43 s) : *Service rétabli* sur fond vert, **37 s** de la première anomalie au service vérifié, réaction du
    moteur **7,0 s** ; puis *incident clos* à la retombée des alertes (+66 s). Le bandeau reste « Service rétabli » 3 min
    (`RESTORED_WINDOW_SECONDS`), puis repasse à *Opérationnel*.
 

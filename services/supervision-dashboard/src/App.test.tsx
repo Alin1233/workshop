@@ -79,7 +79,7 @@ describe("écran de supervision quand des sources tombent", () => {
     await waitFor(() => expect(screen.getByTestId("status-banner")).toHaveAttribute("data-phase", "operational"));
     await waitFor(() => expect(within(screen.getByTestId("panel-events")).getByTestId("source-notice")).toBeInTheDocument());
     expect(screen.getAllByTestId("source-notice")).toHaveLength(1);
-    expect(screen.getByText("✓ Aucune alerte active")).toBeInTheDocument();
+    expect(screen.getByText("Aucune alerte active")).toBeInTheDocument();
     expect(screen.getByTestId("component-payment-api")).toHaveAttribute("data-state", "ok");
   });
 
