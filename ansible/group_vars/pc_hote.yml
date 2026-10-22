@@ -18,6 +18,9 @@ docker_gpg_fingerprint: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
 # shared/secrets conservé d'une version à l'autre (répertoire 0700, root)
 pc_hote_app_root: /opt/resilience-alpha
 pc_hote_releases_kept: 3
+# Silence des alertes de disponibilité des API pendant et après un déploiement (0 = aucun) : couvre la fenêtre du
+# détecteur ML, que les transactions témoins du déploiement font réagir
+pc_hote_deploy_silence_minutes: 15
 
 # Sauvegardes PostgreSQL (pg_dump par base + état d'intégrité du registre), voir backup_database.yml
 pc_hote_backup_dir: /var/backups/resilience-alpha
@@ -45,3 +48,7 @@ pc_hote_remediation_state_dir: /var/lib/resilience-alpha/remediation-runner   # 
 pc_hote_remediation_engine_uid: 10001          # USER du conteneur remediation-engine : seul autorisé à écrire inbox/
 pc_hote_remediation_restores_per_hour: 3       # au-delà, demande refusée (rate_limited) : un moteur compromis ne peut
                                                # pas enchaîner les restaurations (chacune perd les écritures récentes)
+
+# Durée d'un blocage d'IP au WAF par le moteur (WAF_BLOCK_TTL_SECONDS ; 300 s par défaut dans Compose). Derrière le NAT
+# du wifi du labo, tous les postes ont la même IP : bloquer l'attaquant bloque aussi le jury pendant cette durée.
+pc_hote_waf_block_ttl_seconds: 120

@@ -1,0 +1,11 @@
+# Lève le silence posé par tasks/alertmanager_silence.yml, dès la fin de l'opération (il expirerait de toute façon).
+- name: Lever le silence ciblé
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:9093/api/v2/silence/{{ am_silence_id }}"
+    method: DELETE
+    url_username: admin
+    url_password: "{{ am_password.content | b64decode | trim }}"
+    force_basic_auth: true
+  when: am_silence_id | default('') | length > 0
+  failed_when: false
+  no_log: true
