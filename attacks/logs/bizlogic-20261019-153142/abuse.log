@@ -1,0 +1,4 @@
+[*] Target: http://172.16.147.10:8080   Started: 2026-10-19T13:31:42Z   Logs: /home/alin/Dev/Perso/workshop/attacks/logs/bizlogic-20261019-153142
+[*] Provisioning 3 users (attacker A, parties B & C)...
+[-] Could not obtain tokens (registration/login blocked?). Body:
+{"code":"service_unavailable","detail":"Service momentanément indisponible. Réessayez dans quelques instants."}

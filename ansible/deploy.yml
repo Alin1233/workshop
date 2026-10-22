@@ -1,38 +1,336 @@
-# Déploiement reproductible de la plateforme sur le PC Hôte.
+# Déploiement reproductible de la plateforme sur le PC Hôte (groupe pc_hote).
+# On déploie un commit du dépôt local (git archive), jamais la copie de travail : la version qui tourne est identifiable.
+# Chaque commit est extrait dans releases/<commit>, current pointe sur la version active ; les secrets (shared/secrets)
+# et les volumes Docker nommés (base, métriques, journaux) sont conservés : revenir en arrière = redéployer un ancien commit.
+# Usage : ansible-playbook -i ansible/inventory.ini ansible/deploy.yml [-e deploy_ref=<commit|branche|tag>]
 - name: Déployer Resilience-Alpha
-  hosts: host
+  hosts: pc_hote
+  become: true
   gather_facts: false
   vars:
-    project_dir: "{{ playbook_dir }}/.."
+    deploy_ref: HEAD
+    repo_dir: "{{ playbook_dir }}/.."
+    releases_dir: "{{ pc_hote_app_root }}/releases"
+    shared_secrets: "{{ pc_hote_app_root }}/shared/secrets"
   tasks:
-    - name: Restaurer les secrets chiffrés (SOPS) s'ils sont versionnés
-      ansible.builtin.command: python3 scripts/sops_secrets.py decrypt
+    # ───────────────────────────── Sur le poste de l'opérateur ─────────────────────────────
+    - name: Résoudre la version à déployer
+      ansible.builtin.command: git rev-parse --short=12 "{{ deploy_ref }}^{commit}"
       args:
-        chdir: "{{ project_dir }}"
-        removes: "{{ project_dir }}/secrets.enc.json"
-      changed_when: true
-
-    - name: Générer les secrets manquants (première installation)
-      ansible.builtin.command: python3 scripts/init_secrets.py
-      args:
-        chdir: "{{ project_dir }}"
-      register: init_secrets
-      changed_when: "'+ ' in init_secrets.stdout"
-
-    - name: Construire et démarrer la stack, attendre les healthchecks
-      ansible.builtin.command: docker compose up -d --build --wait --wait-timeout 180
-      args:
-        chdir: "{{ project_dir }}"
-      changed_when: true
-
-    - name: Vérifier le service métier (transaction témoin)
-      ansible.builtin.command: python3 tests/smoke_test.py
-      args:
-        chdir: "{{ project_dir }}"
+        chdir: "{{ repo_dir }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: deploy_commit
       changed_when: false
 
-    - name: Vérifier la chaîne d'observation
-      ansible.builtin.command: python3 tests/observability_check.py
+    - name: Repérer les modifications non commitées
+      ansible.builtin.command: git status --porcelain --untracked-files=no
       args:
-        chdir: "{{ project_dir }}"
+        chdir: "{{ repo_dir }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: worktree_status
       changed_when: false
+
+    - name: Prévenir qu'elles ne seront pas déployées
+      ansible.builtin.debug:
+        msg: "Modifications non commitées ignorées : seul le commit {{ deploy_commit.stdout }} est déployé."
+      when: worktree_status.stdout | length > 0
+
+    - name: Préparer la version sur le PC Hôte
+      vars:
+        release_dir: "{{ releases_dir }}/{{ deploy_commit.stdout }}"
+      block:
+        - name: Créer l'arborescence de déploiement
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: directory
+            owner: root
+            group: root
+            mode: "{{ item.mode }}"
+          loop:
+            - { path: "{{ pc_hote_app_root }}", mode: "0755" }
+            - { path: "{{ releases_dir }}", mode: "0755" }
+            - { path: "{{ pc_hote_app_root }}/shared", mode: "0755" }
+            # Les fichiers de secrets restent lisibles par les conteneurs (montés en /run/secrets),
+            # mais aucun compte de l'hôte autre que root ne peut traverser ce répertoire
+            - { path: "{{ shared_secrets }}", mode: "0700" }
+
+        - name: Vérifier si cette version est déjà extraite
+          ansible.builtin.stat:
+            path: "{{ release_dir }}/docker-compose.yml"
+          register: release_present
+
+        - name: Extraire la version (une version extraite n'est plus jamais modifiée)
+          when: not release_present.stat.exists
+          block:
+            - name: Créer l'archive du commit sur le poste de l'opérateur
+              ansible.builtin.command: git archive --format=tar.gz -o "/tmp/resilience-alpha-{{ deploy_commit.stdout }}.tar.gz" {{ deploy_commit.stdout }}
+              args:
+                chdir: "{{ repo_dir }}"
+              delegate_to: localhost
+              become: false
+              changed_when: false
+
+            - name: Créer le répertoire de la version
+              ansible.builtin.file:
+                path: "{{ release_dir }}"
+                state: directory
+                mode: "0755"
+
+            - name: Copier et extraire l'archive (sans le répertoire secrets/ du dépôt)
+              ansible.builtin.unarchive:
+                src: "/tmp/resilience-alpha-{{ deploy_commit.stdout }}.tar.gz"
+                dest: "{{ release_dir }}"
+                exclude: [secrets]
+
+          always:
+            - name: Supprimer l'archive locale
+              ansible.builtin.file:
+                path: "/tmp/resilience-alpha-{{ deploy_commit.stdout }}.tar.gz"
+                state: absent
+              delegate_to: localhost
+              become: false
+              changed_when: false
+
+        - name: Relier la version aux secrets partagés (scripts et tests les lisent dans secrets/)
+          ansible.builtin.file:
+            src: ../../shared/secrets
+            dest: "{{ release_dir }}/secrets"
+            state: link
+
+        - name: Vérifier le mode du LLM de l'assistant RAG (group_vars/pc_hote.yml)
+          ansible.builtin.assert:
+            that:
+              - pc_hote_ai_mode in ['container', 'offload', 'off']
+              - pc_hote_ai_mode != 'offload' or pc_hote_ai_offload_url | length > 0
+            fail_msg: "pc_hote_ai_mode doit valoir container, offload (avec pc_hote_ai_offload_url) ou off"
+            quiet: true
+
+        # Compose lit .env dans le répertoire du projet : tous les appels (playbooks, scripts, opérateur) voient les mêmes chemins
+        - name: Écrire la configuration Compose propre au PC Hôte
+          ansible.builtin.copy:
+            dest: "{{ pc_hote_app_root }}/shared/.env"
+            content: |
+              # Géré par Ansible (deploy.yml) : chemins stables d'une version à l'autre
+              SECRETS_DIR={{ shared_secrets }}
+              NODE_TEXTFILE_DIR={{ pc_hote_node_textfile_dir }}
+              # Pont de remédiation, monté en /bridge dans le moteur (tasks/remediation_bridge_install.yml)
+              REMEDIATION_BRIDGE_DIR={{ pc_hote_remediation_bridge_dir }}
+              # Assistant RAG, LLM en mode « {{ pc_hote_ai_mode }} » : profil ai = conteneur ollama de la VM
+              COMPOSE_PROFILES={{ 'ai' if pc_hote_ai_mode == 'container' else '' }}
+              OLLAMA_BASE_URL={{ pc_hote_ai_offload_url if pc_hote_ai_mode == 'offload' else 'http://ollama:11434' }}
+              OPS_ASSISTANT_LLM_MODEL={{ pc_hote_ai_llm_model }}
+              OPS_ASSISTANT_EMBED_MODEL={{ pc_hote_ai_embed_model }}
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Relier la version à cette configuration
+          ansible.builtin.file:
+            src: ../../shared/.env
+            dest: "{{ release_dir }}/.env"
+            state: link
+
+        # Avant `docker compose up` : sinon Docker crée le répertoire monté par le moteur (root 0755, inutilisable)
+        - name: Installer le pont de remédiation (restauration demandée par le moteur, exécutée par l'hôte)
+          ansible.builtin.include_tasks: tasks/remediation_bridge_install.yml
+
+        # ─────────────────────────────────── Secrets ───────────────────────────────────
+        - name: Restaurer les secrets chiffrés (SOPS) s'ils sont versionnés
+          ansible.builtin.command: python3 scripts/sops_secrets.py decrypt
+          args:
+            chdir: "{{ release_dir }}"
+            removes: "{{ release_dir }}/secrets.enc.json"
+          changed_when: true
+
+        - name: Générer les secrets manquants (première installation)
+          ansible.builtin.command: python3 scripts/init_secrets.py
+          args:
+            chdir: "{{ release_dir }}"
+          # Adresse du PC Hôte dans le certificat HTTPS du WAF (réémis par l'autorité locale si elle change)
+          environment:
+            RA_TLS_HOSTS: "{{ ansible_host }}"
+          register: init_secrets
+          changed_when: "'+ ' in init_secrets.stdout"
+          # le script affiche les mots de passe admin et Grafana : rien ne doit sortir dans la console Ansible
+          no_log: true
+
+        # ─────────────────────────────────── Démarrage ──────────────────────────────────
+        - name: Lire la version active
+          ansible.builtin.stat:
+            path: "{{ pc_hote_app_root }}/current"
+          register: previous_release
+
+        # Compose est lancé depuis le chemin réel de la version : les montages changent de chemin à chaque version,
+        # donc les conteneurs qui lisent une configuration du dépôt sont recréés avec la bonne.
+        - name: Construire et démarrer la stack, attendre les healthchecks
+          ansible.builtin.command: docker compose up -d --build --remove-orphans --wait --wait-timeout 300
+          args:
+            chdir: "{{ release_dir }}"
+          changed_when: true
+
+        # Compose ne recrée pas toujours un conteneur dont seul un chemin monté change : un conteneur resté sur une
+        # ancienne version ne redémarrerait plus une fois cette version supprimée (bind source path does not exist)
+        # Une ligne par conteneur : « <service> <source montée> <source montée> … »
+        - name: Relever les montages des conteneurs
+          ansible.builtin.shell: >-
+            docker ps -aq --filter label=com.docker.compose.project=resilience-alpha
+            | xargs -r docker inspect --format
+            '{% raw %}{{ index .Config.Labels "com.docker.compose.service" }}{{ range .Mounts }} {{ .Source }}{{ end }}{% endraw %}'
+          register: container_mounts
+          changed_when: false
+
+        - name: Repérer les conteneurs qui montent encore une autre version
+          ansible.builtin.set_fact:
+            stale_services: >-
+              {{ container_mounts.stdout_lines
+                 | select('search', releases_dir ~ '/(?!' ~ deploy_commit.stdout ~ '/)')
+                 | map('split') | map('first') | unique | list }}
+            # versions encore montées par un conteneur : jamais supprimées par le ménage
+            mounted_releases: "{{ container_mounts.stdout | regex_findall(releases_dir ~ '/([0-9a-f]+)/') | unique }}"
+
+        - name: Recréer ces conteneurs sur la version déployée
+          ansible.builtin.command: "docker compose up -d --force-recreate --wait --wait-timeout 180 {{ stale_services | join(' ') }}"
+          args:
+            chdir: "{{ release_dir }}"
+          when: stale_services | length > 0
+          changed_when: true
+
+        # Volume ollama-data vide au premier déploiement : seuls les modèles absents sont tirés (~2,3 Go, une fois).
+        # Pas d'Internet ou registre injoignable : avertissement seulement, l'assistant reste en mode dégradé (healthy)
+        # et reconstruit son index tout seul dès que les modèles sont là. Pas de service Compose « one-shot » :
+        # `docker compose up --wait` échoue dès qu'un conteneur se termine, même avec le code 0.
+        - name: Installer les modèles de l'assistant RAG dans le conteneur ollama
+          when: pc_hote_ai_mode == 'container'
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - exec
+              - -T
+              - ollama
+              - sh
+              - -c
+              - >-
+                for i in 1 2 3 4 5 6 7 8 9 10; do ollama list >/dev/null 2>&1 && break; sleep 2; done;
+                ollama list | grep -q "^$0[: ]" && exit 0;
+                ollama pull "$0" >/dev/null 2>&1 && echo pulled || { echo "échec du téléchargement de $0" >&2; exit 1; }
+              - "{{ item }}"
+          args:
+            chdir: "{{ release_dir }}"
+          loop: ["{{ pc_hote_ai_llm_model }}", "{{ pc_hote_ai_embed_model }}"]
+          register: ai_models
+          changed_when: "'pulled' in ai_models.stdout"
+          failed_when: false
+
+        - name: Signaler les modèles absents (assistant en mode dégradé tant qu'ils manquent)
+          ansible.builtin.debug:
+            msg: >-
+              Modèle {{ item.item }} non installé ({{ (item.stderr | default('')) | trim }}).
+              À tirer quand l'hôte a Internet : docker compose exec ollama ollama pull {{ item.item }}
+          loop: "{{ ai_models.results | default([]) | selectattr('rc', 'defined') | rejectattr('rc', 'equalto', 0) | list }}"
+          loop_control:
+            label: "{{ item.item }}"
+
+        - name: Désigner la version active
+          ansible.builtin.file:
+            src: "{{ release_dir }}"
+            dest: "{{ pc_hote_app_root }}/current"
+            state: link
+            force: true
+
+        - name: Installer la sauvegarde planifiée de la base
+          ansible.builtin.include_tasks: tasks/pg_backup_install.yml
+
+        # Le heartbeat lance `docker compose ps` depuis l'unité durcie : vérifie que le durcissement laisse passer Docker
+        - name: Rafraîchir le heartbeat du pont de remédiation
+          ansible.builtin.systemd_service:
+            name: resilience-remediation-bridge-heartbeat.service
+            state: started
+          changed_when: false
+
+        - name: Lire le heartbeat du pont
+          ansible.builtin.slurp:
+            src: "{{ pc_hote_remediation_bridge_dir }}/outbox/heartbeat.json"
+          register: bridge_heartbeat
+
+        - name: Vérifier que le pont peut restaurer (runner présent, Docker joignable depuis l'unité)
+          ansible.builtin.assert:
+            that: (bridge_heartbeat.content | b64decode | from_json).docker_ok | default(false)
+            fail_msg: >-
+              Pont de remédiation : Docker injoignable depuis resilience-remediation-bridge-heartbeat.service
+              (journalctl -u resilience-remediation-bridge-heartbeat) ; la restauration automatique échouerait.
+            quiet: true
+
+        # ─────────────────────────────────── Vérifications ──────────────────────────────
+        - name: Vérifier le service métier sur le PC Hôte (transaction témoin, contrôle admin compris)
+          ansible.builtin.command: python3 tests/smoke_test.py
+          args:
+            chdir: "{{ release_dir }}"
+          changed_when: false
+
+        - name: Vérifier la chaîne d'observation
+          ansible.builtin.command: python3 tests/observability_check.py
+          args:
+            chdir: "{{ release_dir }}"
+          register: observability
+          retries: 6
+          delay: 10
+          until: observability.rc == 0
+          changed_when: false
+
+        # Test du commit déployé, extrait dans un répertoire sans secrets/ : le contrôle admin (déjà fait sur l'hôte)
+        # est ignoré au lieu d'essayer le mot de passe local d'un poste de développement
+        - name: Vérifier le service depuis le réseau, comme le PC attaquant ou le jury (à travers le pare-feu)
+          delegate_to: localhost
+          become: false
+          block:
+            - name: Créer un répertoire temporaire
+              ansible.builtin.tempfile:
+                state: directory
+              register: smoke_tmp
+              changed_when: false
+
+            - name: Extraire le test du commit déployé
+              ansible.builtin.shell: git archive {{ deploy_commit.stdout }} tests/smoke_test.py | tar -x -C {{ smoke_tmp.path }}
+              args:
+                chdir: "{{ repo_dir }}"
+              changed_when: false
+
+            - name: Transaction témoin à travers le réseau
+              ansible.builtin.command: python3 {{ smoke_tmp.path }}/tests/smoke_test.py http://{{ ansible_host }}:{{ pc_hote_waf_port }}
+              changed_when: false
+          always:
+            - name: Supprimer le répertoire temporaire
+              ansible.builtin.file:
+                path: "{{ smoke_tmp.path }}"
+                state: absent
+              changed_when: false
+
+        # ─────────────────────────────────── Ménage ────────────────────────────────────
+        - name: Lister les versions extraites
+          ansible.builtin.find:
+            paths: "{{ releases_dir }}"
+            file_type: directory
+          register: releases
+
+        - name: Ne garder que les {{ pc_hote_releases_kept }} versions les plus récentes (dont l'active)
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: >-
+            {{ (releases.files | sort(attribute='mtime', reverse=true))[pc_hote_releases_kept:]
+               | rejectattr('path', 'equalto', release_dir)
+               | rejectattr('path', 'in', mounted_releases | map('regex_replace', '^', releases_dir ~ '/') | list) | list }}
+          loop_control:
+            label: "{{ item.path | basename }}"
+
+        - name: Résumé du déploiement
+          ansible.builtin.debug:
+            msg:
+              - "Version active : {{ deploy_commit.stdout }} ({{ release_dir }})"
+              - "Version précédente : {{ (previous_release.stat.lnk_source | default('aucune')) | basename }}"
+              - "Application : http://{{ ansible_host }}:{{ pc_hote_waf_port }} (HTTPS, caméra : https://{{ ansible_host }}:{{ pc_hote_waf_tls_port }})"

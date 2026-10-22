@@ -1,6 +1,7 @@
 # Alertmanager — regroupe les alertes Prometheus/Loki et les transmet au moteur de remédiation.
-# Tant que services/remediation-engine n'est pas déployé, les envois échouent (visible dans les journaux d'Alertmanager)
-# mais les alertes restent consultables dans Grafana et sur http://127.0.0.1:9093.
+# Le webhook est authentifié par un jeton porteur (secret remediation_webhook_token, relu à chaque envoi) : sans lui,
+# le moteur refuse la notification (401). Si le moteur est arrêté, les envois échouent (journaux d'Alertmanager) mais
+# les alertes restent consultables dans Grafana et sur http://127.0.0.1:9093 (RemediationEngineDown se déclenche).
 route:
   receiver: remediation-engine
   group_by: [alertname, service]
@@ -14,3 +15,7 @@ receivers:
       - url: http://remediation-engine:8000/alerts
         send_resolved: true
         max_alerts: 20
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /run/secrets/remediation_webhook_token

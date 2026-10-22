@@ -4,7 +4,7 @@
 
 
 
-**PROJECT RESILIENCE-ALPHA CYBER-RÉSILIENCE ET REPRISE AUTONOME** 
+**PROJECT RESILIENCE-ALPHA RÉSILIENCE ET REPRISE AUTONOME** 
 
 
 
@@ -22,13 +22,13 @@ Ei epsi®<br><!-- End of picture text -->
 <!-- Start of picture text -->
 myDiL<br><!-- End of picture text -->
 
-**SUJET DE WORKSHOP NATIONAL — BAC+5 PROJECT RESILIENCE-ALPHA • CYBER-RÉSILIENCE ET REPRISE AUTONOME** 
+**SUJET DE WORKSHOP NATIONAL — BAC+5 PROJECT RESILIENCE-ALPHA • RÉSILIENCE ET REPRISE AUTONOME** 
 
 Apprenants en 5ème Année • Sprint d'ingénierie (4 jours) • Octobre 2026 
 
 # **CINQ DOMAINES POUR UNE PLATEFORME UNIQUE** 
 
-- **DÉVELOPPEMENT** · _Microservices, API, remédiation, interface React/Tailwind_ **INFRASTRUCTURE** · _Docker Compose, Ansible, Prometheus, Grafana, Loki_ **IA / DATA·** _Machine learning, agent RAG, Ollama et LangChain_ **CYBERSÉCURITÉ** · _Red Team, WAF, SIEM, durcissement, Vault/SOPS_ **TRANSFORMATION** · _EBIOS RM, NIS2/DORA, PCA/PRA et arbitrages_ 
+- **DÉVELOPPEMENT** · _Microservices, API, remédiation, interface React/Tailwind_ **INFRASTRUCTURE** · _Docker Compose, Ansible, Prometheus, Grafana, Loki_ **IA / DATA·** _Machine learning, agent RAG, Ollama et LangChain_ **SÉCURITÉ** · _WAF, SIEM, durcissement, Vault/SOPS_ **TRANSFORMATION** · _EBIOS RM, NIS2/DORA, PCA/PRA et arbitrages_ 
 
 _Cinq piliers obligatoires, quelle que soit la composition du consortium._ 
 
@@ -36,7 +36,7 @@ _Cinq piliers obligatoires, quelle que soit la composition du consortium._
 
 _Vous avez quatre jours pour montrer qu’un système d’information critique peut encaisser un incident de sécurité et retrouver son fonctionnement sans qu’un opérateur intervienne pour le réparer. Pas sur le papier : sur un environnement que vous aurez conçu, développé, installé et testé vous-mêmes._ 
 
-Le vendredi matin, votre consortium présentera une plateforme de paiement fictive, une attaque menée sur cette plateforme, les mécanismes qui permettent d’identifier l’anomalie et la réponse engagée automatiquement pour rétablir le service. Vous devrez aussi expliquer vos décisions : ce que vous avez choisi de protéger, les compromis retenus, les limites de votre solution et ce que vous feriez différemment dans un contexte industriel. 
+Le vendredi matin, votre consortium présentera une plateforme de paiement fictive, un incident de sécurité survenu sur cette plateforme, les mécanismes qui permettent d’identifier l’anomalie et la réponse engagée automatiquement pour rétablir le service. Vous devrez aussi expliquer vos décisions : ce que vous avez choisi de protéger, les compromis retenus, les limites de votre solution et ce que vous feriez différemment dans un contexte industriel. 
 
 Ce workshop réunit les apprenants de dernière année des différentes formations EPSI — ECSI, EID, ECDPIA et EISI — ainsi que les expertises de transformation digitale représentées dans les groupes, notamment MSM. Les équipes sont pluridisciplinaires : la réussite du projet dépend autant de la qualité des développements que de leur intégration et des décisions prises en commun. 
 
@@ -68,7 +68,7 @@ La suite doit se dérouler sans intervention corrective humaine : les événemen
 
 Un conteneur qui redémarre ne constitue pas, à lui seul, une preuve de reprise. Si l’API reste inaccessible, si une opération métier échoue encore ou si des données sont incohérentes, le problème n’est pas résolu. Votre démonstration devra donc rendre visible l’état du service avant l’incident, pendant la perturbation et après la remédiation. 
 
-L’attaque principale est laissée à votre appréciation. Elle doit être crédible dans le contexte retenu, reproductible, techniquement expliquée et compatible avec une réponse automatique dont vous pourrez démontrer l’efficacité. Vous pouvez aller plus loin en traitant plusieurs types d’attaque : déni de service contrôlé, injection applicative, tentative d’exfiltration de données fictives, élévation de privilèges en laboratoire, etc. Dans ce cas, veillez à ne pas confondre restauration de disponibilité et correction d’une compromission ou d’une fuite de données : les réponses attendues ne sont pas les mêmes. 
+L’incident principal est laissé à votre appréciation. Il doit être crédible dans le contexte retenu, reproductible, techniquement expliqué et compatible avec une réponse automatique dont vous pourrez démontrer l’efficacité. Vous pouvez aller plus loin en traitant plusieurs types de perturbations : indisponibilité contrôlée, défaillance applicative, corruption de données fictives, etc. Dans ce cas, veillez à ne pas confondre restauration de disponibilité et correction d’une compromission ou d’une fuite de données : les réponses attendues ne sont pas les mêmes. 
 
 La solution finale doit réunir cinq domaines de travail complémentaires. Leur présence est obligatoire, même si aucun membre du groupe n’est issu de la spécialité correspondante. 
 
@@ -122,15 +122,15 @@ Un second composant est attendu : un assistant local destiné aux opérateurs co
 
 L’assistant peut aider à comprendre ce qui se passe ou à consulter les procédures. Il ne doit pas être confondu avec l’automate chargé de la remédiation, ni disposer sans contrôle d’accès privilégiés au système. 
 
-### **3.4 — Cybersécurité : éprouver la plateforme sans sortir du laboratoire** 
+### **3.4 — Sécurité : éprouver la plateforme sans sortir du laboratoire** 
 
-Vous devrez préparer au moins un scénario d’attaque exécuté depuis un ordinateur distinct du PC Hôte. Il ne s’agit pas d’une simulation graphique : l’action devra provoquer sur votre environnement un effet observable que vos mécanismes de surveillance pourront identifier. 
+Vous devrez préparer au moins un scénario d’incident contrôlé déclenché depuis un ordinateur distinct du PC Hôte. Il ne s’agit pas d’une simulation graphique : l’action devra provoquer sur votre environnement un effet observable que vos mécanismes de surveillance pourront identifier. 
 
 En parallèle, vous déploierez les dispositifs défensifs attendus : durcissement des composants et des accès, filtrage applicatif par WAF, suivi des événements dans un SIEM ou une fonction SOC intégrée à votre dispositif de supervision, et gestion des secrets avec HashiCorp Vault ou SOPS. Les journaux doivent rester exploitables pour l’investigation, et les privilèges accordés aux services doivent être maîtrisés. 
 
 Portez une attention particulière au moteur de remédiation, qui peut disposer de droits élevés sur les conteneurs. Une plateforme conçue pour se défendre ne doit pas introduire, par facilité, une interface d’administration accessible à n’importe quel composant. 
 
-Toutes les actions offensives restent strictement limitées à votre SI fictif et aux machines autorisées de votre équipe. Les réseaux du campus, les autres groupes et les services tiers sont hors périmètre. 
+Toutes les manipulations restent strictement limitées à votre SI fictif et aux machines autorisées de votre équipe. Les réseaux du campus, les autres groupes et les services tiers sont hors périmètre. 
 
 ### **3.5 — Gouvernance et transformation : justifier les choix** 
 
@@ -153,18 +153,18 @@ Ey epsi®<br>informatique<br><!-- End of picture text -->
 
 # **4. ENVIRONNEMENT MATÉRIEL ET RÉSEAU** 
 
-Le PC Hôte est le poste qui exécute les services du démonstrateur. Il est distinct du PC Attaquant, utilisé pour déclencher les scénarios offensifs. Si les ressources sont insuffisantes pour exécuter le modèle de langage, un troisième ordinateur peut être réservé au calcul IA ; celui-ci n’hébergera alors que le modèle local et son interface d’accès. 
+Le PC Hôte est le poste qui exécute les services du démonstrateur. Il est distinct du second poste, utilisé pour déclencher les scénarios d’incident. Si les ressources sont insuffisantes pour exécuter le modèle de langage, un troisième ordinateur peut être réservé au calcul IA ; celui-ci n’hébergera alors que le modèle local et son interface d’accès. 
 
 
 
 <!-- Start of picture text -->
-PC HOTE (OBLIGATOIRE) PC ATTAQUANT PC DELESTAGE IA<br>(OBLIGATOIRE) (OPTIONNEL)<br>* Windows + Docker Desktop<br>(WSL2) + Autre PC du groupe | *Troisiéme PC du groupe, sila |<br>* Si cible, WAF, SIEM, Vault * Connecté uniquement au PA du ; RAM du PC Hote est :<br>* Prometheus / Grafana / Loki groupe ; insuffisante H<br>+ Moteur ML AlOps, orchestrateur, * Outils et playbooks Red Team | + Héberge uniquement Ollama, H<br>dashboard * Aucun composant défensif ' exposé en API sur le PA du '<br>* Connecté au WiFi du campus : groupe :<br>+ PA du groupe (Point d'accés ; :<br>sans fil mobile) ; ;<br>PA du groupe RESILIENCE -G<n> (Point d'accés sans fil mobile Windows, réseau 192.168 .137.0/24) — réseau du<br>consortium<br><!-- End of picture text -->
+PC HOTE (OBLIGATOIRE) SECOND PC PC DELESTAGE IA<br>(OBLIGATOIRE) (OPTIONNEL)<br>* Windows + Docker Desktop<br>(WSL2) + Autre PC du groupe | *Troisiéme PC du groupe, sila |<br>* Si cible, WAF, SIEM, Vault * Connecté uniquement au PA du ; RAM du PC Hote est :<br>* Prometheus / Grafana / Loki groupe ; insuffisante H<br>+ Moteur ML AlOps, orchestrateur, * Outils de déclenchement d'incident | + Héberge uniquement Ollama, H<br>dashboard * Aucun composant défensif ' exposé en API sur le PA du '<br>* Connecté au WiFi du campus : groupe :<br>+ PA du groupe (Point d'accés ; :<br>sans fil mobile) ; ;<br>PA du groupe RESILIENCE -G<n> (Point d'accés sans fil mobile Windows, réseau 192.168 .137.0/24) — réseau du<br>consortium<br><!-- End of picture text -->
 
-**_Schéma d’implantation repris du sujet V4 : PC Hôte, PC Attaquant et délestage IA facultatif._** 
+**_Schéma d’implantation repris du sujet V4 : PC Hôte, second poste et délestage IA facultatif._** 
 
 Pour le PC Hôte, la configuration retenue à ce stade reprend les prérequis de la proposition initiale : Windows 10 ou 11, droits d’administration, virtualisation activée, Docker Desktop avec WSL2, processeur de quatre cœurs au minimum, 16 Go de RAM et 50 Go libres sur SSD. Une machine de 32 Go de RAM, dotée d’un processeur de six à huit cœurs et de 100 Go libres, offrira davantage de marge. 
 
-Pour le PC Attaquant, prévoyez un poste distinct disposant des outils nécessaires aux scénarios retenus. Une capacité de 8 Go de RAM peut servir de point de départ ; 16 Go offrent davantage de confort. Le PC de délestage IA, s’il est utilisé, est connecté au réseau local du groupe et expose uniquement les services requis. 
+Pour le second poste, prévoyez un poste distinct disposant des outils nécessaires aux scénarios retenus. Une capacité de 8 Go de RAM peut servir de point de départ ; 16 Go offrent davantage de confort. Le PC de délestage IA, s’il est utilisé, est connecté au réseau local du groupe et expose uniquement les services requis. 
 
 Le sujet impose d’utiliser le point d’accès sans fil mobile de Windows, par exemple sous le nom RESILIENCE-G<n>, avec une adresse de type 192.168.137.1 pour le PC Hôte. Les interfaces de la plateforme doivent être publiées avec discernement : base de données, secrets, interfaces de gestion et autres services internes ne sont pas destinés à être exposés au réseau pédagogique. 
 
@@ -200,7 +200,7 @@ Constitution des consortiums ; choix des postes et du réseau ; interfaces, arch
 
 ## **MARDI —  Production, IaC et modèles IA** 
 
-Déploiement Docker Compose et Ansible ; microservices ; ML ; scripts Red Team ; dossier de gouvernance NIS2/DORA. 
+Déploiement Docker Compose et Ansible ; microservices ; ML ; scénarios d’incident ; dossier de gouvernance NIS2/DORA. 
 
 
 
@@ -246,11 +246,11 @@ Privilégiez un document précis et lisible plutôt qu’une accumulation de pag
 
 ### **7.3. Le Clip Chrono** 
 
-**Workshop2026-M2-G<n>-VidChrono.mp4 —** En soixante secondes maximum, montrez une séquence continue : lancement de l’attaque depuis le PC Attaquant, apparition de l’anomalie, réaction du système et vérification du service rétabli. La capture doit être réalisée sans coupe permettant de masquer une action manuelle. Vous pouvez ajouter des titres ou des sous-titres pour rendre la démonstration compréhensible. 
+**Workshop2026-M2-G<n>-VidChrono.mp4 —** En soixante secondes maximum, montrez une séquence continue : déclenchement de l’incident depuis le second poste, apparition de l’anomalie, réaction du système et vérification du service rétabli. La capture doit être réalisée sans coupe permettant de masquer une action manuelle. Vous pouvez ajouter des titres ou des sous-titres pour rendre la démonstration compréhensible. 
 
 ### **7.4. L’archive des sources et du déploiement** 
 
-**Workshop2026-M2-G<n>-Code.zip —** Remettez une archive structurée du dépôt Git avec les sources, configurations d’infrastructure, scripts d’attaque et de ML, tests, documentation d’API et un README permettant de comprendre comment déployer et vérifier le système. Aucun secret ne doit être présent en clair dans l’archive. 
+**Workshop2026-M2-G<n>-Code.zip —** Remettez une archive structurée du dépôt Git avec les sources, configurations d’infrastructure, scripts d’incident et de ML, tests, documentation d’API et un README permettant de comprendre comment déployer et vérifier le système. Aucun secret ne doit être présent en clair dans l’archive. 
 
 ### **7.5. Le démonstrateur** 
 
@@ -304,7 +304,7 @@ Page 9 sur 12
 
 Chaque campus désigne le consortium qui le représentera à la finale nationale, organisée environ trois semaines après les soutenances locales. Les dix équipes sélectionnées se retrouvent en direct sur Microsoft Teams. La démonstration est diffusée depuis le PC Hôte. 
 
-Le temps de passage est limité à cinq minutes : une première minute pour présenter la démarche, avec une introduction individuelle en anglais ; une deuxième minute pour diffuser le Clip Chrono ; puis trois minutes pour montrer, en direct, l’attaque et la reprise automatique. Une démonstration en fonctionnement vaut davantage qu’une suite de diapositives. 
+Le temps de passage est limité à cinq minutes : une première minute pour présenter la démarche, avec une introduction individuelle en anglais ; une deuxième minute pour diffuser le Clip Chrono ; puis trois minutes pour montrer, en direct, l’incident et la reprise automatique. Une démonstration en fonctionnement vaut davantage qu’une suite de diapositives. 
 
 ### **La notation technique nationale reste établie sur 70 points :** 
 
@@ -342,11 +342,11 @@ Page 10 sur 12
 
 Vous émargerez sur Edusign dans les quinze premières minutes de chaque demi-journée. Les espaces affectés à votre groupe restent votre lieu de travail principal ; tout accès aux installations particulières du campus doit respecter les consignes des coachs. Les salles et les équipements doivent être rendus propres et en bon état. Votre présence est attendue pendant l’ensemble des soutenances locales et lors de la retransmission de la finale nationale. 
 
-Aucune activité offensive ne doit concerner les réseaux du campus, un autre consortium, un équipement tiers ou un service accessible sur Internet. Ne faites circuler aucune donnée financière authentique. Toute expérimentation susceptible de sortir du périmètre autorisé doit être interrompue et signalée au coach. La liberté technique du workshop s’exerce à l’intérieur de ces limites. 
+Aucune activité ne doit concerner les réseaux du campus, un autre consortium, un équipement tiers ou un service accessible sur Internet. Ne faites circuler aucune donnée financière authentique. Toute expérimentation susceptible de sortir du périmètre autorisé doit être interrompue et signalée au coach. La liberté technique du workshop s’exerce à l’intérieur de ces limites. 
 
 # **DERNIER POINT : CE QUE LE JURY CHERCHERA À COMPRENDRE** 
 
-Il ne vous est pas demandé de fabriquer en quatre jours une plateforme de paiement industrielle prête à être mise en production. **Vous devez en revanche démontrer une chaîne de cyber-résilience crédible, en vous appuyant sur les composants et technologies prescrits, suffisamment aboutie pour être exécutée et discutée techniquement.** 
+Il ne vous est pas demandé de fabriquer en quatre jours une plateforme de paiement industrielle prête à être mise en production. **Vous devez en revanche démontrer une chaîne de résilience crédible, en vous appuyant sur les composants et technologies prescrits, suffisamment aboutie pour être exécutée et discutée techniquement.** 
 
 Vous serez jugés sur ce que vous avez réellement construit, sur les preuves de fonctionnement présentées et sur votre capacité à expliquer les décisions prises sous contrainte de temps. 
 
@@ -369,10 +369,10 @@ Les sigles les plus utilisés dans le sujet sont rappelés ci-dessous.
 |IA appliquée à l’analyse et à l’automatisation des|Recherche documentaire enrichissant un|
 |**ML**|**IaC**|
 |Machine learning: apprentissage automatique.|Infrastructure as Code : infrastructure décrite|
-|**Red Team / Blue Team**|**WAF**|
-|Simulation offensive et activités défensives.|Pare-feu applicatif.|
+|**Blue Team**|**WAF**|
+|Activités défensives de détection et de réponse.|Pare-feu applicatif.|
 |**SIEM**|**EBIOS RM**|
-|Collecte et corrélation des événements de|Méthode d’appréciation des risques cyber.|
+|Collecte et corrélation des événements de|Méthode d’appréciation des risques de sécurité.|
 |**NIS2**|**DORA**|
 |Directive européenne relative à la sécurité des|Règlement européen sur la résilience|
 |**PCA / PRA**|**Zero-Touch Recovery**|

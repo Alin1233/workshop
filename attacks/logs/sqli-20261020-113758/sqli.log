@@ -1,0 +1,52 @@
+[*] URL: http://172.16.147.10:8080/api/payments/accounts?id=1
+[*] Started: 2026-10-20T09:37:58Z   Logs: /home/alin/Dev/Perso/workshop/attacks/logs/sqli-20261020-113758
+        ___
+       __H__
+ ___ ___[,]_____ ___ ___  {1.10.10.9#dev}
+|_ -| . [']     | .'| . |
+|___|_  [(]_|_|_|__,|  _|
+      |_|V...       |_|   https://sqlmap.org
+
+[!] legal disclaimer: Usage of sqlmap for attacking targets without prior mutual consent is illegal. It is the end user's responsibility to obey all applicable local, state and federal laws. Developers assume no liability and are not responsible for any misuse or damage caused by this program
+
+[*] starting @ 11:37:58 /2026-10-20/
+
+[?1049h[22;0;0t[1;24r(B[m[4l[?7h[24;1H[?1049l[23;0;0t[?1l>[11:37:58] [WARNING] using '/home/alin/Dev/Perso/workshop/attacks/logs/sqli-20261020-113758' as the output directory
+[11:37:58] [INFO] testing connection to the target URL
+[11:37:58] [WARNING] the web server responded with an HTTP error code (403) which could interfere with the results of the tests
+[11:37:58] [INFO] checking if the target is protected by some kind of WAF/IPS
+[11:37:58] [INFO] testing if the target URL content is stable
+[11:37:59] [INFO] target URL content is stable
+[11:37:59] [INFO] testing if GET parameter 'id' is dynamic
+[11:37:59] [WARNING] GET parameter 'id' does not appear to be dynamic
+[11:37:59] [WARNING] heuristic (basic) test shows that GET parameter 'id' might not be SQL injectable
+[11:37:59] [INFO] testing for SQL injection on GET parameter 'id'
+[11:37:59] [INFO] testing 'AND boolean-based blind - WHERE or HAVING clause'
+[11:37:59] [INFO] testing 'Boolean-based blind - Parameter replace (original value)'
+[11:37:59] [INFO] testing 'MySQL >= 5.1 AND error-based - WHERE, HAVING, ORDER BY or GROUP BY clause (EXTRACTVALUE)'
+[11:37:59] [INFO] testing 'PostgreSQL AND error-based - WHERE or HAVING clause'
+[11:37:59] [INFO] testing 'Microsoft SQL Server/Sybase AND error-based - WHERE or HAVING clause (IN)'
+[11:37:59] [INFO] testing 'Oracle AND error-based - WHERE or HAVING clause (XMLType)'
+[11:37:59] [INFO] testing 'H2 AND error-based - WHERE, HAVING, ORDER BY or GROUP BY clause (CAST)'
+[11:37:59] [INFO] testing 'Generic inline queries'
+[11:37:59] [INFO] testing 'PostgreSQL > 8.1 stacked queries (comment)'
+[11:37:59] [INFO] testing 'Microsoft SQL Server/Sybase stacked queries (comment)'
+[11:37:59] [INFO] testing 'Oracle stacked queries (DBMS_PIPE.RECEIVE_MESSAGE - comment)'
+[11:37:59] [INFO] testing 'MySQL >= 5.0.12 AND time-based blind (query SLEEP)'
+[11:38:00] [INFO] testing 'PostgreSQL > 8.1 AND time-based blind'
+[11:38:00] [INFO] testing 'Microsoft SQL Server/Sybase time-based blind (IF)'
+[11:38:00] [INFO] testing 'Oracle AND time-based blind'
+[11:38:00] [INFO] testing 'CUBRID AND time-based blind (SLEEP)'
+[11:38:00] [INFO] testing 'CUBRID OR time-based blind (SLEEP)'
+it is recommended to perform only basic UNION tests if there is not at least one other (potential) technique found. Do you want to reduce the number of requests? [Y/n] Y
+[11:38:00] [INFO] testing 'Generic UNION query (NULL) - 1 to 10 columns'
+[11:38:00] [WARNING] GET parameter 'id' does not seem to be injectable
+[11:38:00] [CRITICAL] all tested parameters do not appear to be injectable. Try to increase values for '--level'/'--risk' options if you wish to perform more tests. If you suspect that there is some kind of protection mechanism involved (e.g. WAF) maybe you could try to use option '--tamper' (e.g. '--tamper=space2comment') and/or switch '--random-agent'
+[11:38:00] [WARNING] HTTP error codes detected during run:
+403 (Forbidden) - 90 times
+
+[*] ending @ 11:38:00 /2026-10-20/
+
+[*] Ended: 2026-10-20T09:38:00Z
+[+] Blue check: WAF 403 + ModSecurity audit JSON, WafAttackBlocked alert.
+    Report only - do NOT dump tables beyond --dbs (availability != compromise, see subject).

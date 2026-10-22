@@ -1,0 +1,125 @@
+{
+  "scenarios": {
+    "brute_force@auth-service": {
+      "duration_s": 60,
+      "peak_score": 1.0,
+      "delay_score_s": 18.6,
+      "delay_firing_s": 44.6,
+      "delay_alertmanager_s": 44.6
+    },
+    "brute_force@frontend": {
+      "duration_s": 60,
+      "peak_score": 0.835,
+      "delay_score_s": 58.6,
+      "delay_firing_s": 84.6,
+      "delay_alertmanager_s": 84.6
+    },
+    "invalid_token_flood@payment-api": {
+      "duration_s": 60,
+      "peak_score": 1.0,
+      "delay_score_s": 8.6,
+      "delay_firing_s": 34.6,
+      "delay_alertmanager_s": 34.6
+    },
+    "invalid_token_flood@frontend": {
+      "duration_s": 60,
+      "peak_score": 1.0,
+      "delay_score_s": 28.6,
+      "delay_firing_s": 54.6,
+      "delay_alertmanager_s": 54.6
+    },
+    "transfer_abuse@payment-api": {
+      "duration_s": 61,
+      "peak_score": 1.0,
+      "delay_score_s": 18.6,
+      "delay_firing_s": 44.6,
+      "delay_alertmanager_s": 44.6
+    },
+    "transfer_abuse@frontend": {
+      "duration_s": 61,
+      "peak_score": 1.0,
+      "delay_score_s": 28.6,
+      "delay_firing_s": 54.6,
+      "delay_alertmanager_s": 54.6
+    },
+    "waf_probe@frontend": {
+      "duration_s": 60,
+      "peak_score": 1.0,
+      "delay_score_s": 15.6,
+      "delay_firing_s": 43.6,
+      "delay_alertmanager_s": 43.6
+    },
+    "stop_payment@payment-api": {
+      "duration_s": 30,
+      "peak_score": 1.0,
+      "delay_score_s": 15.7,
+      "delay_firing_s": 43.7,
+      "delay_alertmanager_s": 43.7
+    }
+  },
+  "normal": {
+    "auth-service": {
+      "samples": 409,
+      "max_score": 0.57
+    },
+    "payment-api": {
+      "samples": 293,
+      "max_score": 1.0
+    },
+    "frontend": {
+      "samples": 213,
+      "max_score": 0.801
+    }
+  },
+  "smoke": [
+    {
+      "start": 1792414827,
+      "max_scores": {
+        "auth-service": 0.57,
+        "payment-api": 0.936,
+        "frontend": 0.703
+      }
+    },
+    {
+      "start": 1792415590,
+      "max_scores": {
+        "auth-service": 0.131,
+        "payment-api": 1.0,
+        "frontend": 0.123
+      }
+    }
+  ],
+  "idle": {
+    "auth-service": {
+      "samples": 47,
+      "max_score": 0.0
+    },
+    "payment-api": {
+      "samples": 47,
+      "max_score": 0.011
+    },
+    "frontend": {
+      "samples": 47,
+      "max_score": 0.123
+    }
+  },
+  "false_alerts": [
+    {
+      "service": "auth-service",
+      "first": 1792415020,
+      "count_polls": 2
+    },
+    {
+      "service": "payment-api",
+      "first": 1792414854,
+      "count_polls": 33
+    },
+    {
+      "service": "frontend",
+      "first": 1792415160,
+      "count_polls": 8
+    }
+  ],
+  "polls": 474,
+  "degraded_seen": false
+}

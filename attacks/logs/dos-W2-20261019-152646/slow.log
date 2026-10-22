@@ -1,0 +1,266 @@
+Mon Oct 19 15:26:46 2026:[H[2JMon Oct 19 15:26:46 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:26:46 2026:[1;32m
+slow HTTP test status on [0;32m0[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        1
+[1;32mconnected:   [1;32m        0
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:26:51 2026:[H[2JMon Oct 19 15:26:51 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:26:51 2026:[1;32m
+slow HTTP test status on [0;32m5[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2
+[1;32mconnected:   [1;32m        149
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:26:56 2026:[H[2JMon Oct 19 15:26:56 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:26:56 2026:[1;32m
+slow HTTP test status on [0;32m10[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2
+[1;32mconnected:   [1;32m        297
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:27:01 2026:[H[2JMon Oct 19 15:27:01 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:27:01 2026:[1;32m
+slow HTTP test status on [0;32m15[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2
+[1;32mconnected:   [1;32m        445
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:27:06 2026:[H[2JMon Oct 19 15:27:06 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:27:06 2026:[1;32m
+slow HTTP test status on [0;32m20[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2
+[1;32mconnected:   [1;32m        593
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:27:11 2026:[H[2JMon Oct 19 15:27:11 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:27:11 2026:[1;32m
+slow HTTP test status on [0;32m25[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2
+[1;32mconnected:   [1;32m        741
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:27:16 2026:[H[2JMon Oct 19 15:27:16 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:27:16 2026:[1;32m
+slow HTTP test status on [0;32m30[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2
+[1;32mconnected:   [1;32m        889
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:27:21 2026:[H[2JMon Oct 19 15:27:21 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:27:21 2026:[1;32m
+slow HTTP test status on [0;32m35[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2
+[1;32mconnected:   [1;32m        1036
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:27:26 2026:[H[2JMon Oct 19 15:27:26 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:27:26 2026:[1;32m
+slow HTTP test status on [0;32m40[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2
+[1;32mconnected:   [1;32m        1184
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:27:31 2026:[H[2JMon Oct 19 15:27:31 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                              http://172.16.147.10:8080/
+[0;34mverb:[1;34m                             GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mContent-Length header value:[1;34m      4096
+[0;34mfollow up data max size:[1;34m          68
+[0;34minterval between follow up data:[1;34m  10 seconds
+[0;34mconnections per seconds:[1;34m          30
+[0;34mprobe connection timeout:[1;34m         5 seconds
+[0;34mtest duration:[1;34m                    240 seconds
+[0;34musing proxy:[1;34m                      no proxy 
+
+[0mMon Oct 19 15:27:31 2026:[1;32m
+slow HTTP test status on [0;32m45[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2
+[1;32mconnected:   [1;32m        1330
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mMon Oct 19 15:27:36 2026:[H[2JMon Oct 19 15:27:36 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                        SLOW HEADERS
+[0;34mnumber of connections:[1;34m            4000
+[0;34mURL:[1;34m                  

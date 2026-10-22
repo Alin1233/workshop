@@ -1,0 +1,55 @@
+<!-- SlowHTTPTest Analysis chart (c) Sergey Shekyan, Victor Agababov 2011  -->
+ <html>
+   <head>
+   <style>
+     body { font: 12px/18px "Lucida Grande", "Lucida Sans Unicode", Helvetica, Arial, Verdana, sans-serif; background-color: transparent; color: #333; -webkit-font-smoothing: antialiased; } 
+     .slow_results {font-size: 12px; } 
+     </style>
+     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+     <script type="text/javascript">
+       google.load("visualization", "1", {packages:["corechart"]});
+       google.setOnLoadCallback(drawChart);
+       function drawChart() {
+         var data = new google.visualization.DataTable();
+         data.addColumn('string', 'Seconds');
+         data.addColumn('number', 'Closed');
+         data.addColumn('number', 'Pending');
+         data.addColumn('number', 'Connected');
+         data.addColumn('number', 'Service available');
+         data.addRows([
+['0',0,1,0,8000],
+['1',0,5,424,8000],
+['2',0,3,837,8000],
+['3',0,3,1244,8000],
+['4',0,3,1648,8000],
+['5',0,3,2030,8000],
+['6',0,3,2423,8000],
+['7',0,5,2768,8000],
+['8',12,3,3102,8000],
+['9',12,2,3451,8000],
+['10',12,256,3530,8000],
+['11',12,609,3530,8000],
+['12',12,995,3530,8000],
+['13',12,1314,3538,8000],
+['14',12,1705,3538,8000],
+['15',12,2086,3538,0],
+['16',12,2469,3538,0],
+['17',12,2841,3538,0],
+['18',12,2900,3837,0],
+['19',12,3247,3837,0],
+['20',13,3543,3836,0],
+['21',13,3858,3836,0],
+['22',13,4151,3836,0],
+['23',13,3990,3997,0],
+['24',13,3990,3997,0],
+['25',142,3990,3868,0],
+['26',186,3990,3824,0],
+['27',186,3990,3824,0],
+['28',188,3949,3863,0],
+['29',188,3949,3863,0],
+['30',188,3949,3863,0],
+['31',188,3949,3863,0],
+['32',190,3949,3861,0],
+['33',210,3723,4067,0],
+['34',210,3723,4067,0],
+['35',245,3723,4032,0],

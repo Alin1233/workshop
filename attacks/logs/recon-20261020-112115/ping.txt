@@ -1,0 +1,8 @@
+PING 172.16.147.10 (172.16.147.10) 56(84) bytes of data.
+64 bytes from 172.16.147.10: icmp_seq=1 ttl=63 time=9.18 ms
+64 bytes from 172.16.147.10: icmp_seq=2 ttl=63 time=33.9 ms
+64 bytes from 172.16.147.10: icmp_seq=3 ttl=63 time=13.8 ms
+
+--- 172.16.147.10 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2002ms
+rtt min/avg/max/mdev = 9.180/18.947/33.907/10.741 ms

@@ -6,7 +6,6 @@ dist/
 __pycache__/
 *.pyc
 .venv/
-
-# Red Team run artifacts
-attacks/logs/
-!attacks/logs/.gitkeep
+# Pont de remédiation local et sauvegardes du runner de développement (dumps : empreintes de mots de passe)
+.remediation-bridge/
+.dev-backups/

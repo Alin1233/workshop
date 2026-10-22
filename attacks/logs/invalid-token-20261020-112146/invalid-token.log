@@ -1,0 +1,14 @@
+[*] Target: http://172.16.147.10:8080   Started: 2026-10-20T09:21:46Z   Logs: /home/alin/Dev/Perso/workshop/attacks/logs/invalid-token-20261020-112146
+[*] Baseline health (must be 200 before the drill)...
+    /api/payments/health -> HTTP 200
+[*] Sending 40 invalid tokens (0.2s apart) to /api/payments/accounts/me ...
+[*] Health after the drill (payment must still work)...
+    /api/payments/health -> HTTP 200
+
+[+] 401: 40   other: 0   (expected: all 401)
+[+] Evidence: /home/alin/Dev/Perso/workshop/attacks/logs/invalid-token-20261020-112146
+[*] Host-side oracle to confirm (Prometheus/Alertmanager on 127.0.0.1):
+      curl -s http://127.0.0.1:9090/api/v1/alerts | grep -o '"alertname":"[^"]*"' | sort -u
+    Expect: InvalidTokenFlood (Loki) within ~1 min, and NO ServiceDown.
+[!] Correct response: keep the SOC alert, do NOT restart the payment service.
+[*] Ended: 2026-10-20T09:21:55Z

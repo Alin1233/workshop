@@ -1,0 +1,26 @@
+[*] Target: http://172.16.147.10:8080/api/auth/login user=admin@resilience.local mode=json
+[*] Started: 2026-10-19T13:18:44Z   Wordlist: ./02-bruteforce-login/wordlist-small.txt (20 pw)   Logs: /home/alin/Dev/Perso/workshop/attacks/logs/bruteforce-20261019-151844
+[*] JSON brute (curl), ~2 req/s for control...
+    password             -> HTTP 401
+    123456               -> HTTP 401
+    azerty               -> HTTP 401
+    pay123               -> HTTP 401
+    test123              -> HTTP 401
+    Password1!           -> HTTP 401
+    Resilience2026!      -> HTTP 401
+    admin                -> HTTP 401
+    admin123             -> HTTP 401
+    letmein              -> HTTP 401
+    welcome              -> HTTP 401
+    qwerty               -> HTTP 401
+    motdepasse           -> HTTP 401
+    Summer2026!          -> HTTP 401
+    Pay@2026             -> HTTP 401
+    changeme             -> HTTP 401
+    root                 -> HTTP 401
+    toor                 -> HTTP 401
+    P@ssw0rd             -> HTTP 401
+    00000000             -> HTTP 401
+[*] No 200 hit (expected: WAF blocks or creds invalid).
+[*] Ended: 2026-10-19T13:18:55Z
+[+] Blue check: Loki '401' / event_type=auth_failure, AuthBruteForce + LoginFailureSpike alerts.

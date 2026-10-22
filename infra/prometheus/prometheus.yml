@@ -5,10 +5,14 @@ global:
   external_labels:
     platform: resilience-alpha
 
+# Prometheus et Alertmanager exigent une authentification basique (--web.config.file), /metrics compris.
 alerting:
   alertmanagers:
     - static_configs:
         - targets: ["alertmanager:9093"]
+      basic_auth:
+        username: admin
+        password_file: /run/secrets/alertmanager_password
 
 rule_files:
   - /etc/prometheus/rules/*.yml
@@ -53,13 +57,27 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox:9115
 
+  # PC Hôte : ressources de la machine et état des sauvegardes PostgreSQL
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels: { service: pc-hote }
+
   # Auto-surveillance de la chaîne d'observation
-  - job_name: observability
+  - job_name: prometheus
+    basic_auth: { username: admin, password_file: /run/secrets/prometheus_password }
     static_configs:
       - targets: ["localhost:9090"]
         labels: { service: prometheus }
+
+  - job_name: alertmanager
+    basic_auth: { username: admin, password_file: /run/secrets/alertmanager_password }
+    static_configs:
       - targets: ["alertmanager:9093"]
         labels: { service: alertmanager }
+
+  - job_name: observability
+    static_configs:
       - targets: ["loki:3100"]
         labels: { service: loki }
       - targets: ["alloy:12345"]
@@ -67,8 +85,14 @@ scrape_configs:
       - targets: ["blackbox:9115"]
         labels: { service: blackbox }
 
-  # À activer quand les composants existeront (sinon ServiceDown se déclencherait en permanence)
-  # - job_name: anomaly-detector
-  #   static_configs: [{ targets: ["anomaly-detector:8000"], labels: { service: anomaly-detector } }]
-  # - job_name: remediation-engine
-  #   static_configs: [{ targets: ["remediation-engine:8000"], labels: { service: remediation-engine } }]
+  # Détecteur d'anomalies ML : expose anomaly_score{service} et anomaly_model_info{version} sur /metrics.
+  # honor_labels: le label `service` porté par anomaly_score (auth-service/payment-api/frontend) doit être
+  # conservé tel quel (sinon il serait écrasé par celui de la cible) — l'alerte et la remédiation s'y réfèrent.
+  - job_name: anomaly-detector
+    honor_labels: true
+    static_configs: [{ targets: ["anomaly-detector:8000"], labels: { service: anomaly-detector } }]
+
+  # Moteur de remédiation (réseau obs) : actions, vérifications, escalades, incidents ouverts.
+  # Surveillé par les règles du groupe remediation (RemediationFailed, RemediationEngineDown), qu'il ne remédie jamais.
+  - job_name: remediation-engine
+    static_configs: [{ targets: ["remediation-engine:8000"], labels: { service: remediation-engine } }]

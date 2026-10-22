@@ -1,0 +1,49 @@
+<!-- SlowHTTPTest Analysis chart (c) Sergey Shekyan, Victor Agababov 2011  -->
+ <html>
+   <head>
+   <style>
+     body { font: 12px/18px "Lucida Grande", "Lucida Sans Unicode", Helvetica, Arial, Verdana, sans-serif; background-color: transparent; color: #333; -webkit-font-smoothing: antialiased; } 
+     .slow_results {font-size: 12px; } 
+     </style>
+     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+     <script type="text/javascript">
+       google.load("visualization", "1", {packages:["corechart"]});
+       google.setOnLoadCallback(drawChart);
+       function drawChart() {
+         var data = new google.visualization.DataTable();
+         data.addColumn('string', 'Seconds');
+         data.addColumn('number', 'Closed');
+         data.addColumn('number', 'Pending');
+         data.addColumn('number', 'Connected');
+         data.addColumn('number', 'Service available');
+         data.addRows([
+['0',0,1,0,300],
+['1',0,2,30,300],
+['2',0,2,60,300],
+['3',0,2,90,300],
+['4',0,2,120,300],
+['5',0,2,149,300],
+['6',0,2,179,300],
+['7',0,2,209,300],
+['8',0,2,239,300],
+['9',0,2,268,300],
+['10',0,2,298,300],
+['11',0,0,300,300],
+['12',0,0,300,300],
+['13',0,0,300,300],
+['14',0,0,300,300],
+['15',0,0,300,300],
+['16',0,0,300,300],
+['17',0,0,300,300],
+['18',0,0,300,300],
+['19',0,0,300,300],
+['20',0,0,300,300],
+['21',0,0,300,300],
+['22',0,0,300,300],
+['23',0,0,300,300],
+['24',0,0,300,300],
+['25',0,0,300,300],
+['26',0,0,300,300],
+['27',0,0,300,300],
+['28',0,0,300,300],
+['29',0,0,300,300],

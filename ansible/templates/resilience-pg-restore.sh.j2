@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Restaure les bases du SI de paiement depuis une sauvegarde de resilience-pg-backup.
+# Usage : resilience-pg-restore [latest-healthy|<nom de sauvegarde>]
+# latest-healthy (défaut) = la plus récente dont le registre était cohérent, hors copies « pre-restore ».
+# L'état courant est d'abord sauvegardé (type pre-restore) : il sert à l'investigation et permet d'annuler la restauration.
+set -euo pipefail
+umask 077
+
+TARGET="${1:-latest-healthy}"
+BACKUP_DIR={{ pc_hote_backup_dir }}
+APP_DIR="$(readlink -f {{ pc_hote_app_root }}/current)"
+log() { echo "$(date -u +%H:%M:%S) $*"; }
+
+# Une seule restauration à la fois (playbook de l'opérateur, pont de remédiation) : code 75 si une autre est en cours
+exec 9>"$BACKUP_DIR/.restore.lock"
+flock --nonblock 9 || { echo "restauration déjà en cours" >&2; exit 75; }
+
+if [ "$TARGET" = latest-healthy ]; then
+  META="$(grep -l '"integrity": "ok"' "$BACKUP_DIR"/*/meta.json 2>/dev/null | grep -v -- '-pre-restore/' | sort | tail -n 1 || true)"
+  [ -n "$META" ] || { echo "aucune sauvegarde saine dans $BACKUP_DIR" >&2; exit 1; }
+  SRC="$(dirname "$META")"
+else
+  case "$TARGET" in */*|.*) echo "nom de sauvegarde invalide : $TARGET" >&2; exit 2 ;; esac
+  SRC="$BACKUP_DIR/$TARGET"
+  [ -f "$SRC/meta.json" ] || { echo "sauvegarde introuvable : $TARGET" >&2; exit 1; }
+fi
+
+START=$(date +%s.%N)
+log "sauvegarde choisie : $(basename "$SRC")"
+(cd "$SRC" && sha256sum --check --quiet SHA256SUMS)
+log "empreintes SHA-256 vérifiées"
+
+cd "$APP_DIR"
+docker compose up -d --wait --wait-timeout 120 postgres
+if PRE="$(/usr/local/sbin/resilience-pg-backup pre-restore)"; then
+  log "état courant conservé : $(echo "$PRE" | sed -n 's/.*"name": "\([^"]*\)".*/\1/p')"
+else
+  log "état courant non sauvegardé (base illisible ?), restauration poursuivie"
+fi
+
+# Plus aucune connexion applicative pendant la recréation des bases
+log "arrêt de auth-service et payment-api"
+docker compose stop auth-service payment-api
+for db in authdb paydb; do
+  docker compose exec -T -u postgres postgres dropdb --if-exists --force "$db"
+  # --create recrée la base avec son propriétaire et ses droits (REVOKE ... FROM PUBLIC compris)
+  docker compose exec -T -u postgres postgres pg_restore --create --exit-on-error --dbname=postgres < "$SRC/$db.dump"
+  log "$db restaurée"
+done
+
+log "redémarrage de auth-service et payment-api"
+docker compose up -d --wait --wait-timeout 120 auth-service payment-api
+
+CODE="$(docker compose exec -T payment-api python -c '
+import urllib.error, urllib.request
+try:
+    print(urllib.request.urlopen("http://127.0.0.1:8000/internal/integrity", timeout=10).status)
+except urllib.error.HTTPError as err:
+    print(err.code)')"
+[ "$CODE" = 200 ] || { log "registre incohérent après restauration (HTTP $CODE)"; exit 1; }
+log "registre cohérent après restauration"
+
+END=$(date +%s.%N)
+CREATED="$(sed -n 's/.*"created_at": "\([^"]*\)".*/\1/p' "$SRC/meta.json")"
+AGE=$(( $(date +%s) - $(date -d "$CREATED" +%s) ))
+DURATION="$(awk -v a="$START" -v b="$END" 'BEGIN { printf "%.1f", b - a }')"
+
+# Mesures exposées par node-exporter (tableau « Santé du service », PCA/PRA)
+TEXTFILE_DIR={{ pc_hote_node_textfile_dir }}
+cat > "$TEXTFILE_DIR/.resilience_restore.prom.tmp" <<PROM
+# HELP resilience_restore_last_timestamp_seconds Horodatage de la dernière restauration PostgreSQL réussie
+# TYPE resilience_restore_last_timestamp_seconds gauge
+resilience_restore_last_timestamp_seconds $(date +%s)
+# HELP resilience_restore_last_duration_seconds Durée de la dernière restauration (RTO mesuré de l'opération)
+# TYPE resilience_restore_last_duration_seconds gauge
+resilience_restore_last_duration_seconds $DURATION
+# HELP resilience_restore_last_backup_age_seconds Âge de la sauvegarde restaurée (borne des données perdues)
+# TYPE resilience_restore_last_backup_age_seconds gauge
+resilience_restore_last_backup_age_seconds $AGE
+PROM
+chmod 0644 "$TEXTFILE_DIR/.resilience_restore.prom.tmp"
+mv "$TEXTFILE_DIR/.resilience_restore.prom.tmp" "$TEXTFILE_DIR/resilience_restore.prom"
+
+printf '{"restored": "%s", "backup_created_at": "%s", "backup_age_seconds": %d, "restore_seconds": %s}\n' \
+  "$(basename "$SRC")" "$CREATED" "$AGE" "$DURATION"

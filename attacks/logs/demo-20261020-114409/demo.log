@@ -1,0 +1,31 @@
+
+=== 0/4  PRE-FLIGHT  http://172.16.147.10:8080 === 2026-10-20T09:44:09Z
+[*] Witness transaction (smoke_test) [before] ...
+[+] Baseline OK: SI de paiement sain (smoke_test exit 0).
+
+=== 1/4  ATTACK  (2s L7) === 2026-10-20T09:44:10Z
+[*] Launching 01-dos-applicatif/dos.sh - watch Grafana for p95/5xx/probe spike.
+[*] ENDPOINT auto: /assets/index-0I-lJHfX.js
+[*] ENDPOINT: /assets/index-0I-lJHfX.js
+[*] Controlled L7 DoS: http://172.16.147.10:8080/assets/index-0I-lJHfX.js for 2s
+[*] SYN flood (L4) vector: off
+[*] Started: 2026-10-20T09:44:10Z   Logs: /home/alin/Dev/Perso/workshop/attacks/logs/dos-20261020-114410
+[*] Blue team: watch Grafana (p95 latency, 5xx, probe_success), Prometheus req/s, Loki.
+[*] Kill-switch: pkill -f slowhttptest; pkill -f hping3
+[*] Primary (L7): slowhttptest slow-READ (-X) -c 8000 -r 500 -> /assets/index-0I-lJHfX.js
+[*] Attack window ended: 2026-10-20T09:44:12Z
+[+] Verify recovery: curl -m 10 http://172.16.147.10:8080/api/payments/health
+{"service":"payment-api","status":"ok","checks":{"database":true}}
+
+=== 2/4  DETECTION === 2026-10-20T09:44:12Z
+[*] ML should flag the anomaly; alertmanager -> remediation-engine should act now.
+
+=== 3/4  AWAIT AUTONOMOUS RECOVERY (max 15s, NO manual action) === 2026-10-20T09:44:12Z
+    t+0s  auth=200 payments=200
+
+=== 4/4  PROOF OF RECOVERY === 2026-10-20T09:44:12Z
+[*] Witness transaction (smoke_test) [after] ...
+[+] RECOVERED: auth + payments health 200 AND smoke_test passes - a new fictive transaction succeeds.
+[+] This is the Axe-1 proof. Evidence in /home/alin/Dev/Perso/workshop/attacks/logs/demo-20261020-114409
+
+[*] Demo window complete: 2026-10-20T09:44:13Z

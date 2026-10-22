@@ -1,0 +1,10 @@
+[*] ENDPOINT: /assets/index-0I-lJHfX.js
+[*] Controlled L7 DoS: http://172.16.147.10:8080/assets/index-0I-lJHfX.js for 2s
+[*] SYN flood (L4) vector: off
+[*] Started: 2026-10-20T09:44:10Z   Logs: /home/alin/Dev/Perso/workshop/attacks/logs/dos-20261020-114410
+[*] Blue team: watch Grafana (p95 latency, 5xx, probe_success), Prometheus req/s, Loki.
+[*] Kill-switch: pkill -f slowhttptest; pkill -f hping3
+[*] Primary (L7): slowhttptest slow-READ (-X) -c 8000 -r 500 -> /assets/index-0I-lJHfX.js
+[*] Attack window ended: 2026-10-20T09:44:12Z
+[+] Verify recovery: curl -m 10 http://172.16.147.10:8080/api/payments/health
+{"service":"payment-api","status":"ok","checks":{"database":true}}

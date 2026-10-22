@@ -1,0 +1,44 @@
+Cible : http://172.16.147.10:8080
+
+[Disponibilité]
+  OK  /api/auth/health -> ok
+  OK  /api/payments/health -> ok
+
+[Comptes]
+  OK  inscription alice -> 201 (reçu 201)
+  OK  connexion alice -> jeton
+  OK  compte alice ouvert avec 1 000,00 € (statut 200)
+  OK  inscription bob -> 201 (reçu 201)
+  OK  connexion bob -> jeton
+  OK  compte bob ouvert avec 1 000,00 € (statut 200)
+
+[Virement et idempotence]
+  OK  virement alice -> bob 25,50 € -> 201 (reçu 201)
+  OK  même clé rejouée -> même virement, pas de second débit
+  OK  soldes cohérents après rejeu
+  OK  même clé, autre montant -> 422
+
+[Règles métier]
+  OK  solde insuffisant -> 422
+  OK  bénéficiaire inconnu -> 404
+  OK  virement vers soi-même -> 422
+  OK  montant négatif -> 422
+
+[Contrôle d'accès]
+  OK  sans jeton -> 401
+  OK  jeton altéré -> 401
+  OK  client sur route admin -> 403
+  OK  bénéficiaire voit le virement
+  OK  mauvais identifiants -> 401
+  OK  /metrics non exposé publiquement
+  OK  /internal non exposé publiquement
+
+[Concurrence : 40 virements croisés simultanés]
+  OK  40/40 virements acceptés (statuts : [201])
+  OK  masse monétaire alice + bob conservée
+  OK  historique alice complet (42 lignes)
+
+[Intégrité du registre]
+  -- secrets/admin_password absent : contrôle admin ignoré
+
+26/26 vérifications OK en 0.9s

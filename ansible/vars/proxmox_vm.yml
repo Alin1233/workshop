@@ -1,0 +1,51 @@
+# VM du groupe 6 sur le Proxmox du labo EPSI (pool partagé I1) : PC Hôte et VM de recette jetable.
+# Le secret du token n'est jamais versionné : il est lu dans l'environnement (voir ansible/README.md).
+
+# Certificat auto-signé du Proxmox, épinglé localement (CN seul, sans SAN)
+pve_ca_path: "{{ lookup('ansible.builtin.env', 'HOME') }}/.config/proxmox/proxmox-labo.pem"
+
+# deb-trixie-cloud-i1 : Debian 13 avec cloud-init et agent QEMU, fourni par le labo
+pve_template:
+  vmid: 937
+  node: hv-epyc-01
+
+# Profils de VM : -e vm_profile=recette pour la VM jetable de validation sur machine vierge
+pve_vms:
+  pc_hote:
+    vmid: 4600
+    name: i1-workshop-resilience-g6-host
+    node: hv-epyc-02
+    cores: 6
+    memory_mb: 16384
+    disk_gb: 80
+    ip_cidr: 172.16.147.10/16
+    disposable: false
+    description: "Workshop EPSI 2026 - Resilience-Alpha - Groupe 6 - PC Hôte (Docker Compose). Provisionnée par ansible/provision_proxmox.yml."
+  recette:
+    vmid: 4601
+    name: i1-workshop-resilience-g6-recette
+    node: hv-r630-02
+    cores: 4
+    memory_mb: 8192
+    disk_gb: 40
+    ip_cidr: 172.16.147.11/16
+    # seule une VM jetable peut être supprimée par destroy_proxmox_vm.yml
+    disposable: true
+    description: "Workshop EPSI 2026 - Resilience-Alpha - Groupe 6 - VM de recette jetable (déploiement sur machine vierge). Supprimée par ansible/destroy_proxmox_vm.yml."
+
+# Commun à toutes les VM
+pve_vm_defaults:
+  pool: I1
+  storage: I1-12T
+  bridge: vmbr0
+  gateway: 172.16.255.254
+  ci_user: resilience
+  ssh_pubkey_file: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_ed25519.pub"
+  tags: workshop;resilience-alpha;g6
+
+vm_profile: pc_hote
+vm: "{{ pve_vm_defaults | combine(pve_vms[vm_profile]) }}"
+
+# Le token administre toutes les VM du pool I1, y compris celles des autres groupes :
+# les playbooks refusent de toucher à un autre ID que ceux des profils ci-dessus.
+pve_allowed_vmids: "{{ pve_vms.values() | map(attribute='vmid') | list }}"

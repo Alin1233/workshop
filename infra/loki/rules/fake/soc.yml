@@ -24,10 +24,13 @@ groups:
         annotations:
           summary: "Jetons invalides en rafale depuis {{ $labels.client_ip }}"
 
+      # Seules les requêtes que le WAF a lui-même interrompues (is_interrupted=true) : le journal d'audit contient aussi
+      # les 403 renvoyés par les API (non-admin sur /admin/integrity…), qui ne sont pas des attaques et feraient bloquer
+      # l'IP NAT partagée du labo (docs/securite/revue-durcissement.md). __error__ : une ligne tronquée ne casse pas la règle.
       - alert: WafAttackBlocked
         expr: |
           sum by (client_ip) (
-            count_over_time({service="waf"} |= "\"transaction\"" | json client_ip="transaction.client_ip", code="transaction.response.http_code" | code="403" [2m])
+            count_over_time({service="waf"} |= "\"transaction\"" | json client_ip="transaction.client_ip", code="transaction.response.http_code", interrupted="transaction.is_interrupted" | __error__="" | code="403" | interrupted="true" [2m])
           ) > 5
         for: 0s
         labels: { severity: warning, domain: security, service: waf }

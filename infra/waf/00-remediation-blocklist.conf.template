@@ -1,0 +1,56 @@
+# Resilience-Alpha — IP bloquées par le moteur de remédiation (réponse à une tentative de compromission).
+# Rendu au démarrage dans /etc/nginx/conf.d/ (contexte http) par le script envsubst de l'image ; le préfixe 00-
+# le fait lire avant default.conf, qui utilise le format de journal défini ici.
+#
+# La liste est écrite par remediation-engine (WafBlocklist) dans le volume partagé waf-blocklist, monté en lecture
+# seule dans le WAF, puis appliquée par un rechargement à chaud de nginx (SIGHUP envoyé via docker-socket-proxy).
+# Le fichier ne contient que des entrées `"<ip>" 1;` : le moteur ne peut ni ajouter de directive ni sortir du bloc map.
+#
+# Motif glob ([f]) : un fichier absent n'est pas une erreur pour nginx (glob sans correspondance). Le WAF démarre donc
+# avant que le moteur n'ait écrit la liste, et le rechargement suivant prend en compte sa création.
+# Un fichier invalide fait échouer le rechargement : nginx garde alors l'ancienne configuration et continue de servir.
+# Au démarrage, 99-remediation-blocklist-guard.sh neutralise ces include si le fichier est invalide (le WAF démarre
+# sans la liste plutôt que de ne pas démarrer).
+
+# Adresse TCP réelle du client (le WAF n'est derrière aucun proxy) : c'est aussi le client_ip des alertes SOC.
+map $remote_addr $remediation_blocked {
+    default 0;
+    include /waf-blocklist/blocked-ips.con[f];
+}
+
+# Même liste, interrogée par le moteur pour vérifier que le rechargement a bien pris effet (port 8081 ci-dessous).
+map $arg_ip $remediation_check {
+    default 0;
+    include /waf-blocklist/blocked-ips.con[f];
+}
+
+# Une ligne JSON par requête refusée : event_type devient un label Loki (Alloy), distinct des journaux d'audit
+# ModSecurity. Ces refus ne passent pas par ModSecurity, ils n'alimentent donc pas la règle SOC WafAttackBlocked.
+log_format remediation_block escape=json
+    '{"time":"$time_iso8601","level":"warning","service":"waf","event_type":"waf_remediation_block",'
+    '"client_ip":"$remote_addr","method":"$request_method","uri":"$request_uri","status":$status,'
+    '"server_port":"$server_port","user_agent":"$http_user_agent"}';
+
+# Contrôle interne pour le moteur : GET http://waf:8081/remediation/blocklist?ip=<ip> -> {"blocked":1|0}
+# selon la configuration réellement chargée par les workers. Port non publié, réservé aux réseaux privés.
+server {
+    listen 8081;
+    server_name _;
+    modsecurity off;
+    access_log off;
+
+    allow 127.0.0.0/8;
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    deny all;
+
+    location = /remediation/blocklist {
+        default_type application/json;
+        return 200 '{"blocked":$remediation_check}\n';
+    }
+
+    location / {
+        return 404;
+    }
+}

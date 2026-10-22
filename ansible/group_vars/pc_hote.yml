@@ -1,0 +1,47 @@
+# PC Hôte (VM Proxmox du labo, Debian 13)
+ansible_python_interpreter: /usr/bin/python3
+
+pc_hote_timezone: Europe/Paris
+
+# SSH n'est accepté que depuis le réseau du labo : les postes du wifi labo y arrivent par 172.16.255.252
+pc_hote_ssh_sources: [172.16.0.0/16]
+
+# Seul port applicatif publié (WAF) ; les interfaces de gestion restent sur 127.0.0.1 (tunnel SSH)
+pc_hote_waf_port: 8080
+# HTTPS du WAF (caméra de la reconnaissance faciale)
+pc_hote_waf_tls_port: 8443
+
+# Clé de signature du dépôt Docker, vérifiée avant d'être utilisée par apt
+docker_gpg_fingerprint: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+# Déploiement : releases/<commit> (une version par commit), current -> version active,
+# shared/secrets conservé d'une version à l'autre (répertoire 0700, root)
+pc_hote_app_root: /opt/resilience-alpha
+pc_hote_releases_kept: 3
+
+# Sauvegardes PostgreSQL (pg_dump par base + état d'intégrité du registre), voir backup_database.yml
+pc_hote_backup_dir: /var/backups/resilience-alpha
+pc_hote_backup_calendar: "*:0/15"   # RPO visé : 15 min
+pc_hote_backup_keep: 96             # 24 h de sauvegardes planifiées ; la dernière saine est toujours gardée
+# Métriques des sauvegardes pour node-exporter (même chemin que NODE_TEXTFILE_DIR dans docker-compose.yml)
+pc_hote_node_textfile_dir: /var/lib/node-exporter/textfile
+# Copie hors de l'hôte, sur le poste de l'opérateur (jamais dans le dépôt : les bases contiennent des empreintes de mots de passe)
+pc_hote_backup_local_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.local/share/resilience-alpha/backups"
+
+# Assistant RAG (ops-assistant) : où tourne son LLM, écrit dans le .env de Compose à chaque déploiement.
+#   container : conteneur ollama de la VM (profil ai, CPU) ; les modèles sont tirés au premier déploiement
+#   offload   : PC de délestage IA, joint à pc_hote_ai_offload_url (ex. http://172.16.x.y:11434)
+#   off       : pas de LLM, l'assistant reste en mode dégradé (healthy, /ask en 503)
+pc_hote_ai_mode: container
+pc_hote_ai_offload_url: ""
+pc_hote_ai_llm_model: llama3.2:3b
+pc_hote_ai_embed_model: nomic-embed-text
+
+# Pont de remédiation (restauration automatique, EBIOS S5) : le moteur, conteneur non privilégié, dépose une demande
+# dans ce répertoire (monté en /bridge) ; l'unité systemd resilience-remediation-bridge l'exécute avec
+# resilience-pg-restore. Écrit dans le .env de Compose (REMEDIATION_BRIDGE_DIR). Voir docs/runbooks/restauration-base.md
+pc_hote_remediation_bridge_dir: /var/lib/resilience-alpha/remediation-bridge
+pc_hote_remediation_state_dir: /var/lib/resilience-alpha/remediation-runner   # verrou et historique, root seul
+pc_hote_remediation_engine_uid: 10001          # USER du conteneur remediation-engine : seul autorisé à écrire inbox/
+pc_hote_remediation_restores_per_hour: 3       # au-delà, demande refusée (rate_limited) : un moteur compromis ne peut
+                                               # pas enchaîner les restaurations (chacune perd les écritures récentes)

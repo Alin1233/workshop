@@ -1,0 +1,181 @@
+# Provisionne la VM « PC Hôte » sur le Proxmox du labo, par l'API REST (idempotent : relançable sans risque).
+# Module uri plutôt que community.general.proxmox_kvm : proxmoxer passe par urllib3 2, qui refuse le
+# certificat auto-signé du labo (CN sans SAN) ; uri utilise le ssl standard et garde la vérification TLS.
+# Usage (WSL, racine du dépôt) :
+#   set -a; . ~/.config/proxmox/claude.env; set +a
+#   ansible-playbook ansible/provision_proxmox.yml [-e vm_profile=recette]
+- name: Provisionner la VM PC Hôte sur Proxmox
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - vars/proxmox_vm.yml
+  vars:
+    pve_api: "{{ lookup('ansible.builtin.env', 'PROXMOX_URL') }}/api2/json"
+    pve_vm_api: "{{ pve_api }}/nodes/{{ vm.node }}/qemu/{{ vm.vmid }}"
+  module_defaults:
+    ansible.builtin.uri:
+      headers:
+        Authorization: "PVEAPIToken={{ lookup('ansible.builtin.env', 'PROXMOX_TOKEN_ID') }}={{ lookup('ansible.builtin.env', 'PROXMOX_TOKEN_SECRET') }}"
+      ca_path: "{{ pve_ca_path }}"
+      return_content: true
+  tasks:
+    - name: Vérifier les prérequis (token chargé, ID autorisé, pas de trace verbeuse)
+      ansible.builtin.assert:
+        that:
+          - lookup('ansible.builtin.env', 'PROXMOX_URL') | length > 0
+          - lookup('ansible.builtin.env', 'PROXMOX_TOKEN_ID') | length > 0
+          - lookup('ansible.builtin.env', 'PROXMOX_TOKEN_SECRET') | length > 0
+          - vm.vmid in pve_allowed_vmids
+          # à partir de -vvv, Ansible affiche les arguments des modules, donc l'en-tête contenant le secret
+          - ansible_verbosity < 3
+        fail_msg: "Charger le token (set -a; . ~/.config/proxmox/claude.env; set +a), ID dans pve_allowed_vmids, au plus -vv."
+
+    - name: Lister les VM visibles du cluster
+      ansible.builtin.uri:
+        url: "{{ pve_api }}/cluster/resources?type=vm"
+      register: pve_resources
+
+    - name: Repérer la VM si elle existe déjà
+      ansible.builtin.set_fact:
+        vm_existing: "{{ pve_resources.json.data | selectattr('vmid', 'equalto', vm.vmid) | first | default({}) }}"
+
+    - name: Refuser de toucher à une VM qui n'est pas la nôtre
+      ansible.builtin.assert:
+        that: vm_existing == {} or (vm_existing.name == vm.name and vm_existing.node == vm.node)
+        fail_msg: "L'ID {{ vm.vmid }} est déjà pris par {{ vm_existing.name | default('?') }} sur {{ vm_existing.node | default('?') }}."
+        quiet: true
+
+    - name: Création de la VM
+      when: vm_existing == {}
+      block:
+        - name: Vérifier que l'ID est libre sur tout le cluster (y compris hors du pool)
+          ansible.builtin.uri:
+            url: "{{ pve_api }}/cluster/nextid?vmid={{ vm.vmid }}"
+
+        - name: Vérifier que l'IP n'est pas déjà utilisée sur le réseau du labo
+          ansible.builtin.command: "ping -c 2 -W 1 {{ vm.ip_cidr.split('/')[0] }}"
+          register: ip_probe
+          failed_when: ip_probe.rc == 0
+          changed_when: false
+
+        - name: Cloner le template (clone complet, indépendant du template)
+          ansible.builtin.uri:
+            url: "{{ pve_api }}/nodes/{{ pve_template.node }}/qemu/{{ pve_template.vmid }}/clone"
+            method: POST
+            body_format: form-urlencoded
+            body:
+              newid: "{{ vm.vmid }}"
+              name: "{{ vm.name }}"
+              target: "{{ vm.node }}"
+              pool: "{{ vm.pool }}"
+              storage: "{{ vm.storage }}"
+              format: qcow2
+              full: 1
+              description: "{{ vm.description }}"
+          register: pve_clone
+          changed_when: true
+
+        - name: Attendre la fin du clonage
+          ansible.builtin.include_tasks: tasks/pve_wait_task.yml
+          vars:
+            pve_upid: "{{ pve_clone.json.data }}"
+
+    - name: Lire la configuration actuelle
+      ansible.builtin.uri:
+        url: "{{ pve_vm_api }}/config"
+      register: vm_config_before
+
+    - name: Appliquer CPU, mémoire, cloud-init et démarrage automatique
+      ansible.builtin.uri:
+        url: "{{ pve_vm_api }}/config"
+        method: PUT
+        body_format: form-urlencoded
+        body:
+          sockets: 1
+          cores: "{{ vm.cores }}"
+          # host plutôt que kvm64 (template) : les wheels numpy/scikit-learn exigent au moins x86-64-v2
+          cpu: host
+          memory: "{{ vm.memory_mb }}"
+          onboot: 1
+          agent: 1
+          ciuser: "{{ vm.ci_user }}"
+          # Proxmox attend la clé déjà encodée en URL, en plus de l'encodage du formulaire
+          sshkeys: "{{ lookup('ansible.builtin.file', vm.ssh_pubkey_file) | trim | urlencode }}"
+          ipconfig0: "ip={{ vm.ip_cidr }},gw={{ vm.gateway }}"
+          tags: "{{ vm.tags }}"
+          description: "{{ vm.description }}"
+      changed_when: false
+
+    - name: Relire la configuration
+      ansible.builtin.uri:
+        url: "{{ pve_vm_api }}/config"
+      register: vm_config
+      # le condensé de la configuration ne change que si une valeur a réellement changé
+      changed_when: vm_config.json.data.digest != vm_config_before.json.data.digest
+
+    - name: Vérifier que la VM est sur le bon bridge
+      ansible.builtin.assert:
+        that: ("bridge=" ~ vm.bridge) in vm_config.json.data.net0
+        fail_msg: "net0 inattendu : {{ vm_config.json.data.net0 }}"
+        quiet: true
+
+    - name: Agrandir le disque système à {{ vm.disk_gb }} Go
+      when: (vm_config.json.data.scsi0 | regex_findall('size=(\\d+)G') | first | int) < vm.disk_gb
+      block:
+        - name: Redimensionner scsi0
+          ansible.builtin.uri:
+            url: "{{ pve_vm_api }}/resize"
+            method: PUT
+            body_format: form-urlencoded
+            body:
+              disk: scsi0
+              size: "{{ vm.disk_gb }}G"
+          register: pve_resize
+          changed_when: true
+
+        - name: Attendre la fin du redimensionnement
+          ansible.builtin.include_tasks: tasks/pve_wait_task.yml
+          vars:
+            pve_upid: "{{ pve_resize.json.data }}"
+
+    - name: Lire l'état de la VM
+      ansible.builtin.uri:
+        url: "{{ pve_vm_api }}/status/current"
+      register: vm_status
+
+    - name: Démarrer la VM
+      when: vm_status.json.data.status != 'running'
+      block:
+        - name: Envoyer l'ordre de démarrage
+          ansible.builtin.uri:
+            url: "{{ pve_vm_api }}/status/start"
+            method: POST
+          register: pve_start
+          changed_when: true
+
+        - name: Attendre la fin du démarrage
+          ansible.builtin.include_tasks: tasks/pve_wait_task.yml
+          vars:
+            pve_upid: "{{ pve_start.json.data }}"
+
+    - name: Attendre que SSH réponde
+      ansible.builtin.wait_for:
+        host: "{{ vm.ip_cidr.split('/')[0] }}"
+        port: 22
+        timeout: 300
+
+    - name: Attendre la fin de cloud-init et relever les ressources vues par l'invité
+      ansible.builtin.command: >-
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new
+        {{ vm.ci_user }}@{{ vm.ip_cidr.split('/')[0] }}
+        'cloud-init status --wait >/dev/null; hostname; nproc; free -h | sed -n 2p; df -h / | sed -n 2p; . /etc/os-release; echo $PRETTY_NAME'
+      register: guest_facts
+      retries: 10
+      delay: 10
+      until: guest_facts.rc == 0
+      changed_when: false
+
+    - name: Afficher le résultat
+      ansible.builtin.debug:
+        msg: "{{ guest_facts.stdout_lines }}"

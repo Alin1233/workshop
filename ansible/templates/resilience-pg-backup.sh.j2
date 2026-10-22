@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Sauvegarde logique des bases du SI de paiement (pg_dump, format custom), avec l'état d'intégrité du registre.
+# Usage : resilience-pg-backup [scheduled|manual|pre-restore]
+# Résultat : {{ pc_hote_backup_dir }}/<horodatage>-<type>/ {authdb.dump, paydb.dump, meta.json, SHA256SUMS}
+# Les rôles et leurs mots de passe ne sont pas sauvegardés : 01-create-service-databases.sh les recrée depuis les secrets.
+set -euo pipefail
+umask 077
+
+KIND="${1:-manual}"
+case "$KIND" in scheduled|manual|pre-restore) ;; *) echo "type inconnu : $KIND" >&2; exit 2 ;; esac
+
+BACKUP_DIR={{ pc_hote_backup_dir }}
+APP_DIR="$(readlink -f {{ pc_hote_app_root }}/current)"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+NAME="$STAMP-$KIND"
+# Écrit dans un répertoire temporaire puis renommé : une sauvegarde visible est toujours complète
+TMP="$BACKUP_DIR/.tmp-$NAME"
+TEXTFILE_DIR={{ pc_hote_node_textfile_dir }}
+
+write_metrics() {
+  # Fichier .prom lu par node-exporter (utilisateur non root) : écrit à part, rendu lisible, puis renommé
+  cat > "$TEXTFILE_DIR/.$1.prom.tmp"
+  chmod 0644 "$TEXTFILE_DIR/.$1.prom.tmp"
+  mv "$TEXTFILE_DIR/.$1.prom.tmp" "$TEXTFILE_DIR/$1.prom"
+}
+
+on_exit() {
+  local status=$?
+  rm -rf "$TMP"
+  if [ "$status" -ne 0 ]; then
+    write_metrics resilience_backup_failure <<PROM || true
+# HELP resilience_backup_last_failure_timestamp_seconds Horodatage du dernier échec de sauvegarde PostgreSQL
+# TYPE resilience_backup_last_failure_timestamp_seconds gauge
+resilience_backup_last_failure_timestamp_seconds $(date +%s)
+PROM
+  fi
+}
+trap on_exit EXIT
+mkdir -p "$TMP"
+cd "$APP_DIR"
+
+integrity() {
+  # 200 = registre cohérent, 409 = incohérent ; interrogé depuis le conteneur (endpoint interne, non publié)
+  docker compose exec -T payment-api python -c '
+import urllib.error, urllib.request
+try:
+    print(urllib.request.urlopen("http://127.0.0.1:8000/internal/integrity", timeout=10).status)
+except urllib.error.HTTPError as err:
+    print(err.code)
+except Exception:
+    print("unreachable")' 2>/dev/null || echo unreachable
+}
+
+# Contrôle avant et après les dumps : la sauvegarde n'est déclarée saine que si le registre l'était tout du long
+BEFORE="$(integrity)"
+for db in authdb paydb; do
+  docker compose exec -T -u postgres postgres pg_dump --format=custom --dbname="$db" > "$TMP/$db.dump"
+done
+AFTER="$(integrity)"
+if [ "$BEFORE" = 200 ] && [ "$AFTER" = 200 ]; then STATUS=ok
+elif [ "$BEFORE" = 409 ] || [ "$AFTER" = 409 ]; then STATUS=corrupted
+else STATUS=unknown
+fi
+
+(cd "$TMP" && sha256sum authdb.dump paydb.dump > SHA256SUMS)
+cat > "$TMP/meta.json" <<JSON
+{"name": "$NAME", "kind": "$KIND", "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "release": "$(basename "$APP_DIR")", "integrity": "$STATUS", "authdb_bytes": $(stat -c %s "$TMP/authdb.dump"), "paydb_bytes": $(stat -c %s "$TMP/paydb.dump")}
+JSON
+mv "$TMP" "$BACKUP_DIR/$NAME"
+
+# Rétention : les {{ pc_hote_backup_keep }} plus récentes, plus toujours la dernière sauvegarde saine
+LATEST_OK="$(grep -l '"integrity": "ok"' "$BACKUP_DIR"/*/meta.json 2>/dev/null | grep -v -- '-pre-restore/' | sort | tail -n 1 | xargs -r dirname)"
+find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -name '2*' | sort -r | tail -n +{{ pc_hote_backup_keep + 1 }} | while read -r old; do
+  [ "$old" = "$LATEST_OK" ] || rm -rf "$old"
+done
+
+write_metrics resilience_backup <<PROM
+# HELP resilience_backup_last_success_timestamp_seconds Horodatage de la dernière sauvegarde PostgreSQL réussie
+# TYPE resilience_backup_last_success_timestamp_seconds gauge
+resilience_backup_last_success_timestamp_seconds $(date +%s)
+# HELP resilience_backup_last_integrity_ok Registre cohérent (1) ou non (0) dans la dernière sauvegarde
+# TYPE resilience_backup_last_integrity_ok gauge
+resilience_backup_last_integrity_ok $([ "$STATUS" = ok ] && echo 1 || echo 0)
+# HELP resilience_backup_last_size_bytes Taille des dumps de la dernière sauvegarde
+# TYPE resilience_backup_last_size_bytes gauge
+resilience_backup_last_size_bytes $(cat "$BACKUP_DIR/$NAME"/*.dump | wc -c)
+# HELP resilience_backup_stored Nombre de sauvegardes conservées sur l'hôte
+# TYPE resilience_backup_stored gauge
+resilience_backup_stored $(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -name '2*' | wc -l)
+PROM
+
+cat "$BACKUP_DIR/$NAME/meta.json"

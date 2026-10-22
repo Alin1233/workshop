@@ -1,0 +1,28 @@
+[*] Target: http://172.16.147.10:8080   Started: 2026-10-20T09:37:00Z   Logs: /home/alin/Dev/Perso/workshop/attacks/logs/bizlogic-20261020-113700
+[*] Provisioning 3 users (attacker A, parties B & C)...
+    A=RA1103950130 (bal 100000)  B=RA7849249750  C=RA7943449719
+
+== Self-enrichment: can A increase its own balance illegitimately? ==
+  [BLOCKED ] negative amount (reverse flow) -> HTTP 422  
+  [BLOCKED ] amount over 10 000 EUR cap -> HTTP 422  
+  [BLOCKED ] transfer to self -> HTTP 422  
+  [BLOCKED ] overdraw beyond balance -> HTTP 422  
+  [info    ] mass-assignment transfer -> HTTP 201 (extra fields should be ignored)
+  [BLOCKED ] no self-minting: balance 100000 -> 99900 (not inflated)
+
+== BOLA/IDOR: can A reach another user's data or funds? ==
+  [BLOCKED ] read B->C transfer as outsider A -> HTTP 404  
+  [BLOCKED ] read random transfer id -> HTTP 404  
+  [BLOCKED ] non-admin reaches /admin/integrity -> HTTP 403  
+  [BLOCKED ] reach internal-only /internal/integrity via WAF -> HTTP 404  
+
+== Token forgery ==
+  [BLOCKED ] alg=none + role=admin forgery -> HTTP 401  
+
+== Idempotency / double-spend ==
+  [BLOCKED ] idempotency replay not double-credited (B stayed 100200)
+  [BLOCKED ] reuse idempotency key, different amount -> HTTP 422  
+
+=== SUMMARY: 12 blocked (good), 0 potential issue(s) ===
+    Business logic held: no self-minting, no cross-user access, no forgery.
+[*] Ended: 2026-10-20T09:37:02Z

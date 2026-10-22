@@ -14,8 +14,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from prometheus_client import Counter, Gauge, Histogram
 from pydantic import BaseModel, Field
 
-from resilience_common.database import create_pool, database_alive, register_database_errors
+from resilience_common.database import register_database_errors
 from resilience_common.observability import client_ip, instrument, setup_logging
+from resilience_common.orm import create_database_engine, describe_error, engine_alive, register_orm_errors
 from resilience_common.settings import database_url, env, secret
 
 from . import ledger
@@ -45,7 +46,7 @@ class AccountOut(BaseModel):
 class TransferIn(BaseModel):
     to_account_number: str = Field(pattern=r"^RA\d{10}$")
     amount_cents: int = Field(gt=0, le=1_000_000, description="Montant en centimes (max 10 000,00 €)")
-    label: str = Field(default="", max_length=140)
+    label: str = Field(default="", max_length=60)
 
 
 class TransferOut(BaseModel):
@@ -72,33 +73,37 @@ async def integrity_watch(app: FastAPI, interval: int) -> None:
                 logger.error("ledger_integrity_violation", extra={"event_type": "integrity_violation", "report": report})
         except Exception as exc:  # noqa: BLE001 - la base peut être indisponible pendant un incident
             INTEGRITY_OK.set(0)
-            logger.warning("ledger_integrity_check_failed", extra={"error": str(exc)})
+            logger.warning("ledger_integrity_check_failed", extra={"error": describe_error(exc)})
         INTEGRITY_CHECK.set_to_current_time()
         await asyncio.sleep(interval)
 
 
 def _integrity_report(app: FastAPI) -> dict:
-    # Cette méthode permet d'exécuter le contrôle d'intégrité sur une connexion du pool.
-    with app.state.pool.connection() as conn:
-        return ledger.check_integrity(conn)
+    # Cette méthode permet d'exécuter le contrôle d'intégrité dans une session dédiée, rendue au pool à la sortie.
+    with app.state.sessions() as session:
+        return ledger.check_integrity(session)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Cette méthode permet de préparer la base, la clé publique JWT et la surveillance d'intégrité au démarrage.
+    # Un seul moteur SQLAlchemy (et donc un seul pool) sert les requêtes, /health et le contrôle d'intégrité ;
+    # schema.sql reste la source du schéma, appliqué ici avant toute requête.
     schema = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
-    app.state.pool = await run_in_threadpool(create_pool, database_url(), schema)
+    app.state.engine = await run_in_threadpool(create_database_engine, database_url(), schema)
+    app.state.sessions = ledger.session_factory(app.state.engine)
     app.state.jwt_public_key = secret("JWT_PUBLIC_KEY")
     watcher = asyncio.create_task(integrity_watch(app, int(env("INTEGRITY_INTERVAL_SECONDS", "15"))))
     logger.info("service_started")
     yield
     watcher.cancel()
-    app.state.pool.close()
+    app.state.engine.dispose()
 
 
 app = FastAPI(title="Resilience-Alpha — Payment API", version="1.0.0", lifespan=lifespan, root_path=env("ROOT_PATH", ""))
 instrument(app, SERVICE)
 register_database_errors(app)
+register_orm_errors(app)
 bearer = HTTPBearer(auto_error=False)
 
 
@@ -136,8 +141,8 @@ def require_admin(claims: dict = Depends(current_claims)) -> dict:
 @app.get("/accounts/me", response_model=AccountOut)
 def my_account(request: Request, claims: dict = Depends(current_claims)) -> dict:
     # Cette méthode permet de consulter son compte, ouvert automatiquement à la première visite.
-    with request.app.state.pool.connection() as conn:
-        account, created = ledger.get_or_open_account(conn, claims)
+    with request.app.state.sessions() as session:
+        account, created = ledger.get_or_open_account(session, claims)
     if created:
         logger.info("account_opened", extra={"user_id": claims["sub"], "account_number": account["account_number"]})
     return account
@@ -152,10 +157,10 @@ def create_transfer(
 ) -> JSONResponse:
     # Cette méthode permet d'émettre un virement depuis son compte ; la clé d'idempotence garantit qu'un renvoi
     # (double clic, nouvelle tentative après coupure réseau) ne débite jamais deux fois.
-    with request.app.state.pool.connection() as conn:
-        sender, _ = ledger.get_or_open_account(conn, claims)
+    with request.app.state.sessions() as session:
+        sender, _ = ledger.get_or_open_account(session, claims)
         transfer, replayed = ledger.execute_transfer(
-            conn, sender, body.to_account_number, body.amount_cents, body.label.strip(),
+            session, sender, body.to_account_number, body.amount_cents, body.label.strip(),
             uuid.UUID(claims["sub"]), idempotency_key,
         )
     TRANSFERS.labels("replayed" if replayed else "completed").inc()
@@ -176,21 +181,18 @@ def create_transfer(
 @app.get("/transfers", response_model=list[TransferOut])
 def my_transfers(request: Request, limit: int = Query(20, ge=1, le=100), claims: dict = Depends(current_claims)) -> list[dict]:
     # Cette méthode permet de lister l'historique des virements émis et reçus par l'utilisateur.
-    with request.app.state.pool.connection() as conn:
-        account, _ = ledger.get_or_open_account(conn, claims)
-        return ledger.list_transfers(conn, account["id"], limit)
+    with request.app.state.sessions() as session:
+        account, _ = ledger.get_or_open_account(session, claims)
+        return ledger.list_transfers(session, account["id"], limit)
 
 
 @app.get("/transfers/{transfer_id}", response_model=TransferOut)
 def my_transfer(transfer_id: uuid.UUID, request: Request, claims: dict = Depends(current_claims)) -> dict:
     # Cette méthode permet de consulter un virement, uniquement si l'utilisateur en est l'émetteur ou le bénéficiaire.
-    with request.app.state.pool.connection() as conn:
-        account, _ = ledger.get_or_open_account(conn, claims)
-        transfer = ledger.transfer_view(conn, transfer_id, account["id"])
-        owned = transfer and conn.execute(
-            "SELECT 1 FROM transfers WHERE id = %s AND %s IN (from_account_id, to_account_id)", (transfer_id, account["id"])
-        ).fetchone()
-    if not owned:
+    with request.app.state.sessions() as session:
+        account, _ = ledger.get_or_open_account(session, claims)
+        transfer = ledger.transfer_view(session, transfer_id, account["id"])
+    if transfer is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Virement introuvable")
     return transfer
 
@@ -212,6 +214,6 @@ def internal_integrity(request: Request) -> JSONResponse:
 @app.get("/health")
 def health(request: Request) -> JSONResponse:
     # Cette méthode permet d'indiquer si le service est réellement opérationnel (processus + base de données).
-    db_ok = database_alive(request.app.state.pool)
+    db_ok = engine_alive(request.app.state.engine)
     body = {"service": SERVICE, "status": "ok" if db_ok else "degraded", "checks": {"database": db_ok}}
     return JSONResponse(body, status_code=200 if db_ok else 503)

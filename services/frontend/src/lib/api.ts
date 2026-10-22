@@ -1,7 +1,26 @@
 // Client HTTP des services Resilience-Alpha, appelés via le reverse proxy (/api/auth, /api/payments).
 
 export type User = { id: string; email: string; full_name: string; role: "client" | "admin" };
-export type Session = { token: string; expiresAt: number; user: User };
+// suggestMfa : première connexion d'un compte sans double authentification, le front propose alors de l'activer.
+export type Session = { token: string; expiresAt: number; user: User; suggestMfa?: boolean };
+// Second facteur accepté : code (appli ou secours), ou visage s'il est enregistré.
+export type MfaMethod = "totp" | "face";
+// Connexion suspendue en attente du second facteur (jeton opaque de 5 minutes, jamais stocké).
+export type MfaChallenge = { mfaToken: string; methods: MfaMethod[] };
+export type MfaStatus = { enabled: boolean; required: boolean; recovery_codes_remaining: number; face_enrolled: boolean };
+// Défi de pose de la reconnaissance faciale : une capture par pose, dans l'ordre (de face, puis les deux profils).
+export type FacePose = "center" | "left" | "right";
+export type FaceChallenge = { challenge_id: string; poses: FacePose[]; expires_in: number };
+export type FaceStatus = { enrolled: boolean; enrolled_at: string | null; consented_at: string | null };
+export type RejectedCapture = {
+  id: string;
+  email: string;
+  captured_at: string;
+  reason: string;
+  score: number | null;
+  client_ip: string | null;
+};
+export type MfaSetup = { secret: string; otpauth_uri: string; qr_code: string };
 export type Account = { account_number: string; owner_name: string; currency: string; balance_cents: number; created_at: string };
 export type Transfer = {
   id: string;
@@ -42,10 +61,11 @@ export function saveSession(session: Session | null): void {
   else sessionStorage.removeItem(SESSION_KEY);
 }
 
-// Cette méthode permet d'appeler l'API en JSON et de convertir toute erreur (HTTP ou réseau) en ApiError lisible.
+// Cette méthode permet d'appeler l'API (JSON, ou multipart pour les captures de la caméra) et de convertir toute erreur
+// (HTTP ou réseau) en ApiError lisible ; le navigateur fixe lui-même l'en-tête d'un envoi multipart (frontière).
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  if (!(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
   let response: Response;
   try {
@@ -71,14 +91,94 @@ function messageForStatus(status: number): string {
   return `Erreur inattendue (${status}).`;
 }
 
+type TokenResponse = { access_token: string; expires_in: number; user: User; suggest_mfa?: boolean };
+
+// Cette méthode permet de convertir la réponse d'émission de jeton de l'auth-service en session du front.
+function toSession(res: TokenResponse): Session {
+  const session: Session = { token: res.access_token, expiresAt: Date.now() + res.expires_in * 1000, user: res.user };
+  return res.suggest_mfa ? { ...session, suggestMfa: true } : session;
+}
+
 export const api = {
-  // Cette méthode permet d'ouvrir une session à partir d'un email et d'un mot de passe.
-  async login(email: string, password: string): Promise<Session> {
-    const res = await request<{ access_token: string; expires_in: number; user: User }>("/api/auth/login", {
+  // Cette méthode permet d'ouvrir une session à partir d'un email et d'un mot de passe ; si la double authentification
+  // est active, renvoie à la place le jeton d'étape à présenter avec le code (verifyMfa).
+  async login(email: string, password: string): Promise<Session | MfaChallenge> {
+    const res = await request<TokenResponse | { mfa_required: true; mfa_token: string; methods?: MfaMethod[] }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-    return { token: res.access_token, expiresAt: Date.now() + res.expires_in * 1000, user: res.user };
+    return "mfa_token" in res ? { mfaToken: res.mfa_token, methods: res.methods ?? ["totp"] } : toSession(res);
+  },
+
+  // Cette méthode permet de terminer une connexion avec double authentification (code TOTP ou code de secours).
+  async verifyMfa(mfaToken: string, code: string): Promise<Session> {
+    return toSession(
+      await request<TokenResponse>("/api/auth/login/mfa", { method: "POST", body: JSON.stringify({ mfa_token: mfaToken, code }) }),
+    );
+  },
+
+  // Cette méthode permet de demander le défi de pose d'une connexion qui se termine par reconnaissance faciale.
+  faceLoginChallenge(mfaToken: string): Promise<FaceChallenge> {
+    return request("/api/auth/login/mfa/face/challenge", { method: "POST", body: JSON.stringify({ mfa_token: mfaToken }) });
+  },
+
+  // Cette méthode permet de terminer une connexion avec les captures du défi de pose (une par pose, dans l'ordre).
+  async verifyFace(mfaToken: string, challengeId: string, frames: Blob[]): Promise<Session> {
+    const form = framesForm(frames, { mfa_token: mfaToken, challenge_id: challengeId });
+    return toSession(await request<TokenResponse>("/api/auth/login/mfa/face", { method: "POST", body: form }));
+  },
+
+  // Cette méthode permet de savoir si un visage est enregistré, et depuis quand.
+  faceStatus(token: string): Promise<FaceStatus> {
+    return request("/api/auth/mfa/face", {}, token);
+  },
+
+  // Cette méthode permet d'ouvrir l'enregistrement (ou le remplacement) d'un visage : le consentement et le code sont
+  // vérifiés d'emblée, le défi de pose renvoyé accepte ensuite quelques essais.
+  faceEnrollChallenge(token: string, code: string): Promise<FaceChallenge> {
+    return request("/api/auth/mfa/face/challenge", { method: "POST", body: JSON.stringify({ code, consent: true }) }, token);
+  },
+
+  // Cette méthode permet d'enregistrer le visage avec les captures du défi ouvert par faceEnrollChallenge.
+  faceEnroll(token: string, challengeId: string, frames: Blob[]): Promise<FaceStatus> {
+    const form = framesForm(frames, { challenge_id: challengeId });
+    return request("/api/auth/mfa/face", { method: "POST", body: form }, token);
+  },
+
+  // Cette méthode permet de supprimer le visage enregistré (son empreinte).
+  async faceRemove(token: string): Promise<void> {
+    await request("/api/auth/mfa/face", { method: "DELETE" }, token);
+  },
+
+  // Cette méthode permet à l'admin de lister les captures refusées à la connexion (conservées 7 jours).
+  rejectedCaptures(token: string): Promise<RejectedCapture[]> {
+    return request("/api/auth/admin/face-captures", {}, token);
+  },
+
+  // Cette méthode permet à l'admin d'afficher une capture refusée (consultation tracée par l'auth-service).
+  rejectedCapture(token: string, id: string): Promise<RejectedCapture & { image: string }> {
+    return request(`/api/auth/admin/face-captures/${encodeURIComponent(id)}`, {}, token);
+  },
+
+  // Cette méthode permet de connaître l'état de la double authentification du compte connecté.
+  mfaStatus(token: string): Promise<MfaStatus> {
+    return request("/api/auth/mfa", {}, token);
+  },
+
+  // Cette méthode permet d'obtenir un nouveau secret TOTP et son QR code, en attente de confirmation.
+  mfaSetup(token: string): Promise<MfaSetup> {
+    return request("/api/auth/mfa/setup", { method: "POST" }, token);
+  },
+
+  // Cette méthode permet d'activer la double authentification avec un premier code ; renvoie les codes de secours.
+  async mfaActivate(token: string, code: string): Promise<string[]> {
+    const res = await request<{ recovery_codes: string[] }>("/api/auth/mfa/activate", { method: "POST", body: JSON.stringify({ code }) }, token);
+    return res.recovery_codes;
+  },
+
+  // Cette méthode permet de désactiver la double authentification après confirmation du mot de passe et d'un code.
+  async mfaDisable(token: string, password: string, code: string): Promise<void> {
+    await request("/api/auth/mfa/disable", { method: "POST", body: JSON.stringify({ password, code }) }, token);
   },
 
   // Cette méthode permet de créer un compte client.
@@ -120,11 +220,68 @@ export const api = {
   },
 };
 
+// Cette méthode permet de préparer un envoi multipart : champs texte, puis les captures JPEG sous le nom « frames ».
+function framesForm(frames: Blob[], fields: Record<string, string>): FormData {
+  const form = new FormData();
+  for (const [name, value] of Object.entries(fields)) form.append(name, value);
+  frames.forEach((frame, i) => form.append("frames", frame, `pose-${i + 1}.jpg`));
+  return form;
+}
+
 const euroFormat = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
 // Cette méthode permet d'afficher un montant en centimes au format monétaire français.
 export function formatCents(cents: number): string {
   return euroFormat.format(cents / 100);
+}
+
+// Cette méthode permet de séparer un montant en partie entière et en centimes, pour les afficher avec deux graisses.
+export function splitCents(cents: number): { units: string; decimals: string } {
+  const formatted = formatCents(cents);
+  const match = /^(.*?)(,\d{2}\s€)$/u.exec(formatted);
+  return match ? { units: match[1], decimals: match[2] } : { units: formatted, decimals: "" };
+}
+
+// Cette méthode permet d'afficher un numéro de compte par groupes de 4 (« RA 0123 4567 89 ») pour le lire sans erreur.
+export function formatAccountNumber(accountNumber: string): string {
+  const match = /^([A-Z]{2})(\d{4})(\d{4})(\d+)$/.exec(accountNumber);
+  return match ? match.slice(1).join(" ") : accountNumber;
+}
+
+// Cette méthode permet de totaliser les entrées et sorties du mois en cours parmi les mouvements chargés.
+export function monthTotals(transfers: Transfer[], now = new Date()): { creditCents: number; debitCents: number } {
+  let creditCents = 0;
+  let debitCents = 0;
+  for (const t of transfers) {
+    const date = new Date(t.created_at);
+    if (date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) continue;
+    if (t.direction === "credit") creditCents += t.amount_cents;
+    else debitCents += t.amount_cents;
+  }
+  return { creditCents, debitCents };
+}
+
+const dayFormat = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
+// Cette méthode permet de regrouper les mouvements (déjà triés du plus récent au plus ancien) par jour,
+// avec un intitulé « Aujourd'hui », « Hier » ou la date en toutes lettres.
+export function groupTransfersByDay(transfers: Transfer[], now = new Date()): { label: string; items: Transfer[] }[] {
+  const groups: { key: string; label: string; items: Transfer[] }[] = [];
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  for (const t of transfers) {
+    const date = new Date(t.created_at);
+    const key = date.toDateString();
+    let group = groups.at(-1);
+    if (group?.key !== key) {
+      const label =
+        key === now.toDateString() ? "Aujourd'hui" : key === yesterday.toDateString() ? "Hier" : dayFormat.format(date);
+      group = { key, label, items: [] };
+      groups.push(group);
+    }
+    group.items.push(t);
+  }
+  return groups.map(({ label, items }) => ({ label, items }));
 }
 
 // Cette méthode permet de convertir une saisie utilisateur (« 12,50 » ou « 12.5 ») en centimes, ou null si invalide.

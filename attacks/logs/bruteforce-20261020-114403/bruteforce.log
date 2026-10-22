@@ -1,0 +1,8 @@
+[*] Target: http://172.16.147.10:8080/api/auth/login user=rt-login-1792489443@pay.local mode=json
+[*] Started: 2026-10-20T09:44:03Z   Wordlist: /tmp/opencode/wl2 (2 pw)   Logs: /home/alin/Dev/Perso/workshop/attacks/logs/bruteforce-20261020-114403
+[*] JSON brute (curl), ~2 req/s for control...
+    wrongpass1           -> HTTP 401
+    wrongpass2           -> HTTP 401
+[*] No 200 hit (expected: WAF blocks or creds invalid).
+[*] Ended: 2026-10-20T09:44:04Z
+[+] Blue check: Loki '401' / event_type=auth_failure, AuthBruteForce + LoginFailureSpike alerts.

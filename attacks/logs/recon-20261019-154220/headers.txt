@@ -1,0 +1,13 @@
+HTTP/1.1 200 OK
+Date: Mon, 19 Oct 2026 13:42:24 GMT
+Content-Type: text/html
+Content-Length: 464
+Connection: keep-alive
+Last-Modified: Mon, 19 Oct 2026 12:57:55 GMT
+ETag: "6ad613d3-1d0"
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: no-referrer
+Accept-Ranges: bytes
+Access-Control-Allow-Headers: *
+

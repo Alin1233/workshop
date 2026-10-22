@@ -1,0 +1,245 @@
+{
+  "version": "rz-2026-10-19-v3",
+  "threshold": 0.8,
+  "features": [
+    "features_test.csv"
+  ],
+  "counts": {
+    "tp": 37,
+    "fn": 12,
+    "fp_heldout": 0,
+    "tn_heldout": 180,
+    "fp_train": 0,
+    "tn_train": 0
+  },
+  "precision_heldout": 1.0,
+  "recall_samples": 0.755,
+  "false_positive_rate_heldout": 0.0,
+  "false_positive_rate_train": null,
+  "false_positive_rate_idle": 0.0,
+  "max_normal_score": {
+    "heldout": 0.764,
+    "train": 0.0
+  },
+  "normal_samples": {
+    "train": 0,
+    "heldout": 180,
+    "idle": 36
+  },
+  "windows_alerted": "7/8",
+  "false_alerts": [],
+  "scenarios": {
+    "brute_force@auth-service": {
+      "service": "auth-service",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 6,
+      "detected_samples": 5,
+      "recall": 0.833,
+      "max_score": 1.0,
+      "first_score_above_threshold_s": 11.0,
+      "alert_delay_s": 31.0,
+      "alert_delay_max_s": 31.0,
+      "per_window": [
+        {
+          "start": 1792414889.0,
+          "duration_s": 60,
+          "samples": 6,
+          "detected_samples": 5,
+          "recall": 0.833,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 11.0,
+          "alert_delay_s": 31.0
+        }
+      ]
+    },
+    "brute_force@frontend": {
+      "service": "frontend",
+      "windows": 1,
+      "windows_alerted": 0,
+      "samples": 6,
+      "detected_samples": 1,
+      "recall": 0.167,
+      "max_score": 0.808,
+      "first_score_above_threshold_s": 51.0,
+      "alert_delay_s": null,
+      "alert_delay_max_s": null,
+      "per_window": [
+        {
+          "start": 1792414889.0,
+          "duration_s": 60,
+          "samples": 6,
+          "detected_samples": 1,
+          "recall": 0.167,
+          "max_score": 0.808,
+          "first_score_above_threshold_s": 51.0,
+          "alert_delay_s": null
+        }
+      ]
+    },
+    "invalid_token_flood@payment-api": {
+      "service": "payment-api",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 6,
+      "detected_samples": 6,
+      "recall": 1.0,
+      "max_score": 1.0,
+      "first_score_above_threshold_s": 1.0,
+      "alert_delay_s": 21.0,
+      "alert_delay_max_s": 21.0,
+      "per_window": [
+        {
+          "start": 1792415029.0,
+          "duration_s": 60,
+          "samples": 6,
+          "detected_samples": 6,
+          "recall": 1.0,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 1.0,
+          "alert_delay_s": 21.0
+        }
+      ]
+    },
+    "invalid_token_flood@frontend": {
+      "service": "frontend",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 6,
+      "detected_samples": 4,
+      "recall": 0.667,
+      "max_score": 1.0,
+      "first_score_above_threshold_s": 21.0,
+      "alert_delay_s": 41.0,
+      "alert_delay_max_s": 41.0,
+      "per_window": [
+        {
+          "start": 1792415029.0,
+          "duration_s": 60,
+          "samples": 6,
+          "detected_samples": 4,
+          "recall": 0.667,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 21.0,
+          "alert_delay_s": 41.0
+        }
+      ]
+    },
+    "transfer_abuse@payment-api": {
+      "service": "payment-api",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 7,
+      "detected_samples": 6,
+      "recall": 0.857,
+      "max_score": 1.0,
+      "first_score_above_threshold_s": 11.0,
+      "alert_delay_s": 31.0,
+      "alert_delay_max_s": 31.0,
+      "per_window": [
+        {
+          "start": 1792415169.0,
+          "duration_s": 61,
+          "samples": 7,
+          "detected_samples": 6,
+          "recall": 0.857,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 11.0,
+          "alert_delay_s": 31.0
+        }
+      ]
+    },
+    "transfer_abuse@frontend": {
+      "service": "frontend",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 7,
+      "detected_samples": 5,
+      "recall": 0.714,
+      "max_score": 1.0,
+      "first_score_above_threshold_s": 21.0,
+      "alert_delay_s": 41.0,
+      "alert_delay_max_s": 41.0,
+      "per_window": [
+        {
+          "start": 1792415169.0,
+          "duration_s": 61,
+          "samples": 7,
+          "detected_samples": 5,
+          "recall": 0.714,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 21.0,
+          "alert_delay_s": 41.0
+        }
+      ]
+    },
+    "waf_probe@frontend": {
+      "service": "frontend",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 7,
+      "detected_samples": 7,
+      "recall": 1.0,
+      "max_score": 1.0,
+      "first_score_above_threshold_s": 0.0,
+      "alert_delay_s": 20.0,
+      "alert_delay_max_s": 20.0,
+      "per_window": [
+        {
+          "start": 1792415310.0,
+          "duration_s": 60,
+          "samples": 7,
+          "detected_samples": 7,
+          "recall": 1.0,
+          "max_score": 1.0,
+          "first_score_above_threshold_s": 0.0,
+          "alert_delay_s": 20.0
+        }
+      ]
+    },
+    "stop_payment@payment-api": {
+      "service": "payment-api",
+      "windows": 1,
+      "windows_alerted": 1,
+      "samples": 4,
+      "detected_samples": 3,
+      "recall": 0.75,
+      "max_score": 0.995,
+      "first_score_above_threshold_s": 10.0,
+      "alert_delay_s": 30.0,
+      "alert_delay_max_s": 30.0,
+      "per_window": [
+        {
+          "start": 1792415450.0,
+          "duration_s": 30,
+          "samples": 4,
+          "detected_samples": 3,
+          "recall": 0.75,
+          "max_score": 0.995,
+          "first_score_above_threshold_s": 10.0,
+          "alert_delay_s": 30.0
+        }
+      ]
+    }
+  },
+  "calibration": {
+    "auth-service": {
+      "t80": 4.147,
+      "beta": 3.269,
+      "normal_severity_p99": 3.124,
+      "normal_severity_max": 3.659
+    },
+    "frontend": {
+      "t80": 3.5,
+      "beta": 2.759,
+      "normal_severity_p99": 2.072,
+      "normal_severity_max": 2.138
+    },
+    "payment-api": {
+      "t80": 5.487,
+      "beta": 4.325,
+      "normal_severity_p99": 3.016,
+      "normal_severity_max": 4.966
+    }
+  }
+}

@@ -1,0 +1,64 @@
+<!-- SlowHTTPTest Analysis chart (c) Sergey Shekyan, Victor Agababov 2011  -->
+ <html>
+   <head>
+   <style>
+     body { font: 12px/18px "Lucida Grande", "Lucida Sans Unicode", Helvetica, Arial, Verdana, sans-serif; background-color: transparent; color: #333; -webkit-font-smoothing: antialiased; } 
+     .slow_results {font-size: 12px; } 
+     </style>
+     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+     <script type="text/javascript">
+       google.load("visualization", "1", {packages:["corechart"]});
+       google.setOnLoadCallback(drawChart);
+       function drawChart() {
+         var data = new google.visualization.DataTable();
+         data.addColumn('string', 'Seconds');
+         data.addColumn('number', 'Closed');
+         data.addColumn('number', 'Pending');
+         data.addColumn('number', 'Connected');
+         data.addColumn('number', 'Service available');
+         data.addRows([
+['0',0,1,0,8000],
+['1',0,10,450,8000],
+['2',0,3,901,8000],
+['3',0,2,1338,8000],
+['4',0,4,1748,8000],
+['5',0,6,2153,8000],
+['6',0,3,2550,8000],
+['7',9,3,2919,8000],
+['8',55,3,3253,8000],
+['9',55,76,3535,8000],
+['10',55,432,3535,8000],
+['11',55,772,3535,8000],
+['12',55,1103,3535,8000],
+['13',55,1360,3622,8000],
+['14',55,1705,3622,8000],
+['15',55,2025,3622,0],
+['16',55,2343,3622,0],
+['17',55,2665,3622,0],
+['18',55,2840,3759,0],
+['19',55,3135,3759,0],
+['20',55,3440,3759,0],
+['21',55,3752,3759,0],
+['22',55,4058,3759,0],
+['23',55,4034,3911,0],
+['24',55,4034,3911,0],
+['25',120,4034,3846,0],
+['26',162,4034,3804,0],
+['27',162,4034,3804,0],
+['28',211,3978,3811,0],
+['29',211,3978,3811,0],
+['30',211,3978,3811,0],
+['31',211,3978,3811,0],
+['32',211,3978,3811,0],
+['33',211,3955,3834,0],
+['34',229,3955,3816,0],
+['35',229,3955,3816,0],
+['36',229,3955,3816,0],
+['37',234,3955,3811,0],
+['38',242,3936,3822,0],
+['39',242,3936,3822,0],
+['40',242,3936,3822,0],
+['41',249,3936,3815,0],
+['42',249,3936,3815,0],
+['43',250,3936,3814,0],
+['44',250,3936,3814,0],

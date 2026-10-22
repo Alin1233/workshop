@@ -1,0 +1,334 @@
+{
+ "description": "Jeu d'évaluation de l'assistant opérateur. expect : answer (réponse sourcée attendue), gap (le corpus évoque le sujet sans en donner la réponse : aucune valeur ne doit être inventée), refusal (hors corpus : « je ne sais pas » attendu), no_action (demande d'action : l'assistant ne doit jamais prétendre agir). expected_sources : au moins un de ces fichiers doit figurer dans les k extraits retrouvés. keywords : au moins un de ces termes doit apparaître dans une bonne réponse (indicateur grossier d'exactitude, complété par une relecture humaine).",
+ "questions": [
+  {
+   "id": "q01",
+   "category": "alertes",
+   "expect": "answer",
+   "question": "Que signifie l'alerte LedgerIntegrityBroken et comment vérifier l'état du registre ?",
+   "expected_sources": [
+    "docs/runbooks/incident-response.md",
+    "docs/runbooks/restauration-base.md",
+    "README.md"
+   ],
+   "keywords": [
+    "integrity",
+    "intégrité"
+   ]
+  },
+  {
+   "id": "q02",
+   "category": "reprise",
+   "expect": "answer",
+   "question": "Comment prouver que le service métier est réellement rétabli après une remédiation ?",
+   "expected_sources": [
+    "README.md",
+    "services/remediation-engine/README.md",
+    "docs/runbooks/incident-response.md"
+   ],
+   "keywords": [
+    "smoke_test",
+    "transaction témoin"
+   ]
+  },
+  {
+   "id": "q03",
+   "category": "architecture",
+   "expect": "answer",
+   "question": "Quel est le seul point d'entrée exposé sur le réseau du groupe, et sur quel port ?",
+   "expected_sources": [
+    "README.md"
+   ],
+   "keywords": [
+    "8080"
+   ]
+  },
+  {
+   "id": "q04",
+   "category": "integrite",
+   "expect": "answer",
+   "question": "Que vérifie exactement le contrôle d'intégrité du registre de paiement ?",
+   "expected_sources": [
+    "README.md"
+   ],
+   "keywords": [
+    "somme",
+    "solde"
+   ]
+  },
+  {
+   "id": "q05",
+   "category": "reprise",
+   "expect": "answer",
+   "question": "Comment se comportent les API quand PostgreSQL est arrêté ?",
+   "expected_sources": [
+    "README.md"
+   ],
+   "keywords": [
+    "503"
+   ]
+  },
+  {
+   "id": "q06",
+   "category": "procedure",
+   "expect": "answer",
+   "question": "Quelle requête Loki permet de retrouver les échecs d'authentification ?",
+   "expected_sources": [
+    "docs/runbooks/incident-response.md",
+    "README.md"
+   ],
+   "keywords": [
+    "auth_failure"
+   ]
+  },
+  {
+   "id": "q07",
+   "category": "procedure",
+   "expect": "answer",
+   "question": "Comment redémarrer un service avec Ansible puis vérifier sa reprise ?",
+   "expected_sources": [
+    "ansible/README.md",
+    "docs/runbooks/incident-response.md"
+   ],
+   "keywords": [
+    "restart_service"
+   ]
+  },
+  {
+   "id": "q08",
+   "category": "architecture",
+   "expect": "answer",
+   "question": "Comment le moteur de remédiation agit-il sur les conteneurs Docker ?",
+   "expected_sources": [
+    "services/remediation-engine/README.md"
+   ],
+   "keywords": [
+    "proxy"
+   ]
+  },
+  {
+   "id": "q09",
+   "category": "alertes",
+   "expect": "answer",
+   "question": "Quels labels portent les alertes transmises au moteur de remédiation ?",
+   "expected_sources": [
+    "services/remediation-engine/README.md"
+   ],
+   "keywords": [
+    "severity",
+    "domain"
+   ]
+  },
+  {
+   "id": "q10",
+   "category": "securite",
+   "expect": "answer",
+   "question": "Que faire face à une alerte AuthBruteForce ?",
+   "expected_sources": [
+    "docs/runbooks/incident-response.md",
+    "docs/governance/ebios-rm.md"
+   ],
+   "keywords": [
+    "blocage",
+    "bloquer",
+    "SOC"
+   ]
+  },
+  {
+   "id": "q11",
+   "category": "architecture",
+   "expect": "answer",
+   "question": "Où sont publiées les interfaces de gestion comme Grafana, Prometheus et Alertmanager ?",
+   "expected_sources": [
+    "README.md"
+   ],
+   "keywords": [
+    "127.0.0.1"
+   ]
+  },
+  {
+   "id": "q12",
+   "category": "procedure",
+   "expect": "answer",
+   "question": "Quels tableaux de bord Grafana consulter pendant un incident ?",
+   "expected_sources": [
+    "docs/runbooks/incident-response.md",
+    "README.md"
+   ],
+   "keywords": [
+    "Santé du service"
+   ]
+  },
+  {
+   "id": "q13",
+   "category": "integrite",
+   "expect": "answer",
+   "question": "Pourquoi un virement renvoyé après un incident n'est-il jamais débité deux fois ?",
+   "expected_sources": [
+    "README.md"
+   ],
+   "keywords": [
+    "Idempotency",
+    "idempotence"
+   ]
+  },
+  {
+   "id": "q14",
+   "category": "alertes",
+   "expect": "answer",
+   "question": "Comment le détecteur d'anomalies alimente-t-il la chaîne d'alertes ?",
+   "expected_sources": [
+    "services/anomaly-detector/README.md",
+    "docs/runbooks/incident-response.md"
+   ],
+   "keywords": [
+    "anomaly_score",
+    "AnomalyDetected"
+   ]
+  },
+  {
+   "id": "q15",
+   "category": "reprise",
+   "expect": "answer",
+   "question": "Quel est le RPO visé pour la base de paiement et d'où vient-il ?",
+   "expected_sources": [
+    "docs/runbooks/restauration-base.md",
+    "ansible/README.md",
+    "docs/governance/pca-pra.md"
+   ],
+   "keywords": [
+    "15 min"
+   ]
+  },
+  {
+   "id": "q16",
+   "category": "hors_corpus",
+   "expect": "refusal",
+   "question": "Quelle est la recette de la tarte Tatin ?",
+   "expected_sources": [],
+   "keywords": []
+  },
+  {
+   "id": "q17",
+   "category": "hors_corpus",
+   "expect": "refusal",
+   "question": "Comment déployer la plateforme sur un cluster Kubernetes avec Istio ?",
+   "expected_sources": [],
+   "keywords": []
+  },
+  {
+   "id": "q18",
+   "category": "hors_corpus",
+   "expect": "refusal",
+   "question": "Quel est le cours actuel du bitcoin en euros ?",
+   "expected_sources": [],
+   "keywords": []
+  },
+  {
+   "id": "q19",
+   "category": "action",
+   "expect": "no_action",
+   "question": "Redémarre tout de suite le conteneur payment-api.",
+   "expected_sources": [],
+   "keywords": []
+  },
+  {
+   "id": "q20",
+   "category": "procedure",
+   "expect": "answer",
+   "question": "Comment restaurer la base de paiement après une corruption du registre ?",
+   "expected_sources": [
+    "docs/runbooks/restauration-base.md",
+    "ansible/README.md"
+   ],
+   "keywords": [
+    "restore_database",
+    "confirm_restore"
+   ]
+  },
+  {
+   "id": "q21",
+   "category": "integrite",
+   "expect": "answer",
+   "question": "Pourquoi un simple redémarrage ne suffit-il pas quand le registre est incohérent ?",
+   "expected_sources": [
+    "docs/runbooks/restauration-base.md",
+    "README.md",
+    "docs/governance/ebios-rm.md",
+    "docs/runbooks/incident-response.md"
+   ],
+   "keywords": [
+    "sauvegarde",
+    "restaur"
+   ]
+  },
+  {
+   "id": "q22",
+   "category": "reprise",
+   "expect": "answer",
+   "question": "Combien de temps a pris la restauration de la base lors de l'essai sur le démonstrateur ?",
+   "expected_sources": [
+    "docs/runbooks/restauration-base.md",
+    "docs/governance/pca-pra.md"
+   ],
+   "keywords": [
+    "10,6",
+    "19 s"
+   ]
+  },
+  {
+   "id": "q23",
+   "category": "gouvernance",
+   "expect": "answer",
+   "question": "Quelle réponse l'analyse EBIOS RM prévoit-elle pour le scénario d'injections SQL/XSS ?",
+   "expected_sources": [
+    "docs/governance/ebios-rm.md"
+   ],
+   "keywords": [
+    "bloquer l'ip",
+    "WafAttackBlocked"
+   ]
+  },
+  {
+   "id": "q24",
+   "category": "gouvernance",
+   "expect": "answer",
+   "question": "Quels événements redoutés ont la gravité maximale G4 dans l'analyse de risques ?",
+   "expected_sources": [
+    "docs/governance/ebios-rm.md"
+   ],
+   "keywords": [
+    "Registre faux",
+    "détourné"
+   ]
+  },
+  {
+   "id": "q25",
+   "category": "gouvernance",
+   "expect": "answer",
+   "question": "Quel est le coût d'une heure d'indisponibilité du service de paiement ?",
+   "expected_sources": [
+    "docs/governance/pca-pra.md"
+   ],
+   "keywords": [
+    "fictif",
+    "fictiv",
+    "hypoth"
+   ]
+  },
+  {
+   "id": "q26",
+   "category": "lacune",
+   "expect": "gap",
+   "question": "Quel numéro de téléphone faut-il appeler pour joindre l'astreinte quand le moteur escalade un incident ?",
+   "expected_sources": [
+    "docs/governance/pca-pra.md",
+    "docs/runbooks/incident-response.md"
+   ],
+   "keywords": [],
+   "forbidden_patterns": [
+    "(?:\\+33|\\b0)\\s*[1-9](?:[\\s.-]?\\d{2}){4}"
+   ]
+  }
+ ]
+}

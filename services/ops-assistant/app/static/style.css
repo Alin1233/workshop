@@ -1,0 +1,28 @@
+:root { --bg: #f6f7f9; --fg: #1d2330; --muted: #5c6577; --card: #fff; --line: #d9dde5; --accent: #1f5fbf; --ok: #1c7c3a; --warn: #b26a00; --err: #b3261e; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #12151b; --fg: #e6e9ef; --muted: #9aa3b5; --card: #1b2029; --line: #2e3542; --accent: #7aa7ff; --ok: #58c27d; --warn: #f0a640; --err: #ff8a80; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { margin: 0; font-size: 1.5rem; }
+h2 { font-size: 1.15rem; margin: 0 0 8px; }
+h3 { font-size: 1rem; margin: 20px 0 6px; }
+.sub, .meta { color: var(--muted); }
+.meta { font-size: .85rem; font-weight: normal; }
+.status { margin: 8px 0 0; font-size: .9rem; }
+.status.ok { color: var(--ok); } .status.degraded { color: var(--warn); }
+.notice { background: var(--card); border-left: 4px solid var(--accent); padding: 10px 14px; font-size: .9rem; }
+form, #result { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-top: 16px; }
+label { font-weight: 600; display: block; margin-bottom: 6px; }
+label.inline { font-weight: normal; display: inline-flex; gap: 6px; align-items: center; margin: 0; }
+textarea { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); resize: vertical; }
+.row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; }
+button { font: inherit; padding: 8px 18px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+.answer { white-space: pre-wrap; }
+.answer .cite { color: var(--accent); font-weight: 600; }
+.sources li, .alerts li { margin-bottom: 6px; font-size: .9rem; }
+.sources .file { font-family: ui-monospace, Consolas, monospace; }
+.sources .uncited { color: var(--muted); }
+.error { color: var(--err); font-weight: 600; }

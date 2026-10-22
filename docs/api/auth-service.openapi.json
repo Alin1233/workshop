@@ -1,0 +1,1179 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Resilience-Alpha — Auth Service",
+    "version": "1.1.0"
+  },
+  "paths": {
+    "/register": {
+      "post": {
+        "summary": "Register",
+        "operationId": "register_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "summary": "Login",
+        "operationId": "login_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/TokenOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MfaChallengeOut"
+                    }
+                  ],
+                  "title": "Response Login Login Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login/mfa": {
+      "post": {
+        "summary": "Login Mfa",
+        "operationId": "login_mfa_login_mfa_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaLoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mfa": {
+      "get": {
+        "summary": "Mfa Status",
+        "operationId": "mfa_status_mfa_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/mfa/setup": {
+      "post": {
+        "summary": "Mfa Setup",
+        "operationId": "mfa_setup_mfa_setup_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetupOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/mfa/activate": {
+      "post": {
+        "summary": "Mfa Activate",
+        "operationId": "mfa_activate_mfa_activate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCodeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/mfa/disable": {
+      "post": {
+        "summary": "Mfa Disable",
+        "operationId": "mfa_disable_mfa_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaDisableIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/login/mfa/face/challenge": {
+      "post": {
+        "summary": "Login Face Challenge",
+        "operationId": "login_face_challenge_login_mfa_face_challenge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaTokenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceChallengeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login/mfa/face": {
+      "post": {
+        "summary": "Login Face",
+        "operationId": "login_face_login_mfa_face_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_login_face_login_mfa_face_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mfa/face": {
+      "get": {
+        "summary": "Face Status",
+        "operationId": "face_status_mfa_face_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Face Enroll",
+        "operationId": "face_enroll_mfa_face_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_face_enroll_mfa_face_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Face Remove",
+        "operationId": "face_remove_mfa_face_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/mfa/face/challenge": {
+      "post": {
+        "summary": "Face Enroll Challenge",
+        "operationId": "face_enroll_challenge_mfa_face_challenge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FaceEnrollStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceChallengeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/face-captures": {
+      "get": {
+        "summary": "List Rejected Captures",
+        "operationId": "list_rejected_captures_admin_face_captures_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RejectedCaptureOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Rejected Captures Admin Face Captures Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/face-captures/{capture_id}": {
+      "get": {
+        "summary": "Get Rejected Capture",
+        "operationId": "get_rejected_capture_admin_face_captures__capture_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "capture_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Capture Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RejectedCaptureImageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "summary": "Me",
+        "operationId": "me_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_face_enroll_mfa_face_post": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Challenge Id"
+          },
+          "frames": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Frames",
+            "description": "Une capture JPEG par pose du défi, dans l'ordre"
+          }
+        },
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "frames"
+        ],
+        "title": "Body_face_enroll_mfa_face_post"
+      },
+      "Body_login_face_login_mfa_face_post": {
+        "properties": {
+          "mfa_token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 20,
+            "title": "Mfa Token"
+          },
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Challenge Id"
+          },
+          "frames": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Frames",
+            "description": "Une capture JPEG par pose du défi, dans l'ordre"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "challenge_id",
+          "frames"
+        ],
+        "title": "Body_login_face_login_mfa_face_post"
+      },
+      "FaceChallengeOut": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Challenge Id"
+          },
+          "poses": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "center",
+                "left",
+                "right"
+              ]
+            },
+            "type": "array",
+            "title": "Poses"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "poses",
+          "expires_in"
+        ],
+        "title": "FaceChallengeOut"
+      },
+      "FaceEnrollStartIn": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 6,
+            "title": "Code"
+          },
+          "consent": {
+            "type": "boolean",
+            "title": "Consent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "consent"
+        ],
+        "title": "FaceEnrollStartIn"
+      },
+      "FaceStatusOut": {
+        "properties": {
+          "enrolled": {
+            "type": "boolean",
+            "title": "Enrolled"
+          },
+          "enrolled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrolled At"
+          },
+          "consented_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consented At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enrolled"
+        ],
+        "title": "FaceStatusOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LoginIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginIn"
+      },
+      "MfaChallengeOut": {
+        "properties": {
+          "mfa_required": {
+            "type": "boolean",
+            "const": true,
+            "title": "Mfa Required",
+            "default": true
+          },
+          "mfa_token": {
+            "type": "string",
+            "title": "Mfa Token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          },
+          "methods": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "totp",
+                "face"
+              ]
+            },
+            "type": "array",
+            "title": "Methods"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "expires_in",
+          "methods"
+        ],
+        "title": "MfaChallengeOut"
+      },
+      "MfaCodeIn": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "MfaCodeIn"
+      },
+      "MfaDisableIn": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password",
+          "code"
+        ],
+        "title": "MfaDisableIn"
+      },
+      "MfaLoginIn": {
+        "properties": {
+          "mfa_token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 20,
+            "title": "Mfa Token"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "code"
+        ],
+        "title": "MfaLoginIn"
+      },
+      "MfaSetupOut": {
+        "properties": {
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "otpauth_uri": {
+            "type": "string",
+            "title": "Otpauth Uri"
+          },
+          "qr_code": {
+            "type": "string",
+            "title": "Qr Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secret",
+          "otpauth_uri",
+          "qr_code"
+        ],
+        "title": "MfaSetupOut"
+      },
+      "MfaStatusOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required"
+          },
+          "recovery_codes_remaining": {
+            "type": "integer",
+            "title": "Recovery Codes Remaining"
+          },
+          "face_enrolled": {
+            "type": "boolean",
+            "title": "Face Enrolled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "required",
+          "recovery_codes_remaining",
+          "face_enrolled"
+        ],
+        "title": "MfaStatusOut"
+      },
+      "MfaTokenIn": {
+        "properties": {
+          "mfa_token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 20,
+            "title": "Mfa Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token"
+        ],
+        "title": "MfaTokenIn"
+      },
+      "RecoveryCodesOut": {
+        "properties": {
+          "recovery_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recovery Codes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recovery_codes"
+        ],
+        "title": "RecoveryCodesOut"
+      },
+      "RegisterIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "^[^@\\s]{1,64}@[^@\\s]+\\.[A-Za-z]{2,}$",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Full Name"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 10,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "full_name",
+          "password"
+        ],
+        "title": "RegisterIn"
+      },
+      "RejectedCaptureImageOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "client_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Ip"
+          },
+          "image": {
+            "type": "string",
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "captured_at",
+          "reason",
+          "score",
+          "client_ip",
+          "image"
+        ],
+        "title": "RejectedCaptureImageOut"
+      },
+      "RejectedCaptureOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "client_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Ip"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "captured_at",
+          "reason",
+          "score",
+          "client_ip"
+        ],
+        "title": "RejectedCaptureOut"
+      },
+      "TokenOut": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          },
+          "suggest_mfa": {
+            "type": "boolean",
+            "title": "Suggest Mfa",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in",
+          "user"
+        ],
+        "title": "TokenOut"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "role"
+        ],
+        "title": "UserOut"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/auth",
+      "description": "Via le WAF (http://<hôte>:8080)"
+    }
+  ]
+}

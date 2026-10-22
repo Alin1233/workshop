@@ -19,7 +19,7 @@ Légende :
 | ----- | :---: |
 | Critère (barème ND/1/2/3) | **Points** |
 | Engagement, Assiduité & Posture — Ponctualité, investissement constant et proactivité au sein du groupe projet. (4 pts) | **4.00** |
-| Expertise Technique — Qualité et niveau d'exécution des tâches spécifiques à la filière (DEV, INFRA, IA, CYBER). (4 pts) | **4.00** |
+| Expertise Technique — Qualité et niveau d'exécution des tâches spécifiques à la filière (DEV, INFRA, IA, SÉCURITÉ). (4 pts) | **4.00** |
 | Agilité & Autonomie — Capacité à diagnostiquer les erreurs de code/réseau et à implémenter des correctifs. (4 pts) | **4.00** |
 | Collaboration Transversale — Aptitude à coopérer et à faciliter l'intégration des briques logicielles des autres filières. (4 pts) | **4.00** |
 | Rigueur d'ingénierie & Git — Commits réguliers et sémantiques, soin apporté au câblage et au matériel de table. (4 pts) | **4.00** |
